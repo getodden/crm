@@ -38,6 +38,15 @@ class LeadRoutingRule extends Model
     ];
 
     /**
+     * Default attribute values. -1 means "nobody assigned yet", so round robin starts at the first user.
+     *
+     * @var array<string, int>
+     */
+    protected $attributes = [
+        'last_assigned_index' => -1,
+    ];
+
+    /**
      * Get the table associated with the model.
      */
     public function getTable(): string

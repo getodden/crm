@@ -34,6 +34,11 @@ class RouteLeadAction
                 continue;
             }
 
+            // A territory rule without criteria would match every lead, so it never applies.
+            if ($rule->strategy === LeadRoutingStrategy::Territory && empty($rule->criteria)) {
+                continue;
+            }
+
             // Check criteria match
             if ($rule->criteria !== null && ! empty($rule->criteria)) {
                 if (! $this->matchesCriteria($target, $rule->criteria)) {
@@ -81,6 +86,11 @@ class RouteLeadAction
 
         if ($rule->strategy === LeadRoutingStrategy::QuotaWeighted) {
             return $this->selectQuotaWeightedUser($rule, $pool);
+        }
+
+        if ($rule->strategy === LeadRoutingStrategy::Territory) {
+            // The first user in the pool owns the territory; there is no rotation.
+            return (int) $pool[0];
         }
 
         $nextIndex = ($rule->last_assigned_index + 1) % $count;

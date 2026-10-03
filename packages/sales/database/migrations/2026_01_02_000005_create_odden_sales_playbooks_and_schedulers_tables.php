@@ -54,7 +54,7 @@ return new class extends Migration
                 $table->string('strategy')->default('round_robin'); // round_robin, quota_weighted, territory
                 $table->json('criteria')->nullable();
                 $table->json('assigned_user_ids');
-                $table->integer('last_assigned_index')->default(0);
+                $table->integer('last_assigned_index')->default(-1);
                 $table->boolean('is_active')->default(true);
                 $table->integer('sort_order')->default(0);
                 $table->timestamps();

@@ -19,8 +19,6 @@ class LeadRoutingTest extends TestCase
 
     public function test_can_route_leads_using_round_robin_strategy(): void
     {
-        $this->markTestIncomplete('Round robin skips the first user; fixed by #37.');
-
         $rep1 = User::factory()->create(['name' => 'Alice']);
         $rep2 = User::factory()->create(['name' => 'Bob']);
 
@@ -28,7 +26,6 @@ class LeadRoutingTest extends TestCase
             'name' => 'Inbound Round Robin',
             'strategy' => LeadRoutingStrategy::RoundRobin,
             'assigned_user_ids' => [$rep1->id, $rep2->id],
-            'last_assigned_index' => 0,
             'is_active' => true,
             'sort_order' => 1,
         ]);
@@ -62,5 +59,47 @@ class LeadRoutingTest extends TestCase
             'type' => ActivityType::Note->value,
             'title' => 'Lead Routed to Alice',
         ]);
+    }
+
+    public function test_territory_strategy_routes_matching_leads_to_the_territory_owner(): void
+    {
+        $owner = User::factory()->create(['name' => 'Territory Owner']);
+        $other = User::factory()->create(['name' => 'Other Rep']);
+
+        LeadRoutingRule::query()->create([
+            'name' => 'EMEA Territory',
+            'strategy' => LeadRoutingStrategy::Territory,
+            'criteria' => ['timezone' => 'Europe/Berlin'],
+            'assigned_user_ids' => [$owner->id, $other->id],
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $first = Contact::factory()->create(['lead_status' => LeadStatus::New, 'timezone' => 'Europe/Berlin']);
+        $second = Contact::factory()->create(['lead_status' => LeadStatus::New, 'timezone' => 'Europe/Berlin']);
+        $outside = Contact::factory()->create(['lead_status' => LeadStatus::New, 'timezone' => 'America/New_York']);
+
+        $action = new RouteLeadAction;
+
+        $this->assertSame($owner->id, $action->execute($first)['assigned_user_id']);
+        $this->assertSame($owner->id, $action->execute($second)['assigned_user_id']);
+        $this->assertNull($action->execute($outside));
+    }
+
+    public function test_territory_rule_without_criteria_never_applies(): void
+    {
+        $owner = User::factory()->create();
+
+        LeadRoutingRule::query()->create([
+            'name' => 'Misconfigured Territory',
+            'strategy' => LeadRoutingStrategy::Territory,
+            'assigned_user_ids' => [$owner->id],
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $contact = Contact::factory()->create(['lead_status' => LeadStatus::New]);
+
+        $this->assertNull((new RouteLeadAction)->execute($contact));
     }
 }

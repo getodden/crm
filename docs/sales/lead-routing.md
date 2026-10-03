@@ -13,7 +13,7 @@ Lead routing sets `owner_id` on a contact or deal by picking a user from a rule'
 | `strategy` | `LeadRoutingStrategy` | Defaults to `round_robin`. |
 | `criteria` | array, nullable | Conditions the record must match. Empty means "match everything". |
 | `assigned_user_ids` | array of user IDs | The pool. Rules with an empty pool are skipped. |
-| `last_assigned_index` | int | Round-robin position. Defaults to `0`. |
+| `last_assigned_index` | int | Round-robin position. Defaults to `-1` (nobody assigned yet). |
 | `is_active` | bool | Defaults to `true`. |
 | `sort_order` | int | Rules are tried in ascending order. |
 
@@ -83,7 +83,11 @@ app(RouteLeadAction::class)->execute($deal);
 
 ### Round robin
 
-`RoundRobin` and `Territory` both pick users in rotation. Each assignment advances `last_assigned_index` by one (wrapping at the end of the pool) and assigns the user at the new index. Because the index starts at `0`, the first lead of a new rule goes to the second user in the pool, then the first, and so on. `Territory` has no extra behavior; the "territory" is whatever you put in `criteria`.
+`RoundRobin` picks users in rotation. Each assignment advances `last_assigned_index` by one (wrapping at the end of the pool) and assigns the user at the new index. The index starts at `-1` ("nobody assigned yet"), so the first lead of a new rule goes to the first user in the pool, then the second, and so on.
+
+### Territory
+
+`Territory` assigns every matching lead to the first user in `assigned_user_ids`, the territory owner. There is no rotation. A `Territory` rule must have `criteria`; a rule without any is skipped, because it would otherwise match every lead.
 
 ### Quota-weighted
 
