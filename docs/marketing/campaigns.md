@@ -356,7 +356,7 @@ $recipient->getClickRedirectUrl('https://acme.test/x');  // route('odden.marketi
 $recipient->getUnsubscribeUrl();                         // route('odden.marketing.unsubscribe.show', $unsubscribeToken)
 ```
 
-**Opens.** `GET /marketing/track/open/{token}` returns a transparent GIF with no-cache headers. For a known token it calls `$recipient->recordOpen()`: status becomes `Opened`, `opened_at` is set on the first open, `opens_count` increases on every request, and `unique_opens_count` on the first.
+**Opens.** `GET /marketing/track/open/{token}` returns a transparent GIF with no-cache headers. For a known token it calls `$recipient->recordOpen()`: status becomes `Opened` (unless it is already `Clicked`, or a final status such as `Bounced`), `opened_at` is set on the first open, `opens_count` increases on every request, and `unique_opens_count` on the first.
 
 **Clicks.** `GET /marketing/track/click/{token}?url=...&sig=...` redirects only to destinations your app signed. `sig` is an HMAC-SHA256, keyed with `app.key`, over the token and the destination URL; `getClickRedirectUrl()` adds it, and `CampaignRecipient::clickSignature($token, $url)` computes it. When the signature matches and `url` is an `http` or `https` URL, the endpoint calls `$recipient->recordClick()` for a known token in the same way (status `Clicked`, `clicked_at`, `clicks_count`, `unique_clicks_count`), then redirects to `url`. Anything else (a missing or wrong `sig`, a changed `url` or token, or another scheme) returns `404` and records nothing.
 
@@ -366,5 +366,5 @@ Both also apply a [lead scoring](lead-scoring.md) event to the contact: `EmailOp
 
 Things to know:
 
-- An open recorded after a click sets the status back to `Opened`. Use `opened_at` and `clicked_at` rather than `status` to tell what a recipient did.
+- `status` only moves forward (`Pending`, `Sent`, `Opened`, `Clicked`): an open after a click keeps `Clicked`, and `Bounced`, `Unsubscribed` and `Suppressed` are never overwritten by an open or click. `opened_at` and `clicked_at` still record every first engagement.
 - Image proxies and privacy features that prefetch images record opens that the recipient didn't make.

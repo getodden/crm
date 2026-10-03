@@ -214,4 +214,29 @@ class CampaignDispatchAndTrackingTest extends TestCase
         $this->assertSame(1, $campaign->unsubscribes_count);
         $this->assertTrue(MarketingSubscription::isSuppressed('unsub@domain.test'));
     }
+
+    public function test_recipient_status_only_moves_forward(): void
+    {
+        $campaign = Campaign::create([
+            'name' => 'Forward Only',
+            'subject' => 'Status',
+            'sender_name' => 'Odden',
+            'sender_email' => 'odden@test.com',
+            'status' => CampaignStatus::Sent,
+        ]);
+
+        $recipient = CampaignRecipient::create(['campaign_id' => $campaign->id, 'email' => 'fwd@example.com', 'status' => RecipientStatus::Sent]);
+
+        $this->get($recipient->getClickRedirectUrl('https://odden.test/offer'))->assertRedirect();
+        $this->get($recipient->getTrackingPixelUrl())->assertOk();
+
+        $recipient->refresh();
+        $this->assertSame(RecipientStatus::Clicked, $recipient->status);
+        $this->assertNotNull($recipient->opened_at, 'The open is still recorded');
+        $this->assertSame(1, $campaign->fresh()->opens_count);
+
+        $bounced = CampaignRecipient::create(['campaign_id' => $campaign->id, 'email' => 'bounced@example.com', 'status' => RecipientStatus::Bounced]);
+        $this->get($bounced->getTrackingPixelUrl())->assertOk();
+        $this->assertSame(RecipientStatus::Bounced, $bounced->fresh()->status);
+    }
 }

@@ -106,6 +106,22 @@ class CampaignRecipient extends Model
     }
 
     /**
+     * The status after an engagement event: it only moves forward (pending, sent, opened,
+     * clicked), and a final status (bounced, unsubscribed, suppressed) is never overwritten.
+     */
+    protected function statusAfter(RecipientStatus $engagement): RecipientStatus
+    {
+        $progression = [RecipientStatus::Pending, RecipientStatus::Sent, RecipientStatus::Opened, RecipientStatus::Clicked];
+
+        $current = $this->status;
+        if (! in_array($current, $progression, true)) {
+            return $current;
+        }
+
+        return array_search($engagement, $progression, true) > array_search($current, $progression, true) ? $engagement : $current;
+    }
+
+    /**
      * Record an email open event.
      */
     public function recordOpen(): void
@@ -113,7 +129,7 @@ class CampaignRecipient extends Model
         $isFirstOpen = $this->opened_at === null;
 
         $this->update([
-            'status' => RecipientStatus::Opened,
+            'status' => $this->statusAfter(RecipientStatus::Opened),
             'opened_at' => $this->opened_at ?? now(),
         ]);
 
@@ -132,7 +148,7 @@ class CampaignRecipient extends Model
         $isFirstClick = $this->clicked_at === null;
 
         $this->update([
-            'status' => RecipientStatus::Clicked,
+            'status' => $this->statusAfter(RecipientStatus::Clicked),
             'clicked_at' => $this->clicked_at ?? now(),
         ]);
 
