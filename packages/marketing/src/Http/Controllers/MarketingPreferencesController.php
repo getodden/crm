@@ -24,20 +24,13 @@ class MarketingPreferencesController extends Controller
     {
         $contact = $this->resolveContact($token);
 
-        // Fetch or seed default communication topics
-        $dbTopics = MarketingSubscriptionTopic::orderBy('sort_order')->get();
-        if ($dbTopics->isEmpty()) {
-            $defaultTopics = [
-                ['name' => 'Product Releases & Changelogs', 'slug' => 'product_updates', 'description' => 'Stay informed on the newest capabilities shipped in Odden.', 'sort_order' => 1],
-                ['name' => 'Weekly Growth & RevOps Digest', 'slug' => 'newsletter', 'description' => 'Best practices, pipeline strategies, and sales playbooks.', 'sort_order' => 2],
-                ['name' => 'Live Briefings & Executive Webinars', 'slug' => 'webinars', 'description' => 'Invitations to live product walkthroughs and VIP sessions.', 'sort_order' => 3],
-                ['name' => 'Security & Reliability Advisories', 'slug' => 'security', 'description' => 'Essential updates regarding platform maintenance and security.', 'sort_order' => 4],
-            ];
-            foreach ($defaultTopics as $dt) {
-                MarketingSubscriptionTopic::create($dt);
-            }
-            $dbTopics = MarketingSubscriptionTopic::orderBy('sort_order')->get();
+        if ($contact === null) {
+            abort(404, 'Invalid preference token.');
         }
+
+        // Viewing the page never writes: topics come from the table, which may be empty until
+        // you create topics or run MarketingSubscriptionTopic::seedDefaults().
+        $dbTopics = MarketingSubscriptionTopic::orderBy('sort_order')->get();
 
         $topics = [];
         $currentTopics = [];
@@ -56,7 +49,7 @@ class MarketingPreferencesController extends Controller
             }
         }
 
-        $isSuppressed = $contact !== null && MarketingSubscription::isSuppressed($contact->email);
+        $isSuppressed = MarketingSubscription::isSuppressed($contact->email);
 
         return view('odden-marketing::preferences', compact('contact', 'topics', 'currentTopics', 'token', 'isSuppressed'));
     }
@@ -102,7 +95,7 @@ class MarketingPreferencesController extends Controller
     {
         /** @var Contact $contact */
         $contact = Contact::query()
-            ->where('marketing_verification_token', $token)
+            ->where('marketing_confirmation_token', $token)
             ->firstOrFail();
 
         $isFirstVerification = $contact->marketing_email_verified_at === null;

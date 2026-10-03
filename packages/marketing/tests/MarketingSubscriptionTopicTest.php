@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Models\MarketingSubscription;
 use Odden\Marketing\Models\MarketingSubscriptionTopic;
+use Odden\Marketing\Support\ContactPreferences;
 
 class MarketingSubscriptionTopicTest extends TestCase
 {
@@ -92,5 +93,45 @@ class MarketingSubscriptionTopicTest extends TestCase
 
         $this->assertTrue(MarketingSubscriptionTopic::isSubscribed('sarah@cyberdyne.test', $topic1->id));
         $this->assertFalse(MarketingSubscriptionTopic::isSubscribed('sarah@cyberdyne.test', $topic2->id));
+    }
+
+    public function test_preference_center_returns_404_for_an_unknown_token(): void
+    {
+        $this->get('/marketing/preferences/not-a-real-token')->assertNotFound();
+    }
+
+    public function test_viewing_the_preference_center_does_not_create_topics(): void
+    {
+        Contact::create(['first_name' => 'Pat', 'last_name' => 'Doe', 'email' => 'pat@example.com', 'marketing_verification_token' => 'pref_tok_view']);
+
+        $this->get('/marketing/preferences/pref_tok_view')->assertOk();
+
+        $this->assertSame(0, MarketingSubscriptionTopic::query()->count());
+
+        MarketingSubscriptionTopic::seedDefaults();
+        $this->assertSame(4, MarketingSubscriptionTopic::query()->count());
+
+        MarketingSubscriptionTopic::seedDefaults();
+        $this->assertSame(4, MarketingSubscriptionTopic::query()->count(), 'Seeding twice is a no-op');
+    }
+
+    public function test_double_opt_in_uses_its_own_token(): void
+    {
+        $contact = Contact::create(['first_name' => 'Pat', 'last_name' => 'Doe', 'email' => 'pat2@example.com']);
+
+        $preferenceUrl = ContactPreferences::preferenceCenterUrl($contact);
+        $confirmUrl = ContactPreferences::confirmationUrl($contact);
+        $contact->refresh();
+
+        $this->assertNotSame($contact->marketing_verification_token, $contact->marketing_confirmation_token);
+
+        // The preference token can't confirm the address, and the confirmation token isn't a preference link.
+        $this->get('/marketing/confirm/'.$contact->marketing_verification_token)->assertNotFound();
+        $this->assertNull($contact->fresh()->marketing_email_verified_at);
+        $this->get('/marketing/preferences/'.$contact->marketing_confirmation_token)->assertNotFound();
+
+        $this->get($confirmUrl)->assertOk();
+        $this->assertNotNull($contact->fresh()->marketing_email_verified_at);
+        $this->assertStringEndsWith($contact->marketing_verification_token, $preferenceUrl);
     }
 }

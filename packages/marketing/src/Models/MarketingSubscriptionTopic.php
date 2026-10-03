@@ -122,4 +122,27 @@ class MarketingSubscriptionTopic extends Model
 
         return $record;
     }
+
+    /**
+     * Create the four standard topics (product updates, newsletter, webinars, security) when the
+     * table is empty. The preference center never creates them itself: call this from a seeder
+     * or a deploy step.
+     */
+    public static function seedDefaults(): void
+    {
+        if (static::query()->exists()) {
+            return;
+        }
+
+        $defaults = [
+            ['name' => 'Product Releases & Changelogs', 'slug' => 'product_updates', 'description' => 'Stay informed on the newest capabilities shipped in Odden.', 'sort_order' => 1],
+            ['name' => 'Weekly Growth & RevOps Digest', 'slug' => 'newsletter', 'description' => 'Best practices, pipeline strategies, and sales playbooks.', 'sort_order' => 2],
+            ['name' => 'Live Briefings & Executive Webinars', 'slug' => 'webinars', 'description' => 'Invitations to live product walkthroughs and VIP sessions.', 'sort_order' => 3],
+            ['name' => 'Security & Reliability Advisories', 'slug' => 'security', 'description' => 'Essential updates regarding platform maintenance and security.', 'sort_order' => 4],
+        ];
+
+        foreach ($defaults as $topic) {
+            static::query()->create($topic);
+        }
+    }
 }

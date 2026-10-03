@@ -82,7 +82,7 @@ When the package boots, it adds these relations to `Odden\Core\Models\Contact`:
 
 When Core [merges two contacts](../core/duplicates-and-merging.md#what-each-module-moves), Marketing moves every row it keys to the duplicate contact over to the surviving one, and on a company merge it moves custom behavioural events. Where both contacts have a row that can only exist once, such as two recipients of the same campaign, it keeps one. Opt-outs carry over: see [Merging contacts](subscriptions-and-compliance.md#merging-contacts).
 
-Core's `contacts` table also carries the marketing columns this package migrates in: `marketing_topics`, `marketing_verification_token`, `marketing_email_verified_at`, `last_marketing_email_sent_at`, `is_unengaged`, `unengaged_since`, and `sunset_stage`.
+Core's `contacts` table also carries the marketing columns this package migrates in: `marketing_topics`, `marketing_verification_token`, `marketing_confirmation_token`, `marketing_email_verified_at`, `last_marketing_email_sent_at`, `is_unengaged`, `unengaged_since`, and `sunset_stage`.
 
 ## Sending mail
 

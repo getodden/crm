@@ -312,7 +312,7 @@ class MarketingProFeaturesTest extends TestCase
             'last_name' => 'Connor',
             'email' => 'sarah@example.com',
             'lead_score' => 10,
-            'marketing_verification_token' => $verificationToken,
+            'marketing_confirmation_token' => $verificationToken,
             'marketing_email_verified_at' => null,
         ]);
 

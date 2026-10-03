@@ -21,6 +21,7 @@ use Odden\Marketing\Models\FormSubmission;
 use Odden\Marketing\Models\LandingPage;
 use Odden\Marketing\Models\LeadScoringRule;
 use Odden\Marketing\Models\MarketingForm;
+use Odden\Marketing\Models\MarketingSubscriptionTopic;
 use Odden\Marketing\Models\MarketingTemplate;
 use Odden\Marketing\Models\MarketingWorkflow;
 
@@ -31,6 +32,9 @@ class MarketingDatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Preference center topics
+        MarketingSubscriptionTopic::seedDefaults();
+
         // 1. Email Templates
         $newsletterTemplate = MarketingTemplate::firstOrCreate(
             ['name' => 'Monthly Product Digest & Spotlight'],

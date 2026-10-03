@@ -10,7 +10,7 @@ use Odden\Core\Models\Contact;
 
 /**
  * Subscription preferences stored on the contact's marketing columns, which this package's
- * migrations add (`marketing_topics`, `marketing_verification_token`).
+ * migrations add (`marketing_topics`, `marketing_verification_token`, `marketing_confirmation_token`).
  */
 class ContactPreferences
 {
@@ -41,5 +41,21 @@ class ContactPreferences
         return Route::has('odden.marketing.preferences.show')
             ? route('odden.marketing.preferences.show', $token)
             : url('/marketing/preferences/'.$token);
+    }
+
+    /**
+     * The double opt-in confirmation URL. It uses its own token, separate from the preference
+     * center's, and is saved quietly because it is a secret.
+     */
+    public static function confirmationUrl(Contact $contact): string
+    {
+        $token = $contact->marketing_confirmation_token ?: Str::random(40);
+        if ($contact->marketing_confirmation_token === null) {
+            $contact->updateQuietly(['marketing_confirmation_token' => $token]);
+        }
+
+        return Route::has('odden.marketing.confirm')
+            ? route('odden.marketing.confirm', $token)
+            : url('/marketing/confirm/'.$token);
     }
 }

@@ -96,9 +96,9 @@ $url = ContactPreferences::preferenceCenterUrl($contact);
 
 **`GET /marketing/preferences/{token}`** lists every `MarketingSubscriptionTopic` with the contact's current choices.
 
-> If no topics exist yet, the first visit creates four: `product_updates`, `newsletter`, `webinars`, and `security`. Create your own topics before you send preference links if you don't want these.
+> Viewing the page never writes anything. With no topics the page lists none: create your own, or call `MarketingSubscriptionTopic::seedDefaults()` (the marketing seeder does) to add four starters, `product_updates`, `newsletter`, `webinars` and `security`, when the table is empty.
 
-An unknown token still renders the page, with no contact and no saved choices.
+An unknown token returns `404`.
 
 **`POST /marketing/preferences/{token}`** saves the form and redirects back with a `success` flash message. An unknown token returns `404`.
 
@@ -174,16 +174,14 @@ Double opt-in asks a new subscriber to confirm their address by clicking a link.
 use Illuminate\Support\Facades\Mail;
 use Odden\Marketing\Support\ContactPreferences;
 
-ContactPreferences::preferenceCenterUrl($contact); // ensures the contact has a marketing_verification_token
-
-$confirmUrl = route('odden.marketing.confirm', $contact->marketing_verification_token);
+$confirmUrl = ContactPreferences::confirmationUrl($contact); // generates the contact's marketing_confirmation_token
 
 Mail::raw("Confirm your subscription: {$confirmUrl}", function ($message) use ($contact): void {
     $message->to($contact->email)->subject('Please confirm your email');
 });
 ```
 
-`GET /marketing/confirm/{token}` finds the contact by `marketing_verification_token` (`404` if there's none), sets `marketing_email_verified_at` if it's empty, and shows the `confirmed` page. The first confirmation also applies a `PropertyMatch` [lead scoring](lead-scoring.md) event.
+`GET /marketing/confirm/{token}` finds the contact by `marketing_confirmation_token` (`404` if there's none; the preference center's `marketing_verification_token` doesn't confirm an address, and the confirmation token isn't a preference link), sets `marketing_email_verified_at` if it's empty, and shows the `confirmed` page. The first confirmation also applies a `PropertyMatch` [lead scoring](lead-scoring.md) event.
 
 Things to know:
 

@@ -46,6 +46,7 @@ use Odden\Core\Traits\HasLifecycleStageTransitions;
  * @property CarbonInterface|null $deleted_at
  * @property CarbonInterface|null $marketing_email_verified_at
  * @property string|null $marketing_verification_token
+ * @property string|null $marketing_confirmation_token
  * @property list<string>|null $marketing_topics
  * @property CarbonInterface|null $last_marketing_email_sent_at
  * @property bool $is_unengaged
@@ -110,6 +111,7 @@ class Contact extends Model
         'sms_consent_at',
         'marketing_email_verified_at',
         'marketing_verification_token',
+        'marketing_confirmation_token',
         'marketing_topics',
         'last_marketing_email_sent_at',
         'is_unengaged',
