@@ -22,14 +22,15 @@ class EvaluateSmartContentBlocksAction
         /** @var Company|null $company */
         $company = $contact !== null ? $contact->companies()->first() : null;
 
-        // 1. Process Blade-like @smart(...) ... @endsmart into standard [smart ...] tags
+        // 1. Process Blade-like @smart(...) ... @endsmart into standard [smart ...] tags. One @endsmart
+        // closes the whole group, so each @smart(...) block runs up to the next @smart( or @endsmart.
         if (str_contains($html, '@smart')) {
-            $html = (string) preg_replace(
-                '/@smart\((.*?)\)/is',
-                '[$1]',
+            $html = (string) preg_replace_callback(
+                '/@smart\(([^)]*)\)([\s\S]*?)(?=@smart\(|@endsmart)/',
+                fn (array $m): string => '[smart '.trim($m[1]).']'.trim($m[2]).'[/smart]',
                 $html
             );
-            $html = str_replace('@endsmart', '[/smart]', $html);
+            $html = str_replace('@endsmart', '', $html);
         }
 
         // 2. Process [smart ...] blocks

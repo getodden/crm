@@ -265,7 +265,13 @@ $html = app(EvaluateSmartContentBlocksAction::class)->execute(
 );
 ```
 
-The action also accepts an `@smart(…) … @endsmart` syntax, but it doesn't work: the directives are turned into text that is never evaluated. Use the `[smart]` form.
+The action also accepts a Blade-style form, where a single `@endsmart` closes the whole group and the content of each branch is trimmed:
+
+```
+@smart(stage="customer") Thank you for being a customer! @smart(default) Learn more about us. @endsmart
+```
+
+It is the same as writing the `[smart]` blocks, so `@smart(default)` is the fallback branch.
 
 ## Previewing a template
 

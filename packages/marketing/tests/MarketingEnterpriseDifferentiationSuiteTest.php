@@ -185,8 +185,6 @@ class MarketingEnterpriseDifferentiationSuiteTest extends TestCase
 
     public function test_blade_style_smart_directives_are_evaluated(): void
     {
-        $this->markTestIncomplete('@smart(...) is rewritten to [...] instead of [smart ...], so it is never evaluated; fixed by #29.');
-
         $customer = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
         $lead = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
         $evaluator = app(EvaluateSmartContentBlocksAction::class);
