@@ -100,8 +100,6 @@ class QuoteTest extends TestCase
 
     public function test_quote_item_missing_quantity_defaults_to_one_when_calculating_total_price(): void
     {
-        $this->markTestIncomplete('Missing quantity yields total_price 0.00; fixed by #34.');
-
         $pipeline = Pipeline::factory()->withStages()->create();
         $deal = Deal::factory()->create([
             'pipeline_id' => $pipeline->id,

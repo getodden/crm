@@ -94,8 +94,6 @@ class TemplateParserTest extends TestCase
 
     public function test_deal_formatted_amount_uses_the_deal_currency_instead_of_a_hardcoded_dollar_sign(): void
     {
-        $this->markTestIncomplete('formatted_amount hardcodes a $ prefix and ignores currency; fixed by #34.');
-
         $pipeline = Pipeline::factory()->withStages()->create();
         $deal = Deal::factory()->create([
             'pipeline_id' => $pipeline->id,

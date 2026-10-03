@@ -63,7 +63,7 @@ If the deal has no products but a positive `amount`, the quote gets a single ite
 
 ## Quote items and totals
 
-`Odden\Sales\Models\QuoteItem` has the same fields as a deal product: `name`, `sku`, `description`, `unit_price`, `quantity`, `discount_percent`, and `sort_order`. Its `total_price` is calculated on save the same way, so pass `quantity` explicitly here too.
+`Odden\Sales\Models\QuoteItem` has the same fields as a deal product: `name`, `sku`, `description`, `unit_price`, `quantity`, `discount_percent`, and `sort_order`. Its `total_price` is calculated on save the same way, and `quantity` defaults to `1`.
 
 Saving or deleting an item calls `$quote->recalculateTotals()`, which sets:
 

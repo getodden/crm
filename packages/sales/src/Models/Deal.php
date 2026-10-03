@@ -86,6 +86,15 @@ class Deal extends Model
     ];
 
     /**
+     * Default attribute values, so a freshly created deal is usable without a refresh().
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'status' => 'open',
+    ];
+
+    /**
      * Get the table associated with the model.
      */
     public function getTable(): string

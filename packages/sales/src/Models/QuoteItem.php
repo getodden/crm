@@ -43,6 +43,15 @@ class QuoteItem extends Model
     ];
 
     /**
+     * Default attribute values; a line item without a quantity counts as one unit.
+     *
+     * @var array<string, int>
+     */
+    protected $attributes = [
+        'quantity' => 1,
+    ];
+
+    /**
      * Get the table associated with the model.
      */
     public function getTable(): string

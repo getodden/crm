@@ -45,7 +45,7 @@ Table names for every sales model. Change them before running the migrations.
 'default_currency' => env('ODDEN_DEFAULT_CURRENCY', 'USD'),
 ```
 
-The package does not currently read this value. New deals, quotas, and quotes take their currency from the database column default (`USD`) or from what you pass. Generated quotes copy the deal's currency.
+Used by `Odden\Sales\Support\Money::format()` when a record has no currency of its own, for example in the forecast widget. New deals, quotas, and quotes still take their currency from the database column default (`USD`) or from what you pass. Generated quotes copy the deal's currency.
 
 ### `mail`
 

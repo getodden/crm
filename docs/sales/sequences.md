@@ -157,7 +157,7 @@ Tags use `{{ path }}` with dot notation, with or without spaces. Available paths
 
 Custom properties resolve too: `{{ contact.renewal_tier }}` reads the contact's `renewal_tier` property when there is no built-in key of that name. The same works for `company.` and `deal.`. Keys in `$extra` are merged in at the top level, so `['offer' => ['code' => 'Q3']]` makes `{{ offer.code }}` available.
 
-Tags that don't resolve become an empty string. `deal.formatted_amount` always uses a `$` sign, whatever the deal's currency.
+Tags that don't resolve become an empty string. `deal.formatted_amount` is formatted in the deal's currency (`$`, `€`, `£`, `¥`, or the ISO code for other currencies), falling back to `odden-sales.default_currency`.
 
 In `body_html`, merge values are HTML-escaped with Laravel's `e()`, so a contact named `<b>Dana</b>` or a company called `R&D Labs` appears as typed (`&lt;b&gt;Dana&lt;/b&gt;`, `R&amp;D Labs`) and can't inject markup. The subject is plain text, so values go into it unescaped; escape the subject yourself if you put it into HTML. Write the HTML you want in the template itself, not in merge values. Escaping happens once, when the template is rendered, so don't escape values before passing them in `$extra` or they will be escaped twice.
 

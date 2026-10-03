@@ -234,8 +234,6 @@ class DealTest extends TestCase
 
     public function test_deal_created_without_status_defaults_to_open_in_memory(): void
     {
-        $this->markTestIncomplete('Deal status is null in memory until refresh(); fixed by #34.');
-
         $pipeline = Pipeline::factory()->withStages()->create();
 
         $deal = Deal::create([

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Sales\Models\Deal;
+use Odden\Sales\Support\Money;
 
 class TemplateParser
 {
@@ -90,7 +91,7 @@ class TemplateParser
                 'name' => $deal->name,
                 'amount' => $deal->amount,
                 'currency' => $deal->currency,
-                'formatted_amount' => '$'.number_format((float) $deal->amount, 2),
+                'formatted_amount' => Money::format($deal->amount, $deal->currency),
                 'stage' => $deal->stage->name,
                 'expected_close_date' => $deal->expected_close_date?->format('Y-m-d') ?? '',
                 'days_in_stage' => $deal->daysInCurrentStage(),

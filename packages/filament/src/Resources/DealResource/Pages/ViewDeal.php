@@ -21,6 +21,7 @@ use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesPlaybook;
+use Odden\Sales\Support\Money;
 
 class ViewDeal extends ViewRecord
 {
@@ -68,7 +69,7 @@ class ViewDeal extends ViewRecord
 
                     Notification::make()
                         ->title('Draft Quote Generated')
-                        ->body("Proposal #{$quote->quote_number} generated for \${$quote->total_amount}.")
+                        ->body("Proposal #{$quote->quote_number} generated for ".Money::format($quote->total_amount, $quote->currency).".")
                         ->success()
                         ->send();
                 }),

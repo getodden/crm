@@ -44,9 +44,9 @@ $deal = Deal::create([
 ]);
 ```
 
-Pass `status` explicitly. The column defaults to `open` in the database, but the model has no attribute default, so a deal created without `status` has a `null` status in memory until you call `$deal->refresh()`. Methods such as `isRotten()` and `getHealthScore()` need the status to be set.
+`status` defaults to `open`, both in the database and on the model, so a deal created without it is usable immediately (`isRotten()`, `getHealthScore()`).
 
-The `currency` column defaults to `USD` at the database level. The `odden-sales.default_currency` config value is not applied to new deals, so set `currency` yourself if you sell in another currency.
+The `currency` column defaults to `USD` at the database level; set `currency` on the deal if you sell in another currency. When a deal has no currency, amounts are formatted with the `odden-sales.default_currency` config value.
 
 Creating a deal does not write a stage history row or run [stage automations](pipelines-and-stages.md#stage-automations). Both happen only when the deal changes stage.
 
@@ -133,7 +133,7 @@ foreach ($history as $entry) {
 
 `total_price` is calculated on every save as `quantity × unit_price × (1 − discount_percent / 100)`, rounded to two decimals and never below zero. Any value you pass is overwritten.
 
-Always pass `quantity`. The column defaults to `1`, but the default is only applied by the database after `total_price` has been calculated, so a product created without `quantity` gets a `total_price` of `0.00`.
+`quantity` defaults to `1`, so a product created without it gets a `total_price` equal to its discounted `unit_price`.
 
 Saving, deleting, or restoring a product recalculates the deal's `amount` as the sum of its products' `total_price` (via `SyncDealAmountAction`, which uses `updateQuietly`, so no model events or property audits fire for the change).
 
