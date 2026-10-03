@@ -63,11 +63,11 @@ A single object returns `{"status": "received", "event_id": 42, "event_type": "b
 | Provider | Email | Event type | Tracking token |
 | :--- | :--- | :--- | :--- |
 | `mailgun` | `event-data.recipient` | `event-data.event`: `failed` with `event-data.severity` of `permanent` becomes `hard_bounce`, any other `failed` becomes `soft_bounce` (stored only), and `complained` becomes `complaint` | `event-data.user-variables.odden_token` |
-| `ses` | `mail.destination.0` | `eventType`, lowercased (default `bounce`) | `mail.headersTruncated.X-Odden-Token` |
-| `postmark` | `Recipient` or `Email` | `RecordType`, lowercased (default `bounce`) | `Metadata.odden_token` |
-| `sendgrid` | `email` | `event`: `bounce` and `dropped` become `bounce`, `spamreport` becomes `complaint`, `unsubscribe` becomes `unsubscribed` | `odden_token` |
+| `ses` | The bounced or complaining recipient (`bounce.bouncedRecipients.0.emailAddress`, `complaint.complainedRecipients.0.emailAddress`), else `mail.destination.0` | `eventType` (or `notificationType`): a `Bounce` with `bounceType` `Permanent` becomes `hard_bounce`, any other bounce `soft_bounce` (stored only), `Complaint` becomes `complaint`, `Delivery` becomes `delivered`; no type is `unknown` | The `X-Odden-Tracking-Token` entry of `mail.headers`, or `mail.tags.odden_token` |
+| `postmark` | `Recipient` or `Email` | `RecordType`: `SpamComplaint` becomes `complaint`; a `Bounce` whose `Type` is `HardBounce`, `BadEmailAddress` or `ManuallyDeactivated` becomes `hard_bounce`, `SpamNotification` becomes `complaint`, any other bounce `soft_bounce` (stored only); `Delivery` becomes `delivered`; no type is `unknown` | `Metadata.odden_token` |
+| `sendgrid` | `email` | `event`: `bounce` becomes `bounce` (permanent), or `soft_bounce` (stored only) when `type` is `blocked`; `dropped` stays `dropped` (stored only); `spamreport` becomes `complaint`; `unsubscribe` becomes `unsubscribed` | `odden_token` |
 | `resend` | `data.to.0` | `type`: `email.bounced`, `email.complained`, and `email.delivered` become `bounce`, `complaint`, and `delivered` | `data.tags.odden_token` |
-| `generic` | `email` or `recipient` | `event_type`, `type`, or `event` (default `bounce`) | `tracking_token` |
+| `generic` | `email` or `recipient` | `event_type`, `type`, or `event` (default `unknown`) | `tracking_token` |
 
 The generic format also reads `error_code` (or `code`) and `error_message` (or `reason`):
 
@@ -97,10 +97,9 @@ For the first three, the contact also gets an `Unsubscribed` [lead scoring](lead
 
 Check how your provider names its events before relying on this. Only the names in the table above have an effect:
 
-- Postmark's `SpamComplaint` record type is stored but doesn't suppress anyone.
-- A temporary Mailgun failure (`soft_bounce`) is stored but doesn't suppress anyone; only a permanent one does.
-- Every `bounce` is treated as permanent. SES and Postmark soft (transient) bounces and SendGrid `dropped` events suppress the address too.
-- With the `generic`, `ses`, and `postmark` formats, an event with no type is treated as a bounce.
+- A temporary failure (`soft_bounce`: Mailgun, SES transient, Postmark and SendGrid `blocked`) is stored but doesn't suppress anyone; only permanent ones do.
+- A plain `bounce` is treated as permanent. Send `soft_bounce` yourself from the `generic` format for temporary failures.
+- An event with no type is stored as `unknown` and has no effect.
 
 ### Authenticating Mailgun webhooks
 
@@ -124,11 +123,11 @@ Without a signing key, Mailgun webhooks use the API token like every other provi
 
 An event is linked to a `CampaignRecipient` by its tracking token if the payload carries one. Otherwise, it's linked to the most recent recipient with the same email address.
 
-To match exactly, pass the recipient's `tracking_token` to your provider as metadata named `odden_token` when you send (Mailgun user variables, Postmark metadata, SendGrid custom args, Resend tags). Campaign messages carry the token in an `X-Odden-Tracking-Token` header, so you can copy it into your provider's metadata in a `MessageSending` listener or your provider's header-mapping settings. For SES, the configured path (`mail.headersTruncated`) is a boolean in SES events, so SES events always fall back to matching by address.
+To match exactly, pass the recipient's `tracking_token` to your provider as metadata named `odden_token` when you send (Mailgun user variables, Postmark metadata, SendGrid custom args, Resend tags). Campaign messages carry the token in an `X-Odden-Tracking-Token` header, so you can copy it into your provider's metadata in a `MessageSending` listener or your provider's header-mapping settings. For SES, the token is read from the `X-Odden-Tracking-Token` entry in `mail.headers`, which SES includes when you publish events with headers enabled (or from `mail.tags.odden_token`); otherwise events fall back to matching by address.
 
 ### Amazon SES
 
-The `ses` format reads the SES event object itself (`eventType`, `mail`, `bounce`). Amazon SNS HTTP subscriptions wrap that object in a JSON string inside an SNS envelope, send it as `text/plain`, and require a subscription confirmation. The endpoint handles none of that, so receive SNS notifications in your own route and forward the inner message.
+The `ses` format reads the SES event object itself (`eventType`, `mail`, `bounce`), and also accepts the SNS envelope that wraps it in an HTTP subscription (sent as `text/plain`). Point the subscription at `/marketing/webhooks/esp/ses?token={your API token}` (SNS can only be given a URL). A `SubscriptionConfirmation` is confirmed automatically when its `SubscribeURL` is an `https://sns.<region>.amazonaws.com` endpoint (anything else gets `422`), a `Notification` is unwrapped and processed like a bare SES event, and other envelope types are acknowledged and ignored. The envelope's SNS signature isn't verified; the API token is what authenticates the request.
 
 ## Linting a campaign
 

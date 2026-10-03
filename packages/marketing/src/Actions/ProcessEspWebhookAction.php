@@ -7,6 +7,7 @@ namespace Odden\Marketing\Actions;
 use Odden\Marketing\Enums\LeadScoringEventType;
 use Odden\Marketing\Enums\RecipientStatus;
 use Odden\Marketing\Enums\SubscriptionStatus;
+use Odden\Marketing\Mail\MarketingMessageMailable;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\EmailSuppression;
 use Odden\Marketing\Models\EspEvent;
@@ -133,6 +134,86 @@ class ProcessEspWebhookAction
     }
 
     /**
+     * SES event types. An event publishing record has `eventType`, a legacy notification has
+     * `notificationType`. A permanent bounce is a hard bounce and a transient one a soft bounce;
+     * anything we don't recognize, or an event without a type, is "unknown" and is only stored.
+     *
+     * @param  array<string|int, mixed>  $payload
+     */
+    protected function sesEventType(array $payload): string
+    {
+        $type = strtolower((string) ($payload['eventType'] ?? ($payload['notificationType'] ?? ($payload['event_type'] ?? ''))));
+        $bounceType = strtolower((string) ($payload['bounce']['bounceType'] ?? ''));
+
+        return match (true) {
+            $type === 'bounce' && $bounceType === 'permanent' => 'hard_bounce',
+            $type === 'bounce' && $bounceType !== '' => 'soft_bounce',
+            $type === 'bounce' => 'soft_bounce',
+            $type === 'complaint' => 'complaint',
+            $type === 'delivery' => 'delivered',
+            $type === '' => 'unknown',
+            default => $type,
+        };
+    }
+
+    /**
+     * The affected address: the bounced or complaining recipient when SES names one, otherwise
+     * the first destination of the original mail.
+     *
+     * @param  array<string|int, mixed>  $payload
+     */
+    protected function sesRecipient(array $payload): string
+    {
+        return (string) ($payload['bounce']['bouncedRecipients'][0]['emailAddress']
+            ?? $payload['complaint']['complainedRecipients'][0]['emailAddress']
+            ?? $payload['mail']['destination'][0]
+            ?? ($payload['email'] ?? ''));
+    }
+
+    /**
+     * The recipient tracking token from the `X-Odden-Tracking-Token` header we send. SES lists
+     * the original headers as `{name, value}` pairs in `mail.headers`, or `mail.tags` when the
+     * message was sent with a tag.
+     *
+     * @param  array<string|int, mixed>  $payload
+     */
+    protected function sesTrackingToken(array $payload): string
+    {
+        foreach ((array) ($payload['mail']['headers'] ?? []) as $header) {
+            if (is_array($header) && strcasecmp((string) ($header['name'] ?? ''), MarketingMessageMailable::TRACKING_TOKEN_HEADER) === 0) {
+                return (string) ($header['value'] ?? '');
+            }
+        }
+
+        $tag = $payload['mail']['tags']['odden_token'] ?? null;
+
+        return (string) (is_array($tag) ? ($tag[0] ?? '') : ($tag ?? ''));
+    }
+
+    /**
+     * Postmark event types: a spam complaint is a complaint, a permanent bounce is a hard bounce,
+     * other bounces are soft, and records we don't act on keep their (lowercased) name.
+     *
+     * @param  array<string|int, mixed>  $payload
+     */
+    protected function postmarkEventType(array $payload): string
+    {
+        $record = strtolower((string) ($payload['RecordType'] ?? ''));
+        $bounce = strtolower((string) ($payload['Type'] ?? ''));
+
+        return match (true) {
+            $record === 'spamcomplaint' => 'complaint',
+            $record === 'bounce' && in_array($bounce, ['spamnotification', 'spamcomplaint'], true) => 'complaint',
+            $record === 'bounce' && in_array($bounce, ['hardbounce', 'bademailaddress', 'manuallydeactivated'], true) => 'hard_bounce',
+            $record === 'bounce' => 'soft_bounce',
+            $record === 'delivery' => 'delivered',
+            $record === 'subscriptionchange' => ($payload['SuppressSending'] ?? false) ? 'unsubscribed' : 'unknown',
+            $record === '' => 'unknown',
+            default => $record,
+        };
+    }
+
+    /**
      * Normalize provider-specific webhook payload schemas into unified structure.
      *
      * @param  array<string|int, mixed>  $payload
@@ -149,15 +230,15 @@ class ProcessEspWebhookAction
                 'tracking_token' => (string) ($payload['event-data']['user-variables']['odden_token'] ?? null),
             ],
             'ses' => [
-                'email' => (string) ($payload['mail']['destination'][0] ?? ($payload['email'] ?? '')),
-                'event_type' => strtolower((string) ($payload['eventType'] ?? ($payload['event_type'] ?? 'bounce'))),
+                'email' => $this->sesRecipient($payload),
+                'event_type' => $this->sesEventType($payload),
                 'error_code' => (string) ($payload['bounce']['bounceSubType'] ?? null),
                 'error_message' => (string) ($payload['bounce']['bouncedRecipients'][0]['diagnosticCode'] ?? null),
-                'tracking_token' => (string) ($payload['mail']['headersTruncated']['X-Odden-Token'] ?? null),
+                'tracking_token' => $this->sesTrackingToken($payload),
             ],
             'postmark' => [
                 'email' => (string) ($payload['Recipient'] ?? ($payload['Email'] ?? '')),
-                'event_type' => strtolower((string) ($payload['RecordType'] ?? 'bounce')),
+                'event_type' => $this->postmarkEventType($payload),
                 'error_code' => (string) ($payload['TypeCode'] ?? null),
                 'error_message' => (string) ($payload['Details'] ?? null),
                 'tracking_token' => (string) ($payload['Metadata']['odden_token'] ?? null),
@@ -165,10 +246,13 @@ class ProcessEspWebhookAction
             'sendgrid' => [
                 'email' => (string) ($payload['email'] ?? ''),
                 'event_type' => match (strtolower((string) ($payload['event'] ?? ''))) {
-                    'bounce', 'dropped' => 'bounce',
+                    // "blocked" bounces are temporary refusals; the rest are permanent ("bounce" suppresses).
+                    'bounce' => strtolower((string) ($payload['type'] ?? '')) === 'blocked' ? 'soft_bounce' : 'bounce',
+                    // SendGrid declined to send it (address already suppressed, invalid, ...): record it, suppress nobody.
+                    'dropped' => 'dropped',
                     'spamreport' => 'complaint',
                     'unsubscribe' => 'unsubscribed',
-                    default => (string) ($payload['event'] ?? 'unknown'),
+                    default => (string) (($payload['event'] ?? '') !== '' ? $payload['event'] : 'unknown'),
                 },
                 'error_code' => (string) ($payload['status'] ?? null),
                 'error_message' => (string) ($payload['reason'] ?? null),
@@ -188,7 +272,7 @@ class ProcessEspWebhookAction
             ],
             default => [
                 'email' => (string) ($payload['email'] ?? ($payload['recipient'] ?? '')),
-                'event_type' => (string) ($payload['event_type'] ?? ($payload['type'] ?? ($payload['event'] ?? 'bounce'))),
+                'event_type' => (string) ($payload['event_type'] ?? ($payload['type'] ?? ($payload['event'] ?? 'unknown'))),
                 'error_code' => (string) ($payload['error_code'] ?? ($payload['code'] ?? null)),
                 'error_message' => (string) ($payload['error_message'] ?? ($payload['reason'] ?? null)),
                 'tracking_token' => (string) ($payload['tracking_token'] ?? null),
