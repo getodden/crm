@@ -62,11 +62,11 @@ class Company extends Model
     use HasActivities;
     use HasAssociations;
     use HasCustomProperties;
+
     /** @use HasFactory<CompanyFactory> */
     use HasFactory;
 
     use HasLifecycleStageTransitions;
-
     use QualifiesRelatedColumns;
     use SoftDeletes;
 

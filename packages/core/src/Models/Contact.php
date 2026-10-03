@@ -73,11 +73,11 @@ class Contact extends Model
     use HasActivities;
     use HasAssociations;
     use HasCustomProperties;
+
     /** @use HasFactory<ContactFactory> */
     use HasFactory;
 
     use HasLifecycleStageTransitions;
-
     use Notifiable;
     use QualifiesRelatedColumns;
     use SoftDeletes;
