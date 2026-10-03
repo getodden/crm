@@ -72,11 +72,12 @@ The email reads "Hi Sam, your order A-1001 total is $49.50." The response comes 
 | `reply_to` | optional, email | Reply-to address |
 | `variant` | optional, `A` or `B` | Which [variant](email-templates.md#variant-b) to send. Defaults to the template's `ab_winner_variant`, then `A` |
 | `attachments` | optional array | See [Attachments](#attachments) |
+| `preview_text` | optional, max 255 | Overrides the inbox preview text of a slot-built email. Defaults to the template's `preview_text` (`preview_text_variant_b` for variant B) |
 | `webhook_url`, `webhook_secret` | optional | See [Webhook notifications](#webhook-notifications) |
 
 ### How the email is built
 
-1. The variant's slots are compiled with the template's `theme`, the request's `context`, and the subject. Without slots, the variant's stored HTML is used. The template's preview text isn't passed to the compiler, so slot-built transactional emails have no preview text.
+1. The variant's slots are compiled with the template's `theme`, the request's `context`, and the subject. Without slots, the variant's stored HTML is used. The template's preview text (or the request's `preview_text`) is passed to the compiler, so slot-built emails carry their preheader.
 2. The HTML, its plain-text version, and the subject are run through the mail builder [merge tag interpolator](email-templates.md#in-the-mail-builder) with `data`. Filters and conditionals work; tags without a value are left as written.
 3. The message is an `Odden\Marketing\Mail\TransactionalTemplateMailable` (a queued `Odden\MailBuilder\Mail\TemplateMailable`), queued through the `odden-marketing.mail.mailer` mailer on the `odden-marketing.mail.connection` and `odden-marketing.mail.queue` queue. The HTML is final when it's queued, so later template edits don't change it.
 
@@ -147,7 +148,7 @@ curl -X POST https://example.com/api/marketing/templates/order-receipt/send-batc
 | `recipients.*.name` | optional |
 | `recipients.*.data` | optional object |
 | `subject`, `from_email`, `from_name`, `reply_to`, `variant` | as for a single send |
-| `webhook_url`, `webhook_secret` | as for a single send |
+| `preview_text`, `webhook_url`, `webhook_secret` | as for a single send |
 | `throttle_domains` | optional boolean; adds a `throttle_plan` to the response |
 
 The response lists who was queued for:
@@ -197,7 +198,7 @@ Pass `webhook_url` and the API posts a notification there once the email is queu
 }
 ```
 
-The request has these headers: `X-Odden-Event`, `X-Odden-Delivery` (the `id`), `X-Odden-Timestamp`, and `X-Odden-Signature`. It's sent synchronously with a 5-second timeout. A failure is logged as a warning and doesn't affect the API response.
+The request has these headers: `X-Odden-Event`, `X-Odden-Delivery` (the `id`), `X-Odden-Timestamp`, and `X-Odden-Signature`. It's sent synchronously with a 5-second timeout. A failure is logged as a warning and doesn't change the email's success. The API response says what happened: `webhook_dispatched` is `true` when the receiver answered 2xx, and `false` with a `webhook_warning` when the webhook was skipped (no signing secret) or failed. Without a `webhook_url`, neither key is returned.
 
 Without `webhook_url`, the URL comes from the `odden-marketing.webhooks.outbound_url` config key, if set. The signing secret is `webhook_secret`, then `odden-marketing.webhooks.secret`. If neither is set, the webhook isn't sent and a warning is logged; there's no default secret.
 

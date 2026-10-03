@@ -140,7 +140,7 @@ Row actions:
 | **Spam Audit** | Runs `AuditCampaignDeliverabilityAction` and shows the result. |
 | **Send Now** | Shown for draft and scheduled campaigns. Runs `DispatchCampaignAction` immediately, during the request, against all targeted recipients. |
 | **Pick Winner & Deploy** | Shown for A/B campaigns that are sending and have no winner yet. Runs `EvaluateAbTestWinnerAction`, which also sends the winning variant to the remaining audience. |
-| **AI Copy Assistant** | Generates subject lines with `GenerateAiSubjectLinesAction` and saves the one you pick to the campaign. |
+| **AI Copy Assistant** | Suggests subject lines with `SuggestSubjectLinesAction` (template-based, no AI model) and saves the one you pick to the campaign. |
 | **Send Test** | Sends a proof to the addresses you enter with `SendCampaignProofAction`, optionally using a contact's data for merge tags. The proof is queued like other marketing mail (see [Sending mail](../marketing/index.md#sending-mail)), so a queue worker must be running for it to arrive. |
 | **Duplicate** | Creates a draft copy named "Copy of …" with the delivery counters reset. |
 

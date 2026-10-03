@@ -294,7 +294,7 @@ The result also includes `rate_a`, `rate_b`, `relative_uplift_percent`, `z_score
 
 ### Subject line suggestions
 
-`GenerateAiSubjectLinesAction::execute(string $topic, string $tone = 'engaging', ?string $audience = null)` returns `suggestions` (three strings), a `variant_b` candidate, `preview_text`, and a `rationale`. Despite its name, it fills in fixed phrase templates and doesn't call an AI model. Tones are `urgent`, `curious`, `friendly`, and `bold`; anything else uses the default set.
+`SuggestSubjectLinesAction::execute(string $topic, string $tone = 'engaging', ?string $audience = null)` returns `suggestions` (three strings), a `variant_b` candidate, `preview_text`, and a `rationale`. It fills in fixed phrase templates and doesn't call an AI model, so the same input always gives the same lines. Tones are `urgent`, `curious`, `friendly`, and `bold`; anything else uses the default set. It used to be called `GenerateAiSubjectLinesAction`; that name still works as a deprecated alias.
 
 ## Fatigue protection
 

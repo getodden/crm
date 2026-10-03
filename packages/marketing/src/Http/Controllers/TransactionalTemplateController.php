@@ -44,6 +44,7 @@ class TransactionalTemplateController extends Controller
             'from_name' => 'nullable|string|max:255',
             'reply_to' => 'nullable|email|max:255',
             'variant' => 'nullable|string|in:A,B,a,b',
+            'preview_text' => 'nullable|string|max:255',
             'webhook_url' => 'nullable|url|max:500',
             'webhook_secret' => 'nullable|string|max:255',
             'attachments' => 'nullable|array',
@@ -93,6 +94,7 @@ class TransactionalTemplateController extends Controller
                 'theme' => $record->theme ?? [],
                 'context' => $context,
                 'subject' => $subject,
+                'preview_text' => $validated['preview_text'] ?? ($variant === 'B' ? ($record->preview_text_variant_b ?? $record->preview_text) : $record->preview_text),
             ]);
         } else {
             $html = $record->getVariantHtml($variant);
@@ -111,8 +113,9 @@ class TransactionalTemplateController extends Controller
         $recipientName = isset($validated['name']) ? (string) $validated['name'] : null;
         MarketingMailer::queue($mailable, $to, $recipientName);
 
+        $webhookDispatched = null;
         if (! empty($validated['webhook_url'])) {
-            MarketingWebhookDispatcher::dispatch(
+            $webhookDispatched = MarketingWebhookDispatcher::dispatch(
                 event: 'template.email.sent',
                 data: [
                     'template_id' => $record->id,
@@ -126,7 +129,7 @@ class TransactionalTemplateController extends Controller
             );
         }
 
-        return response()->json([
+        $response = [
             'success' => true,
             'message' => 'Transactional email queued for delivery.',
             'queued' => true,
@@ -135,7 +138,9 @@ class TransactionalTemplateController extends Controller
             'recipient' => $to,
             'variant' => $variant,
             'subject' => $mailable->subjectLine,
-        ]);
+        ];
+
+        return response()->json($response + $this->webhookStatus($webhookDispatched));
     }
 
     /**
@@ -164,6 +169,7 @@ class TransactionalTemplateController extends Controller
             'from_name' => 'nullable|string|max:255',
             'reply_to' => 'nullable|email|max:255',
             'variant' => 'nullable|string|in:A,B,a,b',
+            'preview_text' => 'nullable|string|max:255',
             'webhook_url' => 'nullable|url|max:500',
             'webhook_secret' => 'nullable|string|max:255',
             'throttle_domains' => 'nullable|boolean',
@@ -185,6 +191,7 @@ class TransactionalTemplateController extends Controller
             $baseHtml = MailBuilder::compile($slots, [
                 'theme' => $record->theme ?? [],
                 'subject' => $subject,
+                'preview_text' => $validated['preview_text'] ?? ($variant === 'B' ? ($record->preview_text_variant_b ?? $record->preview_text) : $record->preview_text),
             ]);
         } else {
             $baseHtml = $record->getVariantHtml($variant);
@@ -216,8 +223,9 @@ class TransactionalTemplateController extends Controller
             $dispatched[] = $toEmail;
         }
 
+        $webhookDispatched = null;
         if (! empty($validated['webhook_url'])) {
-            MarketingWebhookDispatcher::dispatch(
+            $webhookDispatched = MarketingWebhookDispatcher::dispatch(
                 event: 'template.email.batch_sent',
                 data: [
                     'template_id' => $record->id,
@@ -245,7 +253,27 @@ class TransactionalTemplateController extends Controller
             $response['throttle_plan'] = DomainThrottler::calculateThrottledBatches($recipients);
         }
 
-        return response()->json($response);
+        return response()->json($response + $this->webhookStatus($webhookDispatched));
+    }
+
+    /**
+     * Report whether the `webhook_url` notification went out, so a skipped one (no signing secret,
+     * or an endpoint that failed) isn't hidden behind a success response. Empty when no webhook was asked for.
+     *
+     * @return array<string, mixed>
+     */
+    private function webhookStatus(?bool $dispatched): array
+    {
+        if ($dispatched === null) {
+            return [];
+        }
+
+        return $dispatched
+            ? ['webhook_dispatched' => true]
+            : [
+                'webhook_dispatched' => false,
+                'webhook_warning' => 'The webhook was not delivered: it needs a signing secret (webhook_secret or ODDEN_MARKETING_WEBHOOK_SECRET) and an endpoint that answers 2xx. See the log.',
+            ];
     }
 
     /**

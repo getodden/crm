@@ -42,7 +42,7 @@ $template = MarketingTemplate::create([
 Every time a template is saved:
 
 - If `slots` is set, `body_html` is recompiled from the slots, `subject`, `preview_text`, and `theme`.
-- If `body_text` is empty, it's generated from the slots, or from `body_html` when there are no slots. It isn't regenerated once it has a value, so clear `body_text` when you change the content if you want a fresh plain-text version.
+- `body_text` is generated from the slots, or from `body_html` when there are no slots, when it's empty. It is regenerated when the slots or HTML change, as long as it still equals the text generated from the previous content; a `body_text` you edited by hand is left alone. The same applies to `body_text_variant_b`.
 - If `slug` is empty, it's set to `Str::slug($name)`. Slugs aren't unique in the database.
 - A [revision](#revisions) is recorded.
 

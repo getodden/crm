@@ -123,6 +123,32 @@ class MarketingTemplate extends Model
     }
 
     /**
+     * The plain-text version to store after a save. It is regenerated from the new content when the
+     * stored text is blank, or when it is just the text generated from the previous content (so it
+     * was never edited by hand). A hand-edited text is left alone.
+     *
+     * @param  array<int, array<string, mixed>>|string  $source  The slots or HTML the text is made from.
+     */
+    private static function refreshedPlainText(self $template, string $textColumn, array|string $source, string $sourceColumn): ?string
+    {
+        $current = $template->{$textColumn};
+        $generated = MailBuilder::plainText($source);
+
+        if (blank($current) || ! $template->exists || ! $template->isDirty($sourceColumn)) {
+            return blank($current) ? $generated : $current;
+        }
+
+        $original = $template->getOriginal($sourceColumn);
+        if (is_string($original) && $sourceColumn !== 'body_html' && json_validate($original)) {
+            $original = json_decode($original, true);
+        }
+
+        $previous = blank($original) ? null : MailBuilder::plainText($original);
+
+        return $previous !== null && $current === $previous ? $generated : $current;
+    }
+
+    /**
      * The "booted" method of the model.
      */
     protected static function booted(): void
@@ -135,13 +161,11 @@ class MarketingTemplate extends Model
                         'preview_text' => $template->preview_text,
                         'theme' => $template->theme ?? [],
                     ]);
-                    if (blank($template->body_text)) {
-                        $template->body_text = MailBuilder::plainText($template->slots);
-                    }
+                    $template->body_text = self::refreshedPlainText($template, 'body_text', $template->slots, 'slots');
                 }
-            } elseif (! empty($template->body_html) && blank($template->body_text)) {
+            } elseif (! empty($template->body_html)) {
                 if (class_exists(MailBuilder::class)) {
-                    $template->body_text = MailBuilder::plainText($template->body_html);
+                    $template->body_text = self::refreshedPlainText($template, 'body_text', $template->body_html, 'body_html');
                 }
             }
 
@@ -153,9 +177,7 @@ class MarketingTemplate extends Model
                         'preview_text' => $template->preview_text_variant_b ?? $template->preview_text,
                         'theme' => $template->theme ?? [],
                     ]);
-                    if (blank($template->body_text_variant_b)) {
-                        $template->body_text_variant_b = MailBuilder::plainText($template->slots_variant_b);
-                    }
+                    $template->body_text_variant_b = self::refreshedPlainText($template, 'body_text_variant_b', $template->slots_variant_b, 'slots_variant_b');
                 }
             } elseif (! empty($template->subject_variant_b) && ! empty($template->slots)) {
                 // If variant B only changes the subject line, reuse slot A HTML

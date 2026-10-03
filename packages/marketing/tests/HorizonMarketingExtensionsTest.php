@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Actions\DispatchSmsAction;
 use Odden\Marketing\Actions\EnrollContactInWorkflowAction;
-use Odden\Marketing\Actions\GenerateAiSubjectLinesAction;
+use Odden\Marketing\Actions\SuggestSubjectLinesAction;
 use Odden\Marketing\Enums\WorkflowStepType;
 use Odden\Marketing\Enums\WorkflowTriggerType;
 use Odden\Marketing\Models\MarketingSmsMessage;
@@ -202,9 +202,9 @@ class HorizonMarketingExtensionsTest extends TestCase
         $this->assertSame(33, $survey->calculateNpsScore());
     }
 
-    public function test_ai_subject_line_generator_produces_creative_variants(): void
+    public function test_subject_line_suggester_produces_template_based_variants(): void
     {
-        $generator = new GenerateAiSubjectLinesAction;
+        $generator = new SuggestSubjectLinesAction;
 
         // Test urgent tone
         $urgent = $generator->execute('Spring VIP Demo', 'urgent');
