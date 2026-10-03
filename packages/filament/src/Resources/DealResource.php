@@ -219,6 +219,7 @@ class DealResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                ...CustomPropertyFieldBuilder::searchableColumns('deal'),
             ])
             ->filters([
                 SelectFilter::make('pipeline_id')

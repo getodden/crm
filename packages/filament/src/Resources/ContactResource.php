@@ -204,6 +204,7 @@ class ContactResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                ...CustomPropertyFieldBuilder::searchableColumns('contact'),
             ])
             ->filters([
                 SelectFilter::make('lead_status')

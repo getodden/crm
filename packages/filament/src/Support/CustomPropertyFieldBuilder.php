@@ -12,6 +12,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
+use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema as DbSchema;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\PropertyDefinition;
@@ -72,5 +74,32 @@ class CustomPropertyFieldBuilder
                 ->schema($fields)
                 ->collapsible(),
         ];
+    }
+
+    /**
+     * Table columns for the definitions flagged "Searchable in lists". Each is searched with a
+     * LIKE on its key inside the record's `properties` JSON column, and can be hidden from the
+     * column picker.
+     *
+     * @return list<TextColumn>
+     */
+    public static function searchableColumns(string $entityType): array
+    {
+        if (! DbSchema::hasTable(config('odden-core.tables.properties', 'odden_properties'))) {
+            return [];
+        }
+
+        return PropertyDefinition::forEntity($entityType)
+            ->where('is_searchable', true)
+            ->get()
+            ->map(fn (PropertyDefinition $definition): TextColumn => TextColumn::make("properties.{$definition->name}")
+                ->label($definition->label)
+                ->toggleable()
+                ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(
+                    "properties->{$definition->name}",
+                    'like',
+                    '%'.$search.'%'
+                )))
+            ->all();
     }
 }

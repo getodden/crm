@@ -155,6 +155,7 @@ class CompanyResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                ...CustomPropertyFieldBuilder::searchableColumns('company'),
             ])
             ->filters([
                 TrashedFilter::make(),

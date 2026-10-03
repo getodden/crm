@@ -27,6 +27,7 @@ use Odden\Core\Models\PropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\CreatePropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\EditPropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\ListPropertyDefinitions;
+use Odden\Sales\Models\Deal;
 use UnitEnum;
 
 class PropertyDefinitionResource extends Resource
@@ -39,6 +40,22 @@ class PropertyDefinitionResource extends Resource
 
     protected static ?string $navigationLabel = 'Custom Properties';
 
+    /**
+     * Entity types that render custom properties: deals only when the Sales package is installed.
+     *
+     * @return array<string, string>
+     */
+    public static function entityTypeOptions(): array
+    {
+        $options = ['contact' => 'Contact', 'company' => 'Company'];
+
+        if (class_exists(Deal::class)) {
+            $options['deal'] = 'Deal';
+        }
+
+        return $options;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -47,10 +64,7 @@ class PropertyDefinitionResource extends Resource
                     ->schema([
                         Select::make('entity_type')
                             ->label('Entity Type')
-                            ->options([
-                                'contact' => 'Contact',
-                                'company' => 'Company',
-                            ])
+                            ->options(static::entityTypeOptions())
                             ->required(),
                         TextInput::make('name')
                             ->label('Internal Key')
@@ -123,10 +137,7 @@ class PropertyDefinitionResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('entity_type')
-                    ->options([
-                        'contact' => 'Contact',
-                        'company' => 'Company',
-                    ]),
+                    ->options(static::entityTypeOptions()),
                 SelectFilter::make('type')
                     ->options(collect(PropertyType::cases())->mapWithKeys(
                         fn (PropertyType $type) => [$type->value => $type->label()]

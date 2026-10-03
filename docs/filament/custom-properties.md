@@ -17,7 +17,7 @@ Fields are added to these forms:
 
 When at least one definition exists for the entity type, the form ends with a collapsible **Custom Properties** section. With no definitions, the section isn't shown.
 
-The plugin only adds properties to forms. It doesn't add table columns, filters or infolist entries, even for definitions marked `is_searchable`.
+The plugin adds properties to forms. For definitions marked `is_searchable`, it also adds a column to the resource's table, searched with a `LIKE` on that key in the `properties` column and hideable from the column picker. It doesn't add filters or infolist entries.
 
 ## Defining properties in the panel
 
@@ -25,7 +25,7 @@ Manage definitions under **Settings › Custom Properties** (`PropertyDefinition
 
 | Field | Attribute | Notes |
 | --- | --- | --- |
-| Entity Type | `entity_type` | The panel offers only `contact` and `company`. |
+| Entity Type | `entity_type` | `contact` and `company`, plus `deal` when `getodden/crm-sales` is installed. |
 | Internal Key | `name` | Must match `^[a-z0-9_]+$`. This becomes the key in the `properties` column. |
 | Display Label | `label` | The field label. |
 | Data Type | `type` | An `Odden\Core\Enums\PropertyType` case. |
@@ -33,9 +33,9 @@ Manage definitions under **Settings › Custom Properties** (`PropertyDefinition
 | Help Text / Description | `description` | Shown as helper text under the field. |
 | Dropdown Options | `options` | Value to label pairs. Only shown for Select and Multi-Select. |
 | Required field | `is_required` | Makes the form field required. |
-| Searchable in lists | `is_searchable` | Stored, but the plugin doesn't use it. |
+| Searchable in lists | `is_searchable` | Adds a searchable table column for the property. |
 
-To add properties to deals, create definitions with `entity_type` set to `deal` in code, for example in a seeder or migration, because the panel's entity type select has no Deal option:
+With Sales installed you can add properties to deals from the panel by choosing the `deal` entity type. You can also create the definitions in code, for example in a seeder or migration:
 
 ```php
 use Odden\Core\Enums\PropertyType;
