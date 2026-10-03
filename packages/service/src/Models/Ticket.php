@@ -154,23 +154,51 @@ class Ticket extends Model
 
             if ($ticket->sla_policy_id === null) {
                 /** @var SlaPolicy|null $defaultPolicy */
-                $defaultPolicy = SlaPolicy::query()->where('is_default', true)->first();
+                $defaultPolicy = SlaPolicy::query()->where('is_default', true)->where('is_active', true)->first();
                 if ($defaultPolicy !== null) {
                     $ticket->sla_policy_id = $defaultPolicy->id;
                 }
             }
 
             if ($ticket->sla_policy_id !== null && $ticket->first_response_due_at === null) {
-                $policy = $ticket->slaPolicy ?? SlaPolicy::find($ticket->sla_policy_id);
-                if ($policy instanceof SlaPolicy) {
-                    $responseMinutes = $policy->getFirstResponseMinutesFor($ticket->priority);
-                    $resolutionMinutes = $policy->getResolutionMinutesFor($ticket->priority);
-                    $now = now();
-                    $ticket->first_response_due_at = $policy->calculateDueTime($now, $responseMinutes);
-                    $ticket->resolution_due_at = $policy->calculateDueTime($now, $resolutionMinutes);
-                }
+                $ticket->recalculateSlaDueDates();
             }
         });
+
+        static::updating(function (self $ticket): void {
+            if ($ticket->isDirty('priority') && ! $ticket->isDirty(['first_response_due_at', 'resolution_due_at'])) {
+                $ticket->recalculateSlaDueDates();
+            }
+        });
+    }
+
+    /**
+     * Recompute the SLA due dates from the governing policy and the current priority.
+     *
+     * The SLA clock starts when the ticket is created, so a priority change moves the targets
+     * relative to that moment. A due date is left alone once its target has been met (the
+     * ticket has had a first response, or has been resolved).
+     */
+    public function recalculateSlaDueDates(): void
+    {
+        if ($this->sla_policy_id === null) {
+            return;
+        }
+
+        $policy = $this->slaPolicy ?? SlaPolicy::find($this->sla_policy_id);
+        if (! $policy instanceof SlaPolicy) {
+            return;
+        }
+
+        $from = $this->created_at ?? now();
+
+        if ($this->first_responded_at === null) {
+            $this->first_response_due_at = $policy->calculateDueTime($from, $policy->getFirstResponseMinutesFor($this->priority));
+        }
+
+        if ($this->resolved_at === null) {
+            $this->resolution_due_at = $policy->calculateDueTime($from, $policy->getResolutionMinutesFor($this->priority));
+        }
     }
 
     /**

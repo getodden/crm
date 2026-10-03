@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Service\Notifications;
 
+use Closure;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -17,6 +18,9 @@ class SlaBreachAlertNotification extends Notification implements ShouldQueue
 {
     use Queueable;
     use UsesServiceNotificationQueue;
+
+    /** @var (Closure(Ticket): string)|null */
+    protected static ?Closure $urlResolver = null;
 
     public function __construct(
         public Ticket $ticket,
@@ -49,7 +53,28 @@ class SlaBreachAlertNotification extends Notification implements ShouldQueue
             ->line('**Priority:** '.$this->ticket->priority->getLabel())
             ->line('**Subject:** '.MailMarkdown::escape($this->ticket->subject))
             ->line('**Assigned Agent:** '.MailMarkdown::escape($agentName))
-            ->action('Open Ticket in Cockpit', url('/admin/tickets/'.$this->ticket->id.'/edit'))
+            ->action('Open Ticket in Cockpit', $this->ticketUrl())
             ->line("Please take immediate action to address this customer's inquiry.");
+    }
+
+    /**
+     * Resolve the ticket link through a callback instead of the `admin_ticket_url` config value.
+     *
+     * @param  (Closure(Ticket): string)|null  $callback
+     */
+    public static function resolveUrlUsing(?Closure $callback): void
+    {
+        static::$urlResolver = $callback;
+    }
+
+    protected function ticketUrl(): string
+    {
+        if (static::$urlResolver !== null) {
+            return (string) (static::$urlResolver)($this->ticket);
+        }
+
+        $template = (string) config('odden-service.admin_ticket_url', '/admin/tickets/{id}/edit');
+
+        return url(str_replace('{id}', (string) $this->ticket->id, $template));
     }
 }

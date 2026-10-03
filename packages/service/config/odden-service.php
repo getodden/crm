@@ -36,6 +36,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Admin Ticket URL
+    |--------------------------------------------------------------------------
+    |
+    | Where the SLA breach alert email sends agents. {id} is replaced with the
+    | ticket ID. Relative paths are resolved against the app URL. For anything
+    | dynamic, call SlaBreachAlertNotification::resolveUrlUsing() from a service
+    | provider instead.
+    |
+    */
+    'admin_ticket_url' => env('ODDEN_SERVICE_ADMIN_TICKET_URL', '/admin/tickets/{id}/edit'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Routes
     |--------------------------------------------------------------------------
     |

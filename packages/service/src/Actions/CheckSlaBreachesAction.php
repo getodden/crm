@@ -84,7 +84,10 @@ class CheckSlaBreachesAction
         };
 
         if ($newPriority !== $ticket->priority) {
-            $ticket->updateQuietly(['priority' => $newPriority]);
+            // Quiet save: the update hook doesn't run, so recalculate the due dates here.
+            $ticket->priority = $newPriority;
+            $ticket->recalculateSlaDueDates();
+            $ticket->saveQuietly();
         }
 
         $typeLabel = $type === 'first_response' ? 'first response' : 'resolution';

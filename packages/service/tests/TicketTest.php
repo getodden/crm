@@ -185,9 +185,6 @@ class TicketTest extends TestCase
 
     public function test_priority_change_recalculates_sla_due_dates(): void
     {
-        $this->markTestIncomplete('SLA due dates are not recalculated on priority change; fixed by #39.');
-
-
         Carbon::setTestNow(Carbon::parse('2026-01-05 09:00:00'));
 
         $policy = SlaPolicy::create([
@@ -223,9 +220,6 @@ class TicketTest extends TestCase
 
     public function test_inactive_default_sla_policy_is_not_applied_to_new_tickets(): void
     {
-        $this->markTestIncomplete('Inactive default SLA policy is still applied on create; fixed by #39.');
-
-
         SlaPolicy::query()->update(['is_active' => false]);
 
         $ticket = Ticket::create([

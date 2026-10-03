@@ -13,7 +13,7 @@ An SLA policy sets two targets for each ticket priority: how long until the firs
 | :--- | :--- | :--- |
 | `name`, `description` | | |
 | `is_default` | `false` | The policy attached to new tickets that don't specify one. |
-| `is_active` | `true` | Stored, but not checked by the package (see below). |
+| `is_active` | `true` | Inactive policies are never picked as the default for new tickets. |
 | `urgent_first_response_minutes` / `urgent_resolution_minutes` | 60 / 240 | |
 | `high_first_response_minutes` / `high_resolution_minutes` | 120 / 480 | |
 | `medium_first_response_minutes` / `medium_resolution_minutes` | 240 / 1440 | |
@@ -45,12 +45,12 @@ Methods:
 
 When a ticket is created:
 
-1. If `sla_policy_id` is empty, the first policy with `is_default = true` is used. `is_active` is not considered, so an inactive default policy is still applied. Keep only one default.
+1. If `sla_policy_id` is empty, the first policy with `is_default = true` is used. Inactive policies are skipped, so an inactive default is never applied. Keep only one default.
 2. If the ticket has a policy and no `first_response_due_at`, both `first_response_due_at` and `resolution_due_at` are set with `calculateDueTime(now(), ...)` using the targets for the ticket's priority.
 
 To use a different policy for a ticket, pass it to `CreateTicketAction` (`slaPolicy: $policy`) or set `sla_policy_id` when calling `Ticket::create()`. You can also set the two `*_due_at` columns yourself; they are then left alone.
 
-Deadlines are calculated once. Changing a ticket's priority or policy later does not recalculate them.
+Changing a ticket's priority recalculates both deadlines from the policy's targets for the new priority, measured from the ticket's creation time (the SLA clock doesn't restart). A deadline whose target is already met is left alone: `first_response_due_at` once `first_responded_at` is set, and `resolution_due_at` once `resolved_at` is set. Call `$ticket->recalculateSlaDueDates()` yourself after changing `sla_policy_id`, or when you update the priority with `updateQuietly()`.
 
 ## Business hours
 
@@ -114,7 +114,7 @@ For each one it sets the breach flag (quietly, without model events), so each br
 - If the ticket has an owner with a `notify()` method, the owner receives `SlaBreachAlertNotification` by email. The breach type is `first_response` or `resolution`.
 - Otherwise the ticket is escalated: its priority goes up one level (`Low` to `Medium`, `Medium` to `High`, `High` to `Urgent`; `Urgent` stays `Urgent`), and an internal `System` note is added saying the ticket breached its first response (or resolution) SLA while unassigned and naming the new priority.
 
-Escalating the priority does not change the ticket's SLA deadlines.
+Escalating the priority recalculates the ticket's unmet deadlines for the new priority, measured from creation. A breach flag that is already set stays set.
 
 The action returns the counts, and the command prints them:
 
@@ -127,4 +127,4 @@ $counts = app(CheckSlaBreachesAction::class)->execute();
 
 ### The breach alert email
 
-`SlaBreachAlertNotification` has the subject `[URGENT SLA BREACH] Ticket #{number}: {subject}` and lists the breach type, priority, subject, and assigned agent. Its button links to the hard-coded path `url('/admin/tickets/{id}/edit')`, which is the ticket edit page of the Filament admin when its panel is served at `/admin`. If your agents view tickets at a different URL, the link won't match your app.
+`SlaBreachAlertNotification` has the subject `[URGENT SLA BREACH] Ticket #{number}: {subject}` and lists the breach type, priority, subject, and assigned agent. Its button links to the `odden-service.admin_ticket_url` config value (default `/admin/tickets/{id}/edit`, the ticket edit page of the Filament admin when its panel is served at `/admin`), where `{id}` is the ticket ID and relative paths are resolved against the app URL. For a dynamic link, call `SlaBreachAlertNotification::resolveUrlUsing(fn (Ticket $ticket): string => ...)` from a service provider; the callback wins over the config value.

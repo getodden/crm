@@ -230,9 +230,6 @@ class ServiceHardeningTest extends TestCase
 
     public function test_sla_breach_escalation_recalculates_due_dates_for_new_priority(): void
     {
-        $this->markTestIncomplete('Breach escalation leaves SLA due dates on the old priority; fixed by #39.');
-
-
         Carbon::setTestNow(Carbon::parse('2026-01-05 09:00:00'));
 
         $policy = SlaPolicy::create([

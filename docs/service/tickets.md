@@ -45,7 +45,7 @@ When a ticket is created without a `ticket_number`, one is generated as `{prefix
 
 ### SLA deadlines on create
 
-When a ticket is created without an `sla_policy_id`, the policy with `is_default = true` is attached if one exists. If the ticket then has a policy and no `first_response_due_at`, both deadlines are calculated from the policy's targets for the ticket's priority. Deadlines are not recalculated if you later change the priority or policy. See [SLA policies](sla-policies.md).
+When a ticket is created without an `sla_policy_id`, the active policy with `is_default = true` is attached if one exists. If the ticket then has a policy and no `first_response_due_at`, both deadlines are calculated from the policy's targets for the ticket's priority. Changing the priority later recalculates unmet deadlines (see [SLA policies](sla-policies.md)); changing the policy does not, so call `recalculateSlaDueDates()` yourself. See [SLA policies](sla-policies.md).
 
 ## Statuses
 
@@ -220,7 +220,7 @@ The ticket (and message) is serialized by ID and reloaded when the job runs, so 
 | `TicketCreatedNotification` | Contact | `CreateTicketAction` | `getPortalUrl()` |
 | `TicketRepliedNotification` | Contact | `ReplyTicketAction` (public agent replies) | `getPortalUrl()` |
 | `TicketResolvedCsatNotification` | Contact | `ResolveTicketAction` | `getCsatUrl()` |
-| `SlaBreachAlertNotification` | Ticket owner | `CheckSlaBreachesAction` | `/admin/tickets/{id}/edit` |
+| `SlaBreachAlertNotification` | Ticket owner | `CheckSlaBreachesAction` | `odden-service.admin_ticket_url` (default `/admin/tickets/{id}/edit`) |
 
 Customer email subjects start with `[#{ticket_number}]` for the customer's reference. The three customer emails also set a `Message-ID` that contains the ticket's portal token, `<ticket.{portal_token}.{unique}@{host}>`, which the [email webhook](inbound-email.md#threading-replies) uses, along with the portal link, to thread replies from the ticket's contact back into the ticket. The ticket number alone doesn't thread a reply.
 

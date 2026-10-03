@@ -210,4 +210,25 @@ class TicketNotificationsTest extends TestCase
         $this->assertStringNotContainsString('<em>Bold</em>', $sla);
         $this->assertStringContainsString('Agent *Bold* [Click](https://evil.example)', $sla);
     }
+
+    public function test_sla_breach_alert_links_to_the_configured_admin_url(): void
+    {
+        $agent = User::factory()->create();
+        $ticket = Ticket::create(['subject' => 'Link check', 'status' => TicketStatus::Open, 'owner_id' => $agent->id]);
+        $alert = new SlaBreachAlertNotification($ticket, 'resolution');
+
+        $default = $alert->toMail($agent);
+        $this->assertSame(url("/admin/tickets/{$ticket->id}/edit"), $default->actionUrl);
+
+        config(['odden-service.admin_ticket_url' => '/panel/support/{id}']);
+        $this->assertSame(url("/panel/support/{$ticket->id}"), $alert->toMail($agent)->actionUrl);
+
+        SlaBreachAlertNotification::resolveUrlUsing(fn (Ticket $t): string => "https://helpdesk.test/t/{$t->ticket_number}");
+
+        try {
+            $this->assertSame("https://helpdesk.test/t/{$ticket->ticket_number}", $alert->toMail($agent)->actionUrl);
+        } finally {
+            SlaBreachAlertNotification::resolveUrlUsing(null);
+        }
+    }
 }
