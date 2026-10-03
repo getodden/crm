@@ -6,6 +6,7 @@ namespace Odden\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use InvalidArgumentException;
 use Odden\Filament\Pages\AbmCockpit;
 use Odden\Filament\Pages\CampaignBenchmarking;
 use Odden\Filament\Pages\DataQuality;
@@ -53,6 +54,15 @@ use Odden\Service\Models\Ticket;
 
 class OddenPlugin implements Plugin
 {
+    /** @var list<string> Modules whose resources and pages are left out. */
+    protected array $disabledModules = [];
+
+    /** @var list<class-string> */
+    protected array $excluded = [];
+
+    /** @var array<class-string, class-string> */
+    protected array $replacements = [];
+
     public function getId(): string
     {
         return 'odden';
@@ -67,7 +77,7 @@ class OddenPlugin implements Plugin
             PropertyDefinitionResource::class,
         ];
 
-        if (class_exists(Deal::class)) {
+        if ($this->moduleEnabled('sales', Deal::class)) {
             $resources = array_merge($resources, [
                 DealResource::class,
                 PipelineResource::class,
@@ -81,7 +91,7 @@ class OddenPlugin implements Plugin
             ]);
         }
 
-        if (class_exists(Ticket::class)) {
+        if ($this->moduleEnabled('service', Ticket::class)) {
             $resources = array_merge($resources, [
                 TicketResource::class,
                 SlaPolicyResource::class,
@@ -91,7 +101,7 @@ class OddenPlugin implements Plugin
             ]);
         }
 
-        if (class_exists(Campaign::class)) {
+        if ($this->moduleEnabled('marketing', Campaign::class)) {
             $resources = array_merge($resources, [
                 CampaignResource::class,
                 MarketingTemplateResource::class,
@@ -107,23 +117,23 @@ class OddenPlugin implements Plugin
             ]);
         }
 
-        $panel->resources($resources);
+        $panel->resources($this->customize($resources));
 
         $pages = [
             ExecutiveOverview::class,
             DataQuality::class,
         ];
 
-        if (class_exists(Deal::class)) {
+        if ($this->moduleEnabled('sales', Deal::class)) {
             $pages[] = SalesCockpit::class;
         }
 
-        if (class_exists(Ticket::class)) {
+        if ($this->moduleEnabled('service', Ticket::class)) {
             $pages[] = ServiceCockpit::class;
             $pages[] = ServiceAnalytics::class;
         }
 
-        if (class_exists(Campaign::class)) {
+        if ($this->moduleEnabled('marketing', Campaign::class)) {
             $pages = array_merge($pages, [
                 MarketingCockpit::class,
                 AbmCockpit::class,
@@ -135,7 +145,66 @@ class OddenPlugin implements Plugin
             ]);
         }
 
-        $panel->pages($pages);
+        $panel->pages($this->customize($pages));
+    }
+
+    /**
+     * Leave out every resource and page of the given modules: 'sales', 'service' or 'marketing'.
+     */
+    public function disableModules(string ...$modules): static
+    {
+        foreach ($modules as $module) {
+            if (! in_array($module, ['sales', 'service', 'marketing'], true)) {
+                throw new InvalidArgumentException("Unknown Odden module [{$module}]. Use 'sales', 'service' or 'marketing'.");
+            }
+        }
+
+        $this->disabledModules = array_values(array_unique([...$this->disabledModules, ...$modules]));
+
+        return $this;
+    }
+
+    /**
+     * Leave out specific resources or pages by class name.
+     *
+     * @param  class-string  ...$classes
+     */
+    public function except(string ...$classes): static
+    {
+        $this->excluded = array_values(array_unique([...$this->excluded, ...$classes]));
+
+        return $this;
+    }
+
+    /**
+     * Register your own class (usually a subclass) in place of an Odden resource or page.
+     *
+     * @param  class-string  $original
+     * @param  class-string  $replacement
+     */
+    public function replace(string $original, string $replacement): static
+    {
+        $this->replacements[$original] = $replacement;
+
+        return $this;
+    }
+
+    protected function moduleEnabled(string $module, string $marker): bool
+    {
+        return class_exists($marker) && ! in_array($module, $this->disabledModules, true);
+    }
+
+    /**
+     * Apply except() and replace() to a list of resource or page classes.
+     *
+     * @param  list<class-string>  $classes
+     * @return list<class-string>
+     */
+    protected function customize(array $classes): array
+    {
+        $classes = array_values(array_filter($classes, fn (string $class): bool => ! in_array($class, $this->excluded, true)));
+
+        return array_map(fn (string $class): string => $this->replacements[$class] ?? $class, $classes);
     }
 
     public function boot(Panel $panel): void

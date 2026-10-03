@@ -3,7 +3,7 @@ title: Configuration and navigation
 description: How OddenPlugin decides what to register, the navigation groups it uses, and the URLs and route names of its resources and pages.
 ---
 
-`OddenPlugin` has no configuration of its own. It has no fluent options, no config file and no environment variables. What it registers depends only on which Odden packages are installed. You change the rest (the panel path, how navigation groups are ordered, colors and so on) on the Filament panel itself.
+`OddenPlugin` has no config file and no environment variables. What it registers depends on which Odden packages are installed, plus the fluent options in [Customizing and extending](customizing.md#plugin-options) for turning modules off or swapping classes. You change the rest (the panel path, how navigation groups are ordered, colors and so on) on the Filament panel itself.
 
 ## Plugin API
 

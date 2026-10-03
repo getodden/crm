@@ -3,7 +3,36 @@ title: Customizing and extending
 description: Add your own resources next to Odden's, replace an Odden resource with a subclass, override the plugin's Blade views, and make sure the custom pages are styled.
 ---
 
-`OddenPlugin` has no options for changing its resources (see [Configuration and navigation](configuration.md)). To customize the admin, you add your own Filament classes next to the plugin, or you register Odden's classes yourself and swap in subclasses where you need changes.
+`OddenPlugin` has fluent options to turn modules off, leave out individual resources and pages, and swap in your own subclasses (see [Plugin options](#plugin-options)). You can also add your own Filament classes next to the plugin.
+
+## Plugin options
+
+```php
+use App\Filament\Resources\ContactResource as AppContactResource;
+use Odden\Filament\OddenPlugin;
+use Odden\Filament\Pages\DataQuality;
+use Odden\Filament\Resources\ContactResource;
+use Odden\Filament\Resources\LeadRoutingRuleResource;
+
+return $panel
+    // ...
+    ->plugins([
+        OddenPlugin::make()
+            ->disableModules('marketing')
+            ->except(LeadRoutingRuleResource::class, DataQuality::class)
+            ->replace(ContactResource::class, AppContactResource::class),
+    ]);
+```
+
+| Method | Effect |
+| --- | --- |
+| `disableModules(string ...$modules)` | Leaves out every resource and page of `sales`, `service` or `marketing`. Any other name throws `InvalidArgumentException`. Core's resources and pages are always registered. |
+| `except(string ...$classes)` | Leaves out specific resources or pages. |
+| `replace(string $original, string $replacement)` | Registers your class in place of an Odden resource or page. |
+
+A module whose package isn't installed is skipped either way. The options apply when the plugin registers, so they work for pages as well as resources. Leaving a resource out removes its routes and navigation, and other Odden pages may still link to it (for example the deal view links to quotes), so disable a whole module rather than a resource the rest of the module depends on.
+
+A replacement should be a subclass that keeps the resource's slug, as described below.
 
 ## Adding your own resources and pages
 
@@ -31,7 +60,7 @@ To put your items into Odden's navigation groups, use the same group labels: `CR
 
 ## Replacing a resource
 
-A Filament panel can't unregister a resource that a plugin added. To change an Odden resource, don't use `OddenPlugin` on that panel. Register the Odden resources and pages you want yourself, and use your own subclass for the one you're changing.
+To change an Odden resource, subclass it and register the subclass with `OddenPlugin::replace()`. If you want full control instead, skip the plugin on that panel and register the resources and pages you want yourself.
 
 Start with the resource subclass. Filament derives the slug from the class name, so naming it `ContactResource` keeps the `contacts` URLs and route names the other Odden resources link to. With a different class name, set `protected static ?string $slug = 'contacts';`.
 
@@ -97,7 +126,7 @@ class ListContacts extends OddenListContacts
 
 Create `CreateContact`, `EditContact` and `ViewContact` the same way, each extending the matching class in `Odden\Filament\Resources\ContactResource\Pages`. With all four pages pointing at your resource, the `getEloquentQuery()` scope above applies to the table and to the view and edit URLs. A contact owned by someone else then returns a 404.
 
-Then register everything on the panel in place of the plugin. This example rebuilds the core part of the plugin:
+Then register the subclass with `OddenPlugin::make()->replace(ContactResource::class, App\Filament\Resources\ContactResource::class)`. If you'd rather not use the plugin, register everything on the panel yourself. This example rebuilds the core part of the plugin:
 
 ```php
 use App\Filament\Resources\ContactResource;
@@ -155,7 +184,7 @@ cp vendor/getodden/crm-filament/resources/views/pages/sales-cockpit.blade.php \
 
 Laravel only picks up the override directory if it exists when the application boots. The views call public properties and methods on the page classes (for example `$this->guidedActions` or `wire:click="advanceEnrollment(...)"`), so check your copy whenever you upgrade the package.
 
-Some actions also render views from the module packages, such as `odden-marketing::template-preview` and `odden-sales::deals.health-score-modal`. Override those in `resources/views/vendor/odden-marketing` and `resources/views/vendor/odden-sales` in the same way.
+Some actions also render views from the module packages, such as `odden-marketing::template-preview`. Override it in `resources/views/vendor/odden-marketing` in the same way. The deal health score modal is `odden-filament::deals.health-score-modal`, so override it in `resources/views/vendor/odden-filament/deals`.
 
 ## Styling the custom pages
 
