@@ -10,6 +10,7 @@ use Odden\Core\Events\CompaniesMerged;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Support\ModelRegistry;
 use Odden\Service\Listeners\MoveMergedRecords;
 use Odden\Service\Models\Ticket;
 
@@ -24,6 +25,10 @@ class ServiceHubServiceProvider extends ServiceProvider
             __DIR__.'/../config/odden-service.php',
             'odden-service'
         );
+
+        $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
+            $registry->discover(__DIR__.'/Models', 'Odden\\Service\\Models');
+        });
     }
 
     /**

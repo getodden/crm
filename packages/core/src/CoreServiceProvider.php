@@ -8,8 +8,11 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Support\Enrichment\EnrichmentManager;
 use Odden\Core\Support\LifecycleStateMachine;
+use Odden\Core\Support\ModelRegistry;
+use Odden\Core\Support\NullTenantContext;
 
 class CoreServiceProvider extends ServiceProvider
 {
@@ -26,6 +29,15 @@ class CoreServiceProvider extends ServiceProvider
 
         $this->app->singleton(EnrichmentManager::class, function (): EnrichmentManager {
             return new EnrichmentManager;
+        });
+
+        // Odden is single-tenant unless a multi-tenant host rebinds the tenant context.
+        $this->app->singletonIf(TenantContext::class, NullTenantContext::class);
+
+        // Every package registers its models here; resolved lazily so provider order doesn't matter.
+        $this->app->singleton(ModelRegistry::class);
+        $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
+            $registry->discover(__DIR__.'/Models', 'Odden\\Core\\Models');
         });
     }
 
