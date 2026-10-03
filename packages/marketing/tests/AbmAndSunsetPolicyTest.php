@@ -67,23 +67,25 @@ class AbmAndSunsetPolicyTest extends TestCase
 
     public function test_sunset_policy_identifies_unengaged_contacts_and_suppresses_them(): void
     {
-        // 1. Contact active recently (last sent 10 days ago)
+        // 1. Contact who opened a recent email, so they are engaged
         $activeContact = Contact::create([
             'first_name' => 'Active',
             'last_name' => 'User',
             'email' => 'active@example.com',
-            'last_marketing_email_sent_at' => now()->subDays(10),
+            'last_marketing_email_sent_at' => now()->subDays(3),
             'is_unengaged' => false,
         ]);
+        $this->sendCampaignEmails($activeContact, [100, 60, 3], openedDaysAgo: 5);
 
-        // 2. Dormant contact (last sent 120 days ago)
+        // 2. Dormant contact: mailed for months, never opens or clicks
         $dormantContact = Contact::create([
             'first_name' => 'Dormant',
             'last_name' => 'Lead',
             'email' => 'dormant@example.com',
-            'last_marketing_email_sent_at' => now()->subDays(120),
+            'last_marketing_email_sent_at' => now()->subDays(3),
             'is_unengaged' => false,
         ]);
+        $this->sendCampaignEmails($dormantContact, [100, 60, 3]);
 
         $detector = new DetectUnengagedContactsAction;
         $unengaged = $detector->execute(daysInactive: 90);
@@ -129,8 +131,6 @@ class AbmAndSunsetPolicyTest extends TestCase
 
     public function test_sunset_flags_mailed_but_never_engaged_contacts_and_ignores_contacts_no_longer_mailed(): void
     {
-        $this->markTestIncomplete('Detection only flags contacts not mailed for N days, missing mailed-but-never-opened ones; fixed by #28.');
-
         $mailedNeverOpens = Contact::create([
             'first_name' => 'Mailed',
             'last_name' => 'Ghost',
@@ -172,8 +172,6 @@ class AbmAndSunsetPolicyTest extends TestCase
 
     public function test_sunset_reengagement_stage_sends_an_email(): void
     {
-        $this->markTestIncomplete('reengagement_sent stage only logs a task and sends no email; fixed by #28.');
-
         Mail::fake();
 
         $contact = Contact::create([
@@ -192,5 +190,32 @@ class AbmAndSunsetPolicyTest extends TestCase
             Mail::sent(Mailable::class)->merge(Mail::queued(Mailable::class)),
             'Expected a re-engagement email to be sent to the contact.'
         );
+    }
+
+    /**
+     * Record campaign emails sent to a contact, optionally with an open.
+     *
+     * @param  list<int>  $sentDaysAgo
+     */
+    private function sendCampaignEmails(Contact $contact, array $sentDaysAgo, ?int $openedDaysAgo = null): void
+    {
+        foreach ($sentDaysAgo as $i => $daysAgo) {
+            $campaign = Campaign::create([
+                'name' => "Helper {$contact->id}-{$i}",
+                'subject' => 'Newsletter',
+                'sender_name' => 'Odden',
+                'sender_email' => 'news@odden.test',
+            ]);
+
+            CampaignRecipient::create([
+                'campaign_id' => $campaign->id,
+                'contact_id' => $contact->id,
+                'email' => $contact->email,
+                'tracking_token' => "tok_{$contact->id}_{$i}",
+                'unsubscribe_token' => "unsub_{$contact->id}_{$i}",
+                'sent_at' => now()->subDays($daysAgo),
+                'opened_at' => $openedDaysAgo !== null && $i === count($sentDaysAgo) - 1 ? now()->subDays($openedDaysAgo) : null,
+            ]);
+        }
     }
 }

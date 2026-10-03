@@ -4,28 +4,32 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Odden\Core\Models\Contact;
+use Odden\Marketing\Models\CampaignRecipient;
+use Odden\Marketing\Models\MarketingSubscription;
 
 class DetectUnengagedContactsAction
 {
     /**
-     * Identify dormant contacts with no email engagement in the last $daysInactive days.
+     * Flag contacts who are being mailed but never engage.
+     *
+     * A contact is unengaged when they have received at least $minSends campaign emails, were first
+     * mailed at least $daysInactive days ago, are still being mailed (a send inside that window),
+     * and have not opened or clicked anything inside that window. Contacts we stopped mailing are
+     * not unengaged, they're just quiet, and suppressed or unsubscribed contacts are always left out.
      *
      * @return Collection<int, Contact>
      */
-    public function execute(int $daysInactive = 90): Collection
+    public function execute(int $daysInactive = 90, int $minSends = 3): Collection
     {
-        $cutoff = now()->subDays($daysInactive);
-
         /** @var Collection<int, Contact> $contacts */
-        $contacts = Contact::query()
-            ->where(function ($query) use ($cutoff): void {
-                $query->whereNotNull('last_marketing_email_sent_at')
-                    ->where('last_marketing_email_sent_at', '<', $cutoff);
-            })
+        $contacts = $this->candidates($daysInactive, $minSends)
             ->where('is_unengaged', false)
-            ->get();
+            ->get()
+            ->reject(fn (Contact $contact): bool => $this->isSuppressed($contact))
+            ->values();
 
         foreach ($contacts as $contact) {
             $contact->update([
@@ -36,5 +40,37 @@ class DetectUnengagedContactsAction
         }
 
         return $contacts;
+    }
+
+    /**
+     * Contacts matching the unengaged definition, without flagging them or checking suppression.
+     *
+     * @return Builder<Contact>
+     */
+    public function candidates(int $daysInactive = 90, int $minSends = 3): Builder
+    {
+        $cutoff = now()->subDays($daysInactive);
+
+        $contactIds = CampaignRecipient::query()
+            ->select('contact_id')
+            ->whereNotNull('contact_id')
+            ->whereNotNull('sent_at')
+            ->groupBy('contact_id')
+            ->havingRaw('count(*) >= ?', [max(1, $minSends)])
+            ->havingRaw('min(sent_at) <= ?', [$cutoff])
+            ->havingRaw('max(sent_at) >= ?', [$cutoff])
+            ->havingRaw('(max(opened_at) is null or max(opened_at) < ?)', [$cutoff])
+            ->havingRaw('(max(clicked_at) is null or max(clicked_at) < ?)', [$cutoff]);
+
+        return Contact::query()->whereIn((new Contact)->getKeyName(), $contactIds);
+    }
+
+    public function isSuppressed(Contact $contact): bool
+    {
+        $email = mb_strtolower(trim((string) $contact->email));
+
+        return $contact->sunset_stage === 'suppressed'
+            || $email === ''
+            || MarketingSubscription::isSuppressed($email);
     }
 }

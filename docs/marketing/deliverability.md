@@ -231,7 +231,7 @@ php artisan marketing:sunset-subscribers --days=90 --min-sends=3 --suppress
 | `--min-sends` | `3` | Campaign emails the contact must have been sent before they can be sunset |
 | `--suppress` | off | Unsubscribe dormant contacts instead of only flagging them |
 
-The command runs `ProcessSubscriberSunsetPolicyAction`, which considers contacts whose `last_marketing_email_sent_at` is `--days` or more in the past. It skips anyone already suppressed, anyone with fewer than `--min-sends` campaign recipients, and anyone with an open or click in the window. For each remaining contact:
+The command runs `ProcessSubscriberSunsetPolicyAction`, which considers contacts who are being mailed but never engage: at least `--min-sends` campaign emails sent, the first one `--days` or more ago, still receiving mail (a send inside the window), and no open or click inside the window. Contacts you stopped mailing are not sunset, and anyone already suppressed is skipped. For each remaining contact:
 
 - Without `--suppress`: it sets `properties.is_sunset_dormant` to `true` and `properties.sunset_dormant_detected_at`.
 - With `--suppress`: it unsubscribes the address globally, sets `properties.sunset_suppressed` and `properties.sunset_suppressed_at`, and logs a task on the contact.
@@ -256,7 +256,7 @@ Only contacts you **haven't emailed** for `--days` are candidates. A contact you
 
 A second set of actions tracks a contact through stages in the `sunset_stage` column. Nothing in the package runs them on a schedule:
 
-- `DetectUnengagedContactsAction::execute(int $daysInactive = 90)` sets `is_unengaged`, `unengaged_since`, and `sunset_stage = 'flagged'` on contacts not emailed for that many days.
-- `ExecuteSunsetPolicyAction::execute(Contact $contact, bool $forceSuppress = false)` moves a `flagged` (or unengaged) contact to `reengagement_sent`, and a `reengagement_sent` contact (or any contact, with `$forceSuppress`) to `suppressed`. Each step logs a task on the contact.
+- `DetectUnengagedContactsAction::execute(int $daysInactive = 90, int $minSends = 3)` sets `is_unengaged`, `unengaged_since`, and `sunset_stage = 'flagged'` on the same contacts the command considers (mailed, never engaged), skipping suppressed and unsubscribed ones. `candidates()` returns that query without flagging anyone.
+- `ExecuteSunsetPolicyAction::execute(Contact $contact, bool $forceSuppress = false)` moves a `flagged` (or unengaged) contact to `reengagement_sent` and queues a re-engagement email (with a link to their preference center), and a `reengagement_sent` contact (or any contact, with `$forceSuppress`) to `suppressed` and unsubscribes the address globally. Each step logs a task on the contact.
 
-The `reengagement_sent` stage doesn't send a re-engagement email; send one yourself. A `suppressed` stage only stops campaign email while [fatigue protection](campaigns.md#fatigue-protection) is enabled. It doesn't add the address to the suppression list.
+The `suppressed` stage also adds the address to the suppression list, so it stops all marketing email whether or not [fatigue protection](campaigns.md#fatigue-protection) is enabled.

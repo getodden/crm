@@ -7,7 +7,6 @@ namespace Odden\Marketing\Actions;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Models\Contact;
-use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\MarketingSubscription;
 
 class ProcessSubscriberSunsetPolicyAction
@@ -29,13 +28,11 @@ class ProcessSubscriberSunsetPolicyAction
         int $minSendsReceived = 3,
         bool $autoSuppress = false
     ): array {
-        $thresholdDate = now()->subDays($inactivityDays);
+        $detector = new DetectUnengagedContactsAction;
 
+        // Contacts who are being mailed but haven't engaged inside the window.
         /** @var Collection<int, Contact> $candidates */
-        $candidates = Contact::query()
-            ->whereNotNull('last_marketing_email_sent_at')
-            ->where('last_marketing_email_sent_at', '<=', $thresholdDate)
-            ->get();
+        $candidates = $detector->candidates($inactivityDays, $minSendsReceived)->get();
 
         $dormantDetected = [];
         $suppressedCount = 0;
@@ -44,30 +41,7 @@ class ProcessSubscriberSunsetPolicyAction
             $email = mb_strtolower(trim($contact->email));
 
             // Skip if already unsubscribed or suppressed
-            if (empty($email) || MarketingSubscription::isSuppressed($email)) {
-                continue;
-            }
-
-            // Check total emails received
-            $totalSends = CampaignRecipient::query()
-                ->where('contact_id', $contact->id)
-                ->where('sent_at', '<=', now())
-                ->count();
-
-            if ($totalSends < $minSendsReceived) {
-                continue;
-            }
-
-            // Check if ANY engagement occurred within the dormancy window
-            $recentEngagement = CampaignRecipient::query()
-                ->where('contact_id', $contact->id)
-                ->where(function ($q) use ($thresholdDate): void {
-                    $q->where('opened_at', '>=', $thresholdDate)
-                        ->orWhere('clicked_at', '>=', $thresholdDate);
-                })
-                ->exists();
-
-            if ($recentEngagement) {
+            if ($detector->isSuppressed($contact)) {
                 continue;
             }
 

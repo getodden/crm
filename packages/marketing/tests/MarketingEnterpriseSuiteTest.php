@@ -104,21 +104,21 @@ class MarketingEnterpriseSuiteTest extends TestCase
         $engagedContact = Contact::create([
             'first_name' => 'Active',
             'email' => 'active@example.com',
-            'last_marketing_email_sent_at' => now()->subDays(100),
+            'last_marketing_email_sent_at' => now()->subDays(3),
         ]);
 
-        // 2. Dormant contact (100 days dormant, 3 sends, 0 opens/clicks)
+        // 2. Dormant contact (mailed for 95 days, 3 sends, 0 opens/clicks)
         $dormantContact = Contact::create([
             'first_name' => 'Cold',
             'email' => 'cold@example.com',
-            'last_marketing_email_sent_at' => now()->subDays(100),
+            'last_marketing_email_sent_at' => now()->subDays(3),
         ]);
 
         // 3. New contact (only 1 send received) - should NOT sunset
         $newContact = Contact::create([
             'first_name' => 'New',
             'email' => 'new@example.com',
-            'last_marketing_email_sent_at' => now()->subDays(100),
+            'last_marketing_email_sent_at' => now()->subDays(3),
         ]);
 
         // One campaign per send: a contact is a recipient of a campaign at most once.
@@ -144,7 +144,7 @@ class MarketingEnterpriseSuiteTest extends TestCase
                 'status' => 'sent',
                 'tracking_token' => Str::random(40),
                 'unsubscribe_token' => Str::random(40),
-                'sent_at' => now()->subDays(95),
+                'sent_at' => now()->subDays([1 => 95, 2 => 60, 3 => 3][$i]),
                 'clicked_at' => $i === 1 ? now()->subDays(20) : null,
             ]);
         }
@@ -158,7 +158,7 @@ class MarketingEnterpriseSuiteTest extends TestCase
                 'status' => 'sent',
                 'tracking_token' => Str::random(40),
                 'unsubscribe_token' => Str::random(40),
-                'sent_at' => now()->subDays(95),
+                'sent_at' => now()->subDays([1 => 95, 2 => 60, 3 => 3][$i]),
             ]);
         }
 
