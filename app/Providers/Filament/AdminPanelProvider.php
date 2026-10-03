@@ -9,7 +9,6 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -29,8 +28,26 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Odden CRM')
+            ->brandLogo(asset('brand/odden-logo-light.svg'))
+            ->darkModeBrandLogo(asset('brand/odden-logo-dark.svg'))
+            ->brandLogoHeight('2rem')
+            ->favicon(asset('brand/favicon.svg'))
+            // Explicit brand palette: Filament's Color::Violet is Tailwind v4's (600 = #7f22fe), not #7c3aed.
             ->colors([
-                'primary' => Color::Orange,
+                'primary' => [
+                    50 => '#f5f3ff',
+                    100 => '#ede9fe',
+                    200 => '#ddd6fe',
+                    300 => '#c4b5fd',
+                    400 => '#a78bfa',
+                    500 => '#8b5cf6',
+                    600 => '#7c3aed',
+                    700 => '#6d28d9',
+                    800 => '#5b21b6',
+                    900 => '#4c1d95',
+                    950 => '#2e1065',
+                ],
             ])
             ->plugins([
                 OddenPlugin::make(),
