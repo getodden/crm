@@ -99,6 +99,7 @@ return [
     */
     'sales_handoff' => [
         'auto_handoff_on_sql' => (bool) env('MARKETING_AUTO_HANDOFF_ON_SQL', true),
+        'mql_score_threshold' => (int) env('MARKETING_MQL_THRESHOLD', 50),
         'sql_score_threshold' => (int) env('MARKETING_SQL_THRESHOLD', 100),
         'default_deal_amount' => (float) env('MARKETING_HANDOFF_DEAL_AMOUNT', 10000.00),
     ],

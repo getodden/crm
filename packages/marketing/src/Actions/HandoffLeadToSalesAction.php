@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Marketing\Actions;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Company;
@@ -29,13 +30,10 @@ class HandoffLeadToSalesAction
         ?int $pipelineId = null,
         ?int $ownerId = null
     ): array {
-        // 1. Resolve or Assign Sales Owner (Round-Robin or First Available)
+        // 1. Resolve or assign the sales owner: an explicit one, the contact's current owner, or the
+        // next user in rotation.
         if ($ownerId === null && $contact->owner_id === null) {
-            /** @var class-string<Model> $userClass */
-            $userClass = UserModel::className();
-            if (class_exists($userClass)) {
-                $ownerId = $userClass::query()->orderBy('id', 'asc')->first()?->getKey();
-            }
+            $ownerId = $this->nextOwnerId();
         } elseif ($ownerId === null) {
             $ownerId = $contact->owner_id;
         }
@@ -103,5 +101,29 @@ class HandoffLeadToSalesAction
             'owner' => $owner,
             'task_created' => true,
         ];
+    }
+
+    /**
+     * The next user in a round robin over every user, ordered by id. The position is kept in the
+     * cache (`odden-marketing:handoff-owner-index`), so it advances once per hand-off.
+     */
+    protected function nextOwnerId(): ?int
+    {
+        /** @var class-string<Model> $userClass */
+        $userClass = UserModel::className();
+        if (! class_exists($userClass)) {
+            return null;
+        }
+
+        $ids = $userClass::query()->orderBy('id')->pluck('id')->all();
+        if ($ids === []) {
+            return null;
+        }
+
+        $key = 'odden-marketing:handoff-owner-index';
+        Cache::add($key, -1, now()->addYears(10));
+        $index = (int) Cache::increment($key);
+
+        return (int) $ids[$index % count($ids)];
     }
 }

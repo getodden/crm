@@ -11,8 +11,10 @@ use Illuminate\Routing\Controller;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Contact;
+use Odden\Marketing\Actions\ApplyLeadScoringEventAction;
 use Odden\Marketing\Actions\RecordWebVisitAction;
 use Odden\Marketing\Actions\StitchVisitorToContactAction;
+use Odden\Marketing\Enums\LeadScoringEventType;
 use Odden\Marketing\Support\VisitorToken;
 
 class WebTrackingController extends Controller
@@ -95,12 +97,18 @@ class WebTrackingController extends Controller
 
         if ($isNew) {
             $contact->lifecycle_stage = LifecycleStage::MarketingQualifiedLead;
-            $contact->lead_score = 15;
-        } else {
-            $contact->lead_score = (int) $contact->lead_score + 10;
         }
 
         $contact->save();
+
+        // The score change goes through the scoring action, so it is logged and can promote the contact.
+        $contact = app(ApplyLeadScoringEventAction::class)->execute(
+            contact: $contact,
+            eventType: LeadScoringEventType::FormSubmission,
+            description: "Website form auto-captured on {$pageUrl}",
+            context: ['page_url' => $pageUrl],
+            points: $isNew ? 15 : 10,
+        );
 
         // Link the visitor's anonymous sessions (and their page views) to the contact
         $visitorToken = VisitorToken::fromRequest($request);

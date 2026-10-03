@@ -56,9 +56,12 @@ class DecayInactiveLeadScoresAction
 
                 // Determine lifecycle stage degradation
                 $stage = $contact->lifecycle_stage;
-                if ($newScore < 50 && $stage === LifecycleStage::MarketingQualifiedLead) {
+                $mqlThreshold = (int) config('odden-marketing.sales_handoff.mql_score_threshold', 50);
+                $sqlThreshold = (int) config('odden-marketing.sales_handoff.sql_score_threshold', 100);
+
+                if ($newScore < $mqlThreshold && $stage === LifecycleStage::MarketingQualifiedLead) {
                     $stage = LifecycleStage::Lead;
-                } elseif ($newScore < 100 && $stage === LifecycleStage::SalesQualifiedLead) {
+                } elseif ($newScore < $sqlThreshold && $stage === LifecycleStage::SalesQualifiedLead) {
                     $stage = LifecycleStage::MarketingQualifiedLead;
                 } elseif ($newScore === 0 && $stage === LifecycleStage::Lead) {
                     $stage = LifecycleStage::Subscriber;

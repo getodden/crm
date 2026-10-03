@@ -95,7 +95,7 @@ When the session belongs to a known contact, visiting a path that starts with on
 | `/enterprise` | 25 |
 | `/quote` | 20 |
 
-The prefixes are hard-coded in `RecordWebVisitAction`. The log entry is described as `High Intent Web Visit: {path} (+{n} pts)`, but the points actually added are those of the `property_match` event: 20 by default, or the `score_change` of an active `property_match` [scoring rule](lead-scoring.md#scoring-rules). Every visit to such a page scores again; there's no once-per-visitor limit.
+The prefixes are hard-coded in `RecordWebVisitAction`. The points in the table are what is added (and what the log entry `High Intent Web Visit: {path} (+{n} pts)` says): a visit scores as a `property_match` event with explicit points, so scoring rules don't change them. The event context carries `path` and `bonus`. Every visit to such a page scores again; there's no once-per-visitor limit.
 
 ### Recording visits from PHP
 
@@ -162,7 +162,7 @@ curl -X POST https://your-app.test/marketing/forms/auto-capture \
 
 A missing or invalid email returns `422` with `{"status": "error", "message": "Valid email address is required."}`.
 
-The endpoint lowercases the email and loads or creates the contact. It fills `first_name`, `last_name` and `phone` only where they're empty, splitting `name` on the first space when no `first_name` is given. Scoring works differently from the rest of the package: the endpoint writes `lead_score` directly, without a lead score log entry or lifecycle qualification.
+The endpoint lowercases the email and loads or creates the contact. It fills `first_name`, `last_name` and `phone` only where they're empty, splitting `name` on the first space when no `first_name` is given. Scoring goes through the normal scoring action as a `form_submission` event with explicit points, so each change is logged in the lead score log, with the page in the event context, and can promote the contact's lifecycle stage.
 
 - A new contact gets `lifecycle_stage` `marketing_qualified_lead` and a `lead_score` of 15.
 - An existing contact gets 10 points added.

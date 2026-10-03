@@ -101,7 +101,8 @@ class RecordWebVisitAction
                             contact: $contact,
                             eventType: LeadScoringEventType::PropertyMatch,
                             description: "High Intent Web Visit: {$path} (+{$scoreBonus} pts)",
-                            context: ['path' => $path, 'bonus' => $scoreBonus]
+                            context: ['path' => $path, 'bonus' => $scoreBonus],
+                            points: $scoreBonus,
                         );
                         break;
                     }

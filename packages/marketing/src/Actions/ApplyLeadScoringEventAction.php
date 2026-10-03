@@ -6,10 +6,12 @@ namespace Odden\Marketing\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Enums\LeadScoringEventType;
 use Odden\Marketing\Models\LeadScoreLog;
 use Odden\Marketing\Models\LeadScoringRule;
+use Odden\Marketing\Support\ScoringRuleConditions;
 
 class ApplyLeadScoringEventAction
 {
@@ -23,6 +25,7 @@ class ApplyLeadScoringEventAction
         LeadScoringEventType::Unsubscribed->value => -50,
         LeadScoringEventType::InactivityDecay->value => -10,
         LeadScoringEventType::PropertyMatch->value => 20,
+        LeadScoringEventType::CustomEvent->value => 5,
     ];
 
     /**
@@ -38,13 +41,8 @@ class ApplyLeadScoringEventAction
         ?array $context = null,
         ?int $points = null
     ): Contact {
-        return DB::transaction(function () use ($contact, $eventType, $description, $points): Contact {
-            // Check for custom active rule
-            /** @var LeadScoringRule|null $rule */
-            $rule = LeadScoringRule::query()
-                ->where('is_active', true)
-                ->where('event_type', $eventType->value)
-                ->first();
+        return DB::transaction(function () use ($contact, $eventType, $description, $context, $points): Contact {
+            $rule = $this->matchingRule($contact, $eventType, $context ?? []);
 
             $scoreDelta = $points ?? ($rule !== null
                 ? $rule->score_change
@@ -68,10 +66,11 @@ class ApplyLeadScoringEventAction
             $previousStage = $contact->lifecycle_stage ?? LifecycleStage::Lead;
             $lifecycleStage = $previousStage;
             $sqlThreshold = (int) config('odden-marketing.sales_handoff.sql_score_threshold', 100);
+            $mqlThreshold = (int) config('odden-marketing.sales_handoff.mql_score_threshold', 50);
 
             if ($newScore >= $sqlThreshold && $lifecycleStage !== LifecycleStage::Customer) {
                 $lifecycleStage = LifecycleStage::SalesQualifiedLead;
-            } elseif ($newScore >= 50 && $lifecycleStage === LifecycleStage::Lead) {
+            } elseif ($newScore >= $mqlThreshold && $lifecycleStage === LifecycleStage::Lead) {
                 $lifecycleStage = LifecycleStage::MarketingQualifiedLead;
             }
 
@@ -97,5 +96,40 @@ class ApplyLeadScoringEventAction
 
             return $contact->fresh() ?? $contact;
         });
+    }
+
+    /**
+     * The scoring rule for an event: among the active rules for the event type, the first whose
+     * `conditions` match the contact, their company and the event context. Rules with conditions
+     * are tried before unconditional ones, so a specific rule beats the catch-all.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    protected function matchingRule(Contact $contact, LeadScoringEventType $eventType, array $context): ?LeadScoringRule
+    {
+        /** @var \Illuminate\Database\Eloquent\Collection<int, LeadScoringRule> $rules */
+        $rules = LeadScoringRule::query()
+            ->where('is_active', true)
+            ->where('event_type', $eventType->value)
+            ->orderBy('id')
+            ->get();
+
+        if ($rules->isEmpty()) {
+            return null;
+        }
+
+        /** @var Company|null $company */
+        $company = $rules->contains(fn (LeadScoringRule $rule): bool => ! empty($rule->conditions)) ? $contact->companies()->first() : null;
+
+        $conditional = $rules->filter(fn (LeadScoringRule $rule): bool => ! empty($rule->conditions));
+        $unconditional = $rules->reject(fn (LeadScoringRule $rule): bool => ! empty($rule->conditions));
+
+        foreach ($conditional as $rule) {
+            if (ScoringRuleConditions::matches($rule->conditions, $contact, $company, $context)) {
+                return $rule;
+            }
+        }
+
+        return $unconditional->first();
     }
 }

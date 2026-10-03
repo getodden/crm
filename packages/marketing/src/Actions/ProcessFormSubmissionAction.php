@@ -112,6 +112,13 @@ class ProcessFormSubmissionAction
                 eventType: LeadScoringEventType::FormSubmission,
                 description: "Submitted form: {$form->title}",
             );
+
+            // Company intent sums its contacts' scores, so recalculate it once this submission's points are in.
+            /** @var Company|null $matchedCompany */
+            $matchedCompany = $contact->companies()->first();
+            if ($matchedCompany !== null) {
+                app(CalculateCompanyIntentScoreAction::class)->execute($matchedCompany);
+            }
         }
 
         if ($contact !== null) {

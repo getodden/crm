@@ -55,10 +55,10 @@ Inside a database transaction the action:
 3. Writes a `LeadScoreLog` row with `event_type`, `event_description` (the description, or the event's label), `score_change`, `score_after`, and the `rule_id` of any matching active rule (even when `$points` overrode it).
 4. Updates `lead_score`, `lead_score_updated_at`, and `lifecycle_stage`:
    - at or above `odden-marketing.sales_handoff.sql_score_threshold` (default 100), any stage except `customer` becomes `sales_qualified_lead`;
-   - otherwise, at 50 or more, a `lead` becomes `marketing_qualified_lead`.
+   - otherwise, at or above `odden-marketing.sales_handoff.mql_score_threshold` (default 50), a `lead` becomes `marketing_qualified_lead`.
 5. If the contact was just promoted to SQL and `odden-marketing.sales_handoff.auto_handoff_on_sql` is `true` (the default), runs the [sales hand-off](#sales-hand-off).
 
-Stages are never lowered here, only by [decay](#score-decay). The MQL threshold of 50 is fixed.
+Stages are never lowered here, only by [decay](#score-decay).
 
 The package adds a `leadScoreLogs` relation (newest first) to `Contact`:
 
@@ -89,9 +89,34 @@ LeadScoringRule::create([
 | `event_type` | A `LeadScoringEventType`. |
 | `score_change` | Points to add (negative to subtract). The model defaults it to 5. |
 | `is_active` | Defaults to `true`. Inactive rules are ignored. |
-| `conditions` | JSON column, stored but not evaluated. |
+| `conditions` | Optional. Limits the rule to events where every condition matches; see [Conditions](#conditions). |
 
-The scoring action uses the first active rule it finds for the event type, so keep one active rule per type. Rules don't affect calls that pass explicit `points`, such as event registration (10), attendance (20), and asset downloads (the asset's `lead_score_points`). The `logs` relation returns the log entries that referenced the rule.
+For each event the scoring action takes the first active rule for the event type whose conditions match. Rules with conditions are tried first (in order of `id`), so a specific rule wins over a catch-all rule without conditions, which applies when no conditional rule matches. Rules don't affect calls that pass explicit `points`, such as event registration (10), attendance (20), and asset downloads (the asset's `lead_score_points`). The `logs` relation returns the log entries that referenced the rule.
+
+### Conditions
+
+`conditions` is a list of `{field, operator, value}` entries that must all match, or the shorthand `{"field": value}` map, where each entry is an equality check and an array value means "any of":
+
+```php
+LeadScoringRule::create([
+    'name' => 'Software companies',
+    'event_type' => LeadScoringEventType::FormSubmission,
+    'score_change' => 30,
+    'conditions' => [
+        ['field' => 'company.industry', 'operator' => '=', 'value' => 'Software'],
+        ['field' => 'contact.lead_score', 'operator' => '<', 'value' => 80],
+    ],
+]);
+
+LeadScoringRule::create([
+    'name' => 'Pricing or enterprise page',
+    'event_type' => LeadScoringEventType::PropertyMatch,
+    'score_change' => 25,
+    'conditions' => ['context.path' => ['/pricing', '/enterprise']],
+]);
+```
+
+Fields start with `contact.` or `company.` (an attribute, or if there isn't one a custom property, of the contact or their first company) or `context.` (the `context` array passed to the scoring action, for example `path` for a web visit or `page_url` for an auto-captured form). Operators are `=` (the default), `!=`, `>`, `>=`, `<`, `<=`, `contains`, `starts_with`, `in` and `not_in`; string comparisons ignore case. A condition on a value that is missing never matches.
 
 ## Score decay
 
@@ -112,11 +137,11 @@ Lifecycle stages are lowered when the new score falls below a threshold:
 
 | Stage | Demoted when | To |
 | --- | --- | --- |
-| `marketing_qualified_lead` | score < 50 | `lead` |
-| `sales_qualified_lead` | score < 100 | `marketing_qualified_lead` |
+| `marketing_qualified_lead` | score < `mql_score_threshold` (default 50) | `lead` |
+| `sales_qualified_lead` | score < `sql_score_threshold` (default 100) | `marketing_qualified_lead` |
 | `lead` | score = 0 | `subscriber` |
 
-Each decay updates `lead_score_updated_at`, so the next decay for that contact waits another full period. It also writes a `LeadDecayLog` (`score_before`, `score_after`, `score_decayed`, `days_inactive`), available through the `leadDecayLogs` relation on `Contact`, and a `LeadScoreLog` with event type `inactivity_decay`. The SQL demotion threshold is fixed at 100 and doesn't follow `sql_score_threshold`.
+Each decay updates `lead_score_updated_at`, so the next decay for that contact waits another full period. It also writes a `LeadDecayLog` (`score_before`, `score_after`, `score_decayed`, `days_inactive`), available through the `leadDecayLogs` relation on `Contact`, and a `LeadScoreLog` with event type `inactivity_decay`. Both demotion thresholds follow the same config values as promotion.
 
 The command prints the number of contacts decayed and the total points deducted.
 
@@ -139,7 +164,7 @@ $result['owner']; // the contact's owner, or null
 
 Signature: `execute(Contact $contact, ?string $dealName = null, ?float $amount = null, ?int $pipelineId = null, ?int $ownerId = null): array`. It returns `contact`, `deal`, `owner`, and `task_created` (always `true`). The action:
 
-1. Picks an owner: `$ownerId`, else the contact's current owner, else the user with the lowest id.
+1. Picks an owner: `$ownerId`, else the contact's current owner, else the next user in a round robin over all users ordered by id. The position is kept in the cache (key `odden-marketing:handoff-owner-index`) and advances once per hand-off, so a cache that is cleared or per-process (the `array` driver) restarts the rotation.
 2. Sets `lifecycle_stage` to `sales_qualified_lead`, `lead_status` to `in_progress`, and the owner.
 3. If `getodden/crm-sales` is installed and a pipeline with stages exists, creates an open deal in the first stage of `$pipelineId` (or the first pipeline). The name defaults to `MQL Deal: {full name}` and the amount to `odden-marketing.sales_handoff.default_deal_amount`. The deal is associated with the contact and with the contact's first company.
 4. Logs a task on the contact, due in one hour.
@@ -147,6 +172,7 @@ Signature: `execute(Contact $contact, ?string $dealName = null, ?float $amount =
 | Config key | Env | Default |
 | --- | --- | --- |
 | `odden-marketing.sales_handoff.auto_handoff_on_sql` | `MARKETING_AUTO_HANDOFF_ON_SQL` | `true` |
+| `odden-marketing.sales_handoff.mql_score_threshold` | `MARKETING_MQL_THRESHOLD` | `50` |
 | `odden-marketing.sales_handoff.sql_score_threshold` | `MARKETING_SQL_THRESHOLD` | `100` |
 | `odden-marketing.sales_handoff.default_deal_amount` | `MARKETING_HANDOFF_DEAL_AMOUNT` | `10000.00` |
 
