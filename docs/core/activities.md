@@ -27,12 +27,14 @@ An activity is a timeline entry attached to one record, its subject. Activities 
 | `Meeting` | `meeting` | Meeting |
 | `Task` | `task` | Task |
 | `LinkedIn` | `linkedin` | LinkedIn / Social |
+| `WhatsApp` | `whatsapp` | WhatsApp |
+| `Sms` | `sms` | SMS |
 | `StageChange` | `stage_change` | Stage Change |
 | `SystemEvent` | `system_event` | System Event |
 
 `Odden\Core\Enums\ActivityStatus`: `Pending` (`pending`), `InProgress` (`in_progress`), `Completed` (`completed`), `Cancelled` (`cancelled`), each with a `label()`.
 
-Methods that accept `ActivityType|string` or `ActivityStatus|string` only accept the backing values above. Any other string, such as `'whatsapp'`, throws `ValueError`. Put channel-specific detail in `metadata`.
+Methods that accept `ActivityType|string` or `ActivityStatus|string` only accept the backing values above. Any other string, such as `'fax'`, throws `ValueError`. Put channel-specific detail in `metadata`.
 
 ## Logging from a record
 
@@ -65,11 +67,11 @@ For all of them:
 
 - `completed_at` is set to `now()` when the status is `Completed`, and `null` otherwise.
 - `creator_id` defaults to `auth()->id()`.
-- No event is dispatched. Use `LogActivityAction` if you need `ActivityLogged`.
+- `ActivityLogged` is dispatched. The helpers call `LogActivityAction`, so there is a single logging path.
 
 ## Logging with the action
 
-`LogActivityAction` works on any model, including ones without the trait, and dispatches `ActivityLogged`:
+`LogActivityAction` works on any model, including ones without the trait, and dispatches `ActivityLogged`. The trait methods above call it:
 
 ```php
 use Odden\Core\Actions\LogActivityAction;
@@ -86,7 +88,7 @@ $activity = app(LogActivityAction::class)->execute(
 
 `execute(Model $subject, ActivityType|string $type, string $title, ?string $body = null, array $metadata = [], ActivityStatus|string $status = ActivityStatus::Completed, ?CarbonInterface $dueAt = null, ?int $creatorId = null): Activity`
 
-Unlike the trait methods, the action does not fall back to the authenticated user. Pass `creatorId` explicitly, or the activity has no creator.
+`creatorId` defaults to `auth()->id()` here too, so pass it explicitly only when the author isn't the signed-in user (for example in queued jobs).
 
 ## Reading a record's activities
 

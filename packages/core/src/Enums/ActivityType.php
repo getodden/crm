@@ -12,6 +12,8 @@ enum ActivityType: string
     case Meeting = 'meeting';
     case Task = 'task';
     case LinkedIn = 'linkedin';
+    case WhatsApp = 'whatsapp';
+    case Sms = 'sms';
     case StageChange = 'stage_change';
     case SystemEvent = 'system_event';
 
@@ -27,6 +29,8 @@ enum ActivityType: string
             self::Meeting => 'Meeting',
             self::Task => 'Task',
             self::LinkedIn => 'LinkedIn / Social',
+            self::WhatsApp => 'WhatsApp',
+            self::Sms => 'SMS',
             self::StageChange => 'Stage Change',
             self::SystemEvent => 'System Event',
         };

@@ -38,7 +38,7 @@ class LogActivityAction
             'metadata' => $metadata,
             'due_at' => $dueAt,
             'completed_at' => ($status === ActivityStatus::Completed || $status === ActivityStatus::Completed->value) ? now() : null,
-            'creator_id' => $creatorId,
+            'creator_id' => $creatorId ?? auth()->id(),
         ]);
 
         event(new ActivityLogged($activity));

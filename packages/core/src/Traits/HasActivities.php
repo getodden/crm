@@ -7,6 +7,7 @@ namespace Odden\Core\Traits;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
@@ -89,19 +90,16 @@ trait HasActivities
         ?CarbonInterface $dueAt = null,
         ?int $creatorId = null
     ): Activity {
-        /** @var Activity $activity */
-        $activity = $this->activities()->create([
-            'type' => $type instanceof ActivityType ? $type->value : $type,
-            'status' => $status instanceof ActivityStatus ? $status->value : $status,
-            'title' => $title,
-            'body' => $body,
-            'metadata' => $metadata,
-            'due_at' => $dueAt,
-            'completed_at' => ($status === ActivityStatus::Completed || $status === ActivityStatus::Completed->value) ? now() : null,
-            'creator_id' => $creatorId ?? auth()->id(),
-        ]);
-
-        return $activity;
+        return app(LogActivityAction::class)->execute(
+            subject: $this,
+            type: $type,
+            title: $title,
+            body: $body,
+            metadata: $metadata,
+            status: $status,
+            dueAt: $dueAt,
+            creatorId: $creatorId,
+        );
     }
 
     /**
