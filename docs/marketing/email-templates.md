@@ -186,12 +186,13 @@ Merge tags are placeholders like `{{contact.first_name}}`. How they're filled de
 
 ### In the mail builder
 
-The package registers three groups with the mail builder's `MergeTagRegistry`, with sample values for previews:
+The package registers four groups with the mail builder's `MergeTagRegistry`, with sample values for previews:
 
 | Group | Tags |
 | :--- | :--- |
 | Contact | `{{contact.first_name}}`, `{{contact.last_name}}`, `{{contact.full_name}}`, `{{contact.email}}`, `{{contact.job_title}}`, `{{contact.phone}}`, `{{contact.lifecycle_stage}}` |
 | Company | `{{company.name}}`, `{{company.domain}}`, `{{company.industry}}` |
+| Event | `{{event.<id>.rsvp_token}}`, the contact's signed RSVP token for event `<id>` (see [AMP](#amp-for-email)) |
 | Sender / Owner | `{{sender.name}}`, `{{sender.email}}` |
 
 The registry is what editors show as the tag list. Register your own groups the same way:
@@ -362,14 +363,25 @@ If `token` matches an NPS response, its `score`, `feedback`, and `responded_at` 
 | `token` | required; the recipient's signed RSVP token for this event |
 | `status` | `attending` (default), `declined`, or `tentative` |
 
-The contact comes only from `token`, never from a submitted email, and the endpoint never creates contacts. Issue the token for each recipient when you build the email, and put it in a hidden field of the AMP form:
+The contact comes only from `token`, never from a submitted email, and the endpoint never creates contacts. Campaign and workflow emails fill the token for each recipient with the `{{event.<id>.rsvp_token}}` merge tag, where `<id>` is the event's ID (for example `{{event.12.rsvp_token}}`). Put it in a hidden field of the AMP form:
+
+```html
+<form method="post" action-xhr="https://crm.example.com/api/marketing/amp/rsvp" target="_top">
+    <input type="hidden" name="event_slug" value="spring-summit">
+    <input type="hidden" name="token" value="{{event.12.rsvp_token}}">
+    <select name="status">
+        <option value="attending">Yes</option>
+        <option value="tentative">Maybe</option>
+        <option value="declined">No</option>
+    </select>
+    <input type="submit" value="RSVP">
+</form>
+```
+
+The tag only fills for events that exist and a recipient who is a contact; a tag for an unknown event is left as written. Outside a campaign you can issue the same token yourself:
 
 ```php
 $token = $event->rsvpTokenFor($contact); // "{contact id}.{HMAC-SHA256 keyed with app.key}"
-```
-
-```html
-<input type="hidden" name="token" value="{{ $token }}">
 ```
 
 A token is valid only for the event it was issued for. With a valid token, the contact's registration for the event is created or updated:

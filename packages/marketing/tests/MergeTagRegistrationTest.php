@@ -13,7 +13,7 @@ class MergeTagRegistrationTest extends TestCase
     {
         $registry = app(MergeTagRegistry::class);
 
-        $this->assertSame(['Contact', 'Company', 'Sender / Owner', 'System & Legal'], array_keys($registry->all()));
+        $this->assertSame(['Contact', 'Company', 'Event', 'Sender / Owner', 'System & Legal'], array_keys($registry->all()));
         $this->assertArrayHasKey('{{contact.first_name}}', $registry->flattened());
         $this->assertArrayHasKey('{{company.name}}', $registry->flattened());
     }

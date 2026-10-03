@@ -78,6 +78,9 @@ class MarketingServiceProvider extends ServiceProvider
                 'domain' => 'acme.com',
                 'industry' => 'Artificial Intelligence & Robotics',
             ]])
+            ->register('Event', [
+                '{{event.<id>.rsvp_token}}' => 'Signed RSVP token for event <id>, for the AMP RSVP form (e.g. {{event.12.rsvp_token}})',
+            ], ['event' => [12 => ['rsvp_token' => '1.sample-rsvp-token']]])
             ->register('Sender / Owner', [
                 '{{sender.name}}' => 'Assigned account executive or sender name',
                 '{{sender.email}}' => 'Sender reply-to email address',

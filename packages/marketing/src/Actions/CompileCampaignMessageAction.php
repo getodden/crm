@@ -10,6 +10,7 @@ use Odden\Core\Support\UserModel;
 use Odden\MailBuilder\MailBuilder;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
+use Odden\Marketing\Models\MarketingEvent;
 use Odden\Marketing\Models\MarketingTemplate;
 use Odden\Marketing\Support\ContactPreferences;
 
@@ -63,6 +64,7 @@ class CompileCampaignMessageAction
             email: $recipient->email,
             unsubscribeUrl: $unsubscribeUrl,
             campaign: $campaign,
+            rawHtml: $rawHtml,
         ));
 
         // Evaluate smart dynamic content blocks
@@ -165,6 +167,7 @@ class CompileCampaignMessageAction
             unsubscribeUrl: ContactPreferences::preferenceCenterUrl($contact),
             campaign: null,
             escape: $escape,
+            rawHtml: $rawHtml,
         ));
 
         return app(EvaluateSmartContentBlocksAction::class)->execute($html, $contact);
@@ -179,7 +182,7 @@ class CompileCampaignMessageAction
      *
      * @return array<string, mixed>
      */
-    protected function mergeContext(?Contact $contact, ?Company $company, string $email, string $unsubscribeUrl, ?Campaign $campaign, bool $escape = true): array
+    protected function mergeContext(?Contact $contact, ?Company $company, string $email, string $unsubscribeUrl, ?Campaign $campaign, bool $escape = true, string $rawHtml = ''): array
     {
         $firstName = $contact?->first_name;
         $lastName = $contact?->last_name;
@@ -209,6 +212,7 @@ class CompileCampaignMessageAction
                 'name' => (string) $campaign?->name,
             ],
             'unsubscribe_url' => $unsubscribeUrl,
+            'event' => $this->eventContext($rawHtml, $contact),
         ];
 
         if (! $escape) {
@@ -220,5 +224,28 @@ class CompileCampaignMessageAction
         });
 
         return $context;
+    }
+
+    /**
+     * Signed RSVP tokens for the events a template refers to as `{{event.<id>.rsvp_token}}`,
+     * issued for this contact so an AMP RSVP form can post them to `/amp/rsvp`.
+     *
+     * @return array<int, array{rsvp_token: string}>
+     */
+    protected function eventContext(string $rawHtml, ?Contact $contact): array
+    {
+        if ($contact === null || ! preg_match_all('/\{\{\s*event\.(\d+)\.rsvp_token\s*\}\}/', $rawHtml, $matches)) {
+            return [];
+        }
+
+        $tokens = [];
+        foreach (array_unique($matches[1]) as $id) {
+            $event = MarketingEvent::query()->find((int) $id);
+            if ($event !== null) {
+                $tokens[$event->id] = ['rsvp_token' => $event->rsvpTokenFor($contact)];
+            }
+        }
+
+        return $tokens;
     }
 }

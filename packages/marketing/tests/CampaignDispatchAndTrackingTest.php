@@ -14,6 +14,7 @@ use Odden\Marketing\Enums\CampaignStatus;
 use Odden\Marketing\Enums\RecipientStatus;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
+use Odden\Marketing\Models\MarketingEvent;
 use Odden\Marketing\Models\MarketingSubscription;
 use Odden\Marketing\Models\MarketingTemplate;
 
@@ -281,5 +282,32 @@ class CampaignDispatchAndTrackingTest extends TestCase
         $this->assertStringNotContainsString('{{contact.job_title}}', $html);
         // Tags nobody registered stay as written.
         $this->assertStringContainsString('{{contact.missing_thing}}', $html);
+    }
+
+    public function test_campaign_emails_can_carry_the_contacts_signed_rsvp_token(): void
+    {
+        $event = MarketingEvent::create(['title' => 'Spring Summit', 'slug' => 'spring-summit', 'event_type' => 'webinar']);
+        $other = MarketingEvent::create(['title' => 'Other', 'slug' => 'other', 'event_type' => 'webinar']);
+
+        $template = MarketingTemplate::create([
+            'name' => 'RSVP',
+            'subject' => 'Join us',
+            'body_html' => '<form><input type="hidden" name="token" value="{{event.'.$event->id.'.rsvp_token}}"></form> {{ event.'.$other->id.'.rsvp_token }} {{event.9999.rsvp_token}}',
+        ]);
+        $campaign = Campaign::create(['name' => 'Summit invite', 'subject' => 'Join us', 'sender_name' => 'Odden', 'sender_email' => 'news@odden.test', 'template_id' => $template->id, 'status' => CampaignStatus::Draft]);
+        $contact = Contact::factory()->create();
+        $recipient = CampaignRecipient::create(['campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'email' => $contact->email, 'status' => RecipientStatus::Pending]);
+
+        $html = (new CompileCampaignMessageAction)->execute($campaign, $recipient);
+
+        $token = $event->rsvpTokenFor($contact);
+        $this->assertStringContainsString('value="'.$token.'"', $html);
+        $this->assertStringContainsString($other->rsvpTokenFor($contact), $html);
+        $this->assertStringContainsString('{{event.9999.rsvp_token}}', $html, 'Unknown events are left as written');
+
+        // The token it issues is accepted by the AMP RSVP endpoint for that event only.
+        $amp = $this->withHeaders(['Origin' => 'https://mail.google.com']);
+        $amp->postJson('/api/marketing/amp/rsvp', ['event_slug' => 'spring-summit', 'token' => $token])->assertOk();
+        $amp->postJson('/api/marketing/amp/rsvp', ['event_slug' => 'other', 'token' => $token])->assertForbidden();
     }
 }
