@@ -40,7 +40,7 @@ $definitions = PropertyDefinition::forEntity(Contact::class)->get();
 
 The `forEntity(string $entityType)` scope filters by `entity_type` and orders by `sort_order`. Without a morph map, a model's morph class is its class name, so `(new Contact)->getMorphClass()` and `Contact::class` are the same value.
 
-Core doesn't validate property values against definitions. `setProperty()` and `setProperties()` accept any key and value, and `is_required`, `type`, and `options` are not enforced. Validate input yourself, for example in a form request, before writing it.
+Validation against definitions is opt-in, see [Validating properties](#validating-properties). By default `setProperty()` and `setProperties()` accept any key and value. The Filament forms apply `is_required` themselves.
 
 `Odden\Core\Enums\PropertyType` cases. Each has a `label()`.
 
@@ -63,7 +63,8 @@ The `HasCustomProperties` trait casts `properties` to an array and adds these me
 | --- | --- |
 | `getProperty(string $name, mixed $default = null): mixed` | Reads with `data_get()`, so dot notation reaches into nested arrays. |
 | `setProperty(string $name, mixed $value): static` | Sets one top-level key. Doesn't save. |
-| `setProperties(array $properties): static` | Merges keys into the existing array with `array_merge()`. Doesn't save. |
+| `setProperties(array $properties, bool $validate = false): static` | Merges keys into the existing array with `array_merge()`. Doesn't save. With `validate: true` it first checks the merged result against the definitions and throws `ValidationException`, leaving the record untouched. |
+| `validateProperties(?array $properties = null): array` | Validates the given properties (default: the record's own) against the definitions and returns them, or throws `ValidationException`. |
 | `whereProperty(string $name, mixed $value)` scope | `where("properties->{$name}", $value)`. |
 
 ```php
@@ -78,6 +79,26 @@ Contact::whereProperty('plan', 'growth')->get();
 ```
 
 You can also pass a `properties` array when creating a record. It replaces the whole array, it doesn't merge.
+
+## Validating properties
+
+`validateProperties()` and `setProperties(..., validate: true)` check values against the `PropertyDefinition` rows whose `entity_type` is the record's morph class or its short snake_case class name (`contact`, `company`, `deal`), which is what the Filament panel stores. For each definition:
+
+- `is_required` makes the property required; otherwise it may be missing or `null`.
+- `type` sets the rule: `text` a string, `number` numeric, `boolean` a boolean, `date` and `datetime` a date, `json` an array, `multi_select` an array, and `select` one of the allowed values.
+- For `select` and `multi_select`, the allowed values are the keys of `options` (the format the Filament select uses), or the list under `options.choices`.
+
+Properties without a definition are accepted unchanged, and nothing is validated unless you ask. Errors are keyed like `properties.plan`, with the definition's `label` in the message.
+
+```php
+use Illuminate\Validation\ValidationException;
+
+try {
+    $contact->setProperties(['plan' => 'enterprise'], validate: true)->save();
+} catch (ValidationException $e) {
+    $e->errors(); // ['properties.plan' => ['The selected Plan is invalid.']]
+}
+```
 
 ## Change history
 

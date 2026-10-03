@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Odden\Core\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Odden\Core\Enums\PropertyType;
+use Odden\Core\Models\Contact;
 use Odden\Core\Models\PropertyDefinition;
 
 class PropertyDefinitionTest extends TestCase
@@ -58,5 +60,66 @@ class PropertyDefinitionTest extends TestCase
 
         $this->assertCount(1, $companyProps);
         $this->assertSame('annual_revenue', $companyProps->first()->name);
+    }
+
+    private function definePropertiesForValidation(): void
+    {
+        $entity = (new Contact)->getMorphClass();
+
+        // Definitions saved by the Filament panel use the short key, so it must match too.
+        PropertyDefinition::create(['entity_type' => 'contact', 'name' => 'plan', 'label' => 'Plan', 'type' => PropertyType::Select, 'options' => ['starter' => 'Starter', 'growth' => 'Growth']]);
+        PropertyDefinition::create(['entity_type' => $entity, 'name' => 'seats', 'label' => 'Seats', 'type' => PropertyType::Number, 'is_required' => true]);
+        PropertyDefinition::create(['entity_type' => $entity, 'name' => 'regions', 'label' => 'Regions', 'type' => PropertyType::MultiSelect, 'options' => ['choices' => ['emea', 'apac']]]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $properties
+     * @return list<string> The property keys that failed validation.
+     */
+    private function failedKeys(Contact $contact, array $properties): array
+    {
+        try {
+            $contact->setProperties($properties, validate: true);
+        } catch (ValidationException $e) {
+            return array_keys($e->errors());
+        }
+
+        return [];
+    }
+
+    public function test_valid_properties_pass_and_undefined_ones_are_ignored(): void
+    {
+        $this->definePropertiesForValidation();
+        $contact = Contact::factory()->create();
+
+        $contact->setProperties(['plan' => 'growth', 'seats' => '12', 'regions' => ['emea'], 'anything' => 'goes'], validate: true);
+
+        $this->assertSame('growth', $contact->getProperty('plan'));
+        $this->assertSame('goes', $contact->getProperty('anything'));
+    }
+
+    public function test_missing_required_wrong_type_and_out_of_list_values_are_rejected(): void
+    {
+        $this->definePropertiesForValidation();
+        $contact = Contact::factory()->create();
+        $before = $contact->properties;
+
+        $this->assertSame(['properties.seats'], $this->failedKeys($contact, ['plan' => 'growth']));
+        $this->assertSame(['properties.seats'], $this->failedKeys($contact, ['seats' => 'many']));
+        $this->assertSame(['properties.plan'], $this->failedKeys($contact, ['seats' => 3, 'plan' => 'enterprise']));
+        $this->assertSame(['properties.regions.1'], $this->failedKeys($contact, ['seats' => 3, 'regions' => ['emea', 'mars']]));
+
+        // Nothing was written by the failed attempts.
+        $this->assertSame($before, $contact->properties);
+    }
+
+    public function test_properties_are_not_validated_unless_requested(): void
+    {
+        $this->definePropertiesForValidation();
+        $contact = Contact::factory()->create();
+
+        $contact->setProperties(['plan' => 'enterprise']);
+
+        $this->assertSame('enterprise', $contact->getProperty('plan'));
     }
 }
