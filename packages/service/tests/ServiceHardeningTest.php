@@ -50,7 +50,7 @@ class ServiceHardeningTest extends TestCase
 
         $freshTicket = $ticket->fresh();
         $this->assertNotNull($freshTicket);
-        $this->assertSame(TicketStatus::Open, $freshTicket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $freshTicket->status);
         $this->assertNull($freshTicket->resolved_at);
     }
 
@@ -89,7 +89,7 @@ class ServiceHardeningTest extends TestCase
             ->assertJsonPath('status', 'appended')
             ->assertJsonPath('ticket_number', 'SRV-2026-9999');
 
-        $this->assertSame(TicketStatus::Open, $ticket->fresh()?->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->fresh()?->status);
 
         // A ticket Message-ID in In-Reply-To threads with the subject stripped.
         $headerResponse = $this->postJson(route('odden.service.inbound-email'), [

@@ -111,7 +111,7 @@ When `true`, the [inbound email webhook](inbound-email.md#requiring-sender-authe
 'reopen_on_customer_reply' => (bool) env('ODDEN_SERVICE_REOPEN_ON_CUSTOMER_REPLY', true),
 ```
 
-When `true` (the default), a customer reply by email, on the portal, or in the chat widget reopens a `Resolved` or `Closed` ticket: the status becomes `Open` and `resolved_at` and `closed_at` are cleared. When `false`, the reply is added and the status is left alone. Either way, a reply by email to a [merged](routing.md#merging-tickets) ticket is posted on its primary ticket; see [Replies to merged tickets](routing.md#replies-to-merged-tickets) for the portal and chat rules. See [Statuses](tickets.md#statuses).
+When `true` (the default), a customer reply by email, on the portal, or in the chat widget reopens a `Resolved` or `Closed` ticket: the status becomes `WaitingOnAgent` and `resolved_at` and `closed_at` are cleared. When `false`, the reply is added and the status is left alone. Either way, a reply by email to a [merged](routing.md#merging-tickets) ticket is posted on its primary ticket; see [Replies to merged tickets](routing.md#replies-to-merged-tickets) for the portal and chat rules. See [Statuses](tickets.md#statuses).
 
 ### Chat widget
 

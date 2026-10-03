@@ -85,7 +85,7 @@ class InboundEmailWebhookTest extends TestCase
         ]);
 
         $ticket->refresh();
-        $this->assertSame(TicketStatus::Open, $ticket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->status);
         $this->assertCount(1, $ticket->messages);
         $this->assertSame('Here is the renewed certificate attachment: SHA-256 cert renewed until 2028.', $ticket->messages->first()?->body);
     }

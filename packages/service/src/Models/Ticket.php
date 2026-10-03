@@ -311,22 +311,23 @@ class Ticket extends Model
 
             $this->updateQuietly($updates);
         } elseif (! $isInternalNote && $senderType === MessageSenderType::Customer) {
-            // Customer replied: New and WaitingOnCustomer become Open; Resolved and Closed are
-            // reopened when odden-service.reopen_on_customer_reply is on (the default). A ticket
-            // merged into another stays closed; replies to it belong on mergeTarget().
+            // Customer replied, so the ball is with the agents: the ticket becomes WaitingOnAgent.
+            // Resolved and Closed tickets are reopened that way when odden-service.reopen_on_customer_reply
+            // is on (the default). A ticket merged into another stays closed; replies to it belong
+            // on mergeTarget().
             if ($this->status->isClosed()) {
                 if ($this->merged_into_ticket_id === null && (bool) config('odden-service.reopen_on_customer_reply', true)) {
                     $this->updateQuietly([
-                        'status' => TicketStatus::Open,
+                        'status' => TicketStatus::WaitingOnAgent,
                         'resolved_at' => null,
                         'closed_at' => null,
                     ]);
                 }
-            } elseif ($this->status === TicketStatus::WaitingOnCustomer || $this->status === TicketStatus::New) {
+            } elseif ($this->status !== TicketStatus::WaitingOnAgent) {
                 $this->updateQuietly([
-                    'status' => TicketStatus::Open,
+                    'status' => TicketStatus::WaitingOnAgent,
                 ]);
-                $this->status = TicketStatus::Open;
+                $this->status = TicketStatus::WaitingOnAgent;
             }
         }
 

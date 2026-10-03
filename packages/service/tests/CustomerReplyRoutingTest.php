@@ -32,7 +32,7 @@ class CustomerReplyRoutingTest extends TestCase
         $this->replyByEmail('dana@client.test', $ticket)->assertOk()->assertJsonPath('status', 'appended');
 
         $ticket->refresh();
-        $this->assertSame(TicketStatus::Open, $ticket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->status);
         $this->assertNull($ticket->closed_at);
         $this->assertNull($ticket->resolved_at);
         $this->assertSame(1, $ticket->messages()->where('body', 'Still broken.')->count());
@@ -46,7 +46,7 @@ class CustomerReplyRoutingTest extends TestCase
         $this->replyByEmail('dana@client.test', $ticket)->assertOk();
 
         $ticket->refresh();
-        $this->assertSame(TicketStatus::Open, $ticket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->status);
         $this->assertNull($ticket->resolved_at);
     }
 
@@ -58,7 +58,7 @@ class CustomerReplyRoutingTest extends TestCase
         $this->post("/support/tickets/{$ticket->portal_token}/reply", ['body' => 'Back again.'])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame(TicketStatus::Open, $ticket->refresh()->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->refresh()->status);
     }
 
     public function test_reopening_can_be_turned_off(): void
@@ -127,7 +127,7 @@ class CustomerReplyRoutingTest extends TestCase
 
         $this->replyByEmail('dana@client.test', $secondary)->assertOk();
 
-        $this->assertSame(TicketStatus::Open, $primary->refresh()->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $primary->refresh()->status);
         $this->assertSame(TicketStatus::Closed, $secondary->refresh()->status);
     }
 
@@ -270,7 +270,7 @@ class CustomerReplyRoutingTest extends TestCase
         $this->postJson(route('odden.service.chat.message', ['token' => $ticket->portal_token]), ['message' => 'Hello again.'])
             ->assertOk();
 
-        $this->assertSame(TicketStatus::Open, $ticket->refresh()->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->refresh()->status);
     }
 
     /**

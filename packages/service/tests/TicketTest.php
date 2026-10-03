@@ -120,7 +120,7 @@ class TicketTest extends TestCase
         $this->assertSame(TicketStatus::WaitingOnCustomer, $ticket->status);
     }
 
-    public function test_customer_reply_flips_ticket_status_back_to_open(): void
+    public function test_customer_reply_sets_ticket_status_to_waiting_on_agent(): void
     {
         $contact = Contact::factory()->create();
         $ticket = Ticket::create([
@@ -138,7 +138,7 @@ class TicketTest extends TestCase
         );
 
         $ticket->refresh();
-        $this->assertSame(TicketStatus::Open, $ticket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->status);
     }
 
     public function test_resolving_ticket_records_resolution_time_and_csat(): void
@@ -232,5 +232,25 @@ class TicketTest extends TestCase
         $this->assertNull($ticket->sla_policy_id);
         $this->assertNull($ticket->first_response_due_at);
         $this->assertNull($ticket->resolution_due_at);
+    }
+
+    public function test_a_customer_message_always_leaves_the_ticket_waiting_on_agent(): void
+    {
+        foreach ([TicketStatus::New, TicketStatus::Open, TicketStatus::WaitingOnCustomer, TicketStatus::WaitingOnAgent] as $status) {
+            $ticket = Ticket::create(['subject' => "From {$status->value}", 'status' => $status]);
+
+            $ticket->addMessage('Any news?', MessageSenderType::Customer);
+
+            $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->fresh()->status, "Customer message on a {$status->value} ticket");
+        }
+    }
+
+    public function test_an_internal_note_or_agent_reply_does_not_make_the_ticket_wait_on_the_agent(): void
+    {
+        $ticket = Ticket::create(['subject' => 'Agent side', 'status' => TicketStatus::Open]);
+
+        $ticket->addMessage('Internal thought', MessageSenderType::Agent, isInternalNote: true);
+
+        $this->assertSame(TicketStatus::Open, $ticket->fresh()->status);
     }
 }

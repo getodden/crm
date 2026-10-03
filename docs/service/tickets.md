@@ -52,16 +52,16 @@ When a ticket is created without an `sla_policy_id`, the active policy with `is_
 | Status | Set when |
 | :--- | :--- |
 | `New` | The ticket is created. |
-| `Open` | A routing rule assigns a `New` ticket, a customer replies to a `New` or `WaitingOnCustomer` ticket, a customer replies to a `Resolved` or `Closed` ticket while `reopen_on_customer_reply` is on, or you call `reopen()`. |
+| `Open` | A routing rule assigns a `New` ticket, or you call `reopen()`. |
 | `WaitingOnCustomer` | The first public agent reply is posted (unless the ticket is `Resolved` or `Closed`). |
-| `WaitingOnAgent` | Defined for your own workflows. No package code path currently leaves a ticket in this status. |
+| `WaitingOnAgent` | A customer posts a public message on the ticket (portal, email or chat), including to a `Resolved` or `Closed` ticket while `reopen_on_customer_reply` is on. It means the ball is with your agents. |
 | `Resolved` | You call `resolve()` or `ResolveTicketAction`. |
 | `Closed` | You call `close()`, the ticket is merged into another, or `service:run-automations` closes it. |
 
 These transitions happen inside `Ticket::addMessage()`, which every action and public endpoint uses to post messages:
 
 - A public `Agent` message on a ticket with no `first_responded_at` sets `first_responded_at` to now, sets `is_sla_response_breached` to whether the response was late, and moves the status to `WaitingOnCustomer` unless the ticket is resolved or closed. Later agent replies don't change the status.
-- A public `Customer` message moves `New` and `WaitingOnCustomer` tickets to `Open`. On a `Resolved` or `Closed` ticket it reopens the ticket (status `Open`, `resolved_at` and `closed_at` cleared) when `odden-service.reopen_on_customer_reply` is `true`, the default (`ODDEN_SERVICE_REOPEN_ON_CUSTOMER_REPLY`). Set it to `false` to keep resolved and closed tickets as they are; the message is still added. A ticket that was [merged](routing.md#merging-tickets) into another is never reopened. Customer replies through `ReplyTicketAction` go to its primary instead, see [Replying](#replying-and-internal-notes).
+- A public `Customer` message moves the ticket to `WaitingOnAgent`, whatever its open status was. On a `Resolved` or `Closed` ticket it reopens the ticket (status `WaitingOnAgent`, `resolved_at` and `closed_at` cleared) when `odden-service.reopen_on_customer_reply` is `true`, the default (`ODDEN_SERVICE_REOPEN_ON_CUSTOMER_REPLY`). Set it to `false` to keep resolved and closed tickets as they are; the message is still added. A ticket that was [merged](routing.md#merging-tickets) into another is never reopened. Customer replies through `ReplyTicketAction` go to its primary instead, see [Replying](#replying-and-internal-notes).
 - Internal notes and `System` messages never change the status.
 
 These status updates are saved quietly (without model events).

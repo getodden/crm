@@ -135,7 +135,7 @@ class HelpCenterAndPortalTest extends TestCase
         $replyResponse->assertSessionHasNoErrors();
         $ticket->refresh();
 
-        $this->assertSame(TicketStatus::Open, $ticket->status);
+        $this->assertSame(TicketStatus::WaitingOnAgent, $ticket->status);
         $this->assertCount(1, $ticket->messages);
         $this->assertSame('I have regenerated the token in settings and confirmed it works now!', $ticket->messages->first()?->body);
     }

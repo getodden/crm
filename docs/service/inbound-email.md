@@ -118,7 +118,7 @@ Ticket numbers in the subject, body, or headers are ignored for threading. The `
 When a ticket is found, the body is added as a `Customer` message from that ticket's contact through [`ReplyTicketAction`](tickets.md#replying-and-internal-notes):
 
 - If the ticket was [merged](routing.md#merging-tickets) into another, the message is posted on the primary ticket, following the merge chain to its end. The token and sender checks above are always made against the ticket the email referenced, not the primary, so a merge never lets the primary's contact use the merged ticket's token, or the reverse. The response's `ticket_number` is the ticket the message landed on.
-- A customer message moves `New` and `WaitingOnCustomer` tickets to `Open`, and reopens a `Resolved` or `Closed` ticket (status `Open`, `resolved_at` and `closed_at` cleared) while `odden-service.reopen_on_customer_reply` is `true`, the default. With it `false`, the message is added and the status is left alone. The merged ticket itself stays closed; it's the primary that reopens.
+- A customer message moves the ticket to `WaitingOnAgent`, and reopens a `Resolved` or `Closed` ticket (status `WaitingOnAgent`, `resolved_at` and `closed_at` cleared) while `odden-service.reopen_on_customer_reply` is `true`, the default. With it `false`, the message is added and the status is left alone. The merged ticket itself stays closed; it's the primary that reopens.
 
 ### Where the token is found
 
