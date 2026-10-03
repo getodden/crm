@@ -327,7 +327,7 @@ $check = app(CheckFatiguePolicyAction::class)->execute($contact);
 `CompileCampaignMessageAction::execute(Campaign $campaign, CampaignRecipient $recipient): string` builds the HTML for one recipient, in this order:
 
 1. **Body.** If the template has mail builder slots, they're compiled for this recipient, so [slot visibility rules](email-templates.md#conditional-slots) are applied against the contact and their first company. Otherwise the template's `body_html` is used (or the variant B HTML for a variant B recipient).
-2. **Merge tags.** These seven tags are replaced, written exactly as shown with no spaces inside the braces. Any other tag is left in the email as written. Values are HTML-escaped with `e()`, so a contact named `<b>Sam</b>` appears as that literal text rather than as markup.
+2. **Merge tags.** Every tag in the table below is replaced through the mail builder's interpolator, so [filters, spaces inside the braces and conditionals](email-templates.md#in-the-mail-builder) work too. A tag nobody registered is left in the email as written. Values are HTML-escaped with `e()`, so a contact named `<b>Sam</b>` appears as that literal text rather than as markup.
 
    | Tag | Value |
    | :--- | :--- |
@@ -338,6 +338,11 @@ $check = app(CheckFatiguePolicyAction::class)->execute($contact);
    | `{{unsubscribe_url}}` | This recipient's [unsubscribe page](subscriptions-and-compliance.md#unsubscribe-links) |
    | `{{campaign.subject}}` | The campaign subject |
    | `{{campaign.name}}` | The campaign name |
+   | `{{contact.full_name}}` | First and last name together |
+   | `{{contact.job_title}}`, `{{contact.phone}}`, `{{contact.lifecycle_stage}}` | The contact's field, or empty |
+   | `{{company.domain}}`, `{{company.industry}}` | The first company's field, or empty |
+   | `{{sender.name}}` | The contact's owner, or the campaign's `sender_name` |
+   | `{{sender.email}}` | The campaign's `sender_email` |
 
 3. **Smart content.** `[smart]` blocks and `{{smart:…}}` tokens are resolved for the contact; see [Smart content](email-templates.md#smart-content).
 4. **UTM parameters.** When `utm_auto_tag` is on, `utm_source=odden`, `utm_medium=email`, and `utm_campaign` (the slug of `utm_campaign`, or of the campaign name) are added to every absolute link, plus `utm_content=variant_a` or `variant_b` for A/B recipients. Parameters already in a link keep their value. `mailto:`, `tel:`, `#` and unsubscribe links are left alone.

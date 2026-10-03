@@ -239,4 +239,47 @@ class CampaignDispatchAndTrackingTest extends TestCase
         $this->get($bounced->getTrackingPixelUrl())->assertOk();
         $this->assertSame(RecipientStatus::Bounced, $bounced->fresh()->status);
     }
+
+    public function test_campaigns_fill_every_registered_merge_tag_with_filters_and_escaping(): void
+    {
+        $template = MarketingTemplate::create([
+            'name' => 'Merge Tags',
+            'subject' => 'Hi',
+            'body_html' => '<p>{{ contact.first_name | upper }} | {{contact.full_name}} | {{contact.job_title}} | {{company.domain}} | {{company.industry}} | {{sender.name}} | {{sender.email}} | {{contact.phone}} | {{contact.lifecycle_stage}} | {{ campaign.name }} | {{contact.missing_thing}}</p>',
+        ]);
+
+        $campaign = Campaign::create([
+            'name' => 'Merge <Run>',
+            'subject' => 'Subject',
+            'sender_name' => 'Odden Team',
+            'sender_email' => 'news@odden.test',
+            'template_id' => $template->id,
+            'status' => CampaignStatus::Draft,
+        ]);
+
+        $contact = Contact::factory()->create([
+            'first_name' => 'Sarah',
+            'last_name' => 'Connor',
+            'email' => 'sarah@example.com',
+            'job_title' => 'VP <script>alert(1)</script> Ops',
+            'phone' => '+1 555 0100',
+        ]);
+        $contact->associateWith(Company::create(['name' => 'Cyberdyne', 'domain' => 'cyberdyne.test', 'industry' => 'Robotics']));
+
+        $recipient = CampaignRecipient::create([
+            'campaign_id' => $campaign->id,
+            'contact_id' => $contact->id,
+            'email' => $contact->email,
+            'status' => RecipientStatus::Pending,
+        ]);
+
+        $html = (new CompileCampaignMessageAction)->execute($campaign, $recipient);
+
+        $this->assertStringContainsString('SARAH | Sarah Connor | VP &lt;script&gt;alert(1)&lt;/script&gt; Ops | cyberdyne.test | Robotics | Odden Team | news@odden.test | +1 555 0100 |', $html);
+        $this->assertStringContainsString('| Merge &lt;Run&gt; |', $html);
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringNotContainsString('{{contact.job_title}}', $html);
+        // Tags nobody registered stay as written.
+        $this->assertStringContainsString('{{contact.missing_thing}}', $html);
+    }
 }

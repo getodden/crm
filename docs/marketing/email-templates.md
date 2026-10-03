@@ -219,9 +219,9 @@ A tag with no value is left in the email as written.
 
 ### In campaigns
 
-Campaigns don't use the interpolator. They replace only seven tags, which must be written with no spaces: `{{contact.first_name}}`, `{{contact.last_name}}`, `{{contact.email}}`, `{{company.name}}`, `{{unsubscribe_url}}`, `{{campaign.subject}}`, and `{{campaign.name}}`. See [The compiled message](campaigns.md#the-compiled-message) for their fallbacks.
+Campaigns and workflow emails use the same interpolator, so every tag in the registry works, with spaces, filters and conditionals: the contact, company and sender tags above, plus `{{unsubscribe_url}}` and (in campaigns) `{{campaign.subject}}` and `{{campaign.name}}`. See [The compiled message](campaigns.md#the-compiled-message) for the values and fallbacks, such as `there` for a missing first name.
 
-Other tags from the registry, such as `{{contact.job_title}}` and `{{sender.name}}`, as well as filters and conditionals, appear unchanged in campaign emails. Workflow emails replace the first five of the seven. In both, the values are HTML-escaped with `e()`, so contact or company data containing `<` or `&` can't add markup to the email.
+Values are HTML-escaped with `e()` before they're interpolated, so contact or company data containing `<` or `&` can't add markup to the email. A tag you registered yourself needs a value in the context to be filled; unknown tags are left as written.
 
 ## Smart content
 

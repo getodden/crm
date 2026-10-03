@@ -6,6 +6,7 @@ namespace Odden\Marketing\Actions;
 
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Support\UserModel;
 use Odden\MailBuilder\MailBuilder;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
@@ -54,19 +55,15 @@ class CompileCampaignMessageAction
         $unsubscribeUrl = $recipient->getUnsubscribeUrl();
         $trackingPixelUrl = $recipient->getTrackingPixelUrl();
 
-        // 1. Merge tags
-        $placeholders = [
-            '{{contact.first_name}}' => $contact->first_name ?? 'there',
-            '{{contact.last_name}}' => $contact->last_name ?? '',
-            '{{contact.email}}' => $recipient->email,
-            '{{company.name}}' => $company->name ?? 'your organization',
-            '{{unsubscribe_url}}' => $unsubscribeUrl,
-            '{{campaign.subject}}' => $campaign->subject,
-            '{{campaign.name}}' => $campaign->name,
-        ];
-
+        // 1. Merge tags: every tag in the mail builder's registry, with its filters and conditionals.
         // Values are HTML-escaped: contact and company fields are untrusted input.
-        $html = str_replace(array_keys($placeholders), array_map(e(...), $placeholders), $rawHtml);
+        $html = MailBuilder::interpolate($rawHtml, $this->mergeContext(
+            contact: $contact,
+            company: $company,
+            email: $recipient->email,
+            unsubscribeUrl: $unsubscribeUrl,
+            campaign: $campaign,
+        ));
 
         // Evaluate smart dynamic content blocks
         $html = app(EvaluateSmartContentBlocksAction::class)->execute($html, $contact);
@@ -159,19 +156,69 @@ class CompileCampaignMessageAction
         /** @var Company|null $company */
         $company = $contact->companies()->first();
 
-        $placeholders = [
-            '{{contact.first_name}}' => $contact->first_name ?? 'there',
-            '{{contact.last_name}}' => $contact->last_name ?? '',
-            '{{contact.email}}' => $contact->email,
-            '{{company.name}}' => $company->name ?? 'your organization',
-            '{{unsubscribe_url}}' => ContactPreferences::preferenceCenterUrl($contact),
-        ];
-
         // Values are HTML-escaped for HTML bodies: contact and company fields are untrusted input.
         // Plain-text messages such as SMS pass $escape = false.
-        $values = $escape ? array_map(e(...), $placeholders) : array_values($placeholders);
-        $html = str_replace(array_keys($placeholders), $values, $rawHtml);
+        $html = MailBuilder::interpolate($rawHtml, $this->mergeContext(
+            contact: $contact,
+            company: $company,
+            email: (string) $contact->email,
+            unsubscribeUrl: ContactPreferences::preferenceCenterUrl($contact),
+            campaign: null,
+            escape: $escape,
+        ));
 
         return app(EvaluateSmartContentBlocksAction::class)->execute($html, $contact);
+    }
+
+    /**
+     * The values for every merge tag the package registers with the mail builder, plus
+     * `unsubscribe_url` and the campaign's own `campaign.subject` and `campaign.name`.
+     *
+     * Missing values get the old fallbacks for the original tags (`there`, `your organization`)
+     * and an empty string for the rest, so an unfilled tag never reaches a customer.
+     *
+     * @return array<string, mixed>
+     */
+    protected function mergeContext(?Contact $contact, ?Company $company, string $email, string $unsubscribeUrl, ?Campaign $campaign, bool $escape = true): array
+    {
+        $firstName = $contact?->first_name;
+        $lastName = $contact?->last_name;
+        $owner = $contact?->owner;
+
+        $context = [
+            'contact' => [
+                'first_name' => $firstName !== null && $firstName !== '' ? $firstName : 'there',
+                'last_name' => (string) $lastName,
+                'full_name' => trim($firstName.' '.$lastName),
+                'email' => $email,
+                'job_title' => (string) $contact?->job_title,
+                'phone' => (string) $contact?->phone,
+                'lifecycle_stage' => $contact?->lifecycle_stage?->value ?? '',
+            ],
+            'company' => [
+                'name' => $company?->name !== null && $company->name !== '' ? $company->name : 'your organization',
+                'domain' => (string) $company?->domain,
+                'industry' => (string) $company?->industry,
+            ],
+            'sender' => [
+                'name' => $owner !== null ? UserModel::displayName($owner, '') : (string) $campaign?->sender_name,
+                'email' => (string) ($campaign?->sender_email ?? config('odden-marketing.defaults.sender_email')),
+            ],
+            'campaign' => [
+                'subject' => (string) $campaign?->subject,
+                'name' => (string) $campaign?->name,
+            ],
+            'unsubscribe_url' => $unsubscribeUrl,
+        ];
+
+        if (! $escape) {
+            return $context;
+        }
+
+        array_walk_recursive($context, function (mixed &$value): void {
+            $value = e((string) $value);
+        });
+
+        return $context;
     }
 }
