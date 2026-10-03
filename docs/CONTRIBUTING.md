@@ -37,3 +37,15 @@ Link to other pages with relative paths to the Markdown file, so the links also 
 - Use fenced code blocks with a language (`php`, `bash`, `env`, `json`, `blade`).
 - When something is configurable, show the config key and its default.
 - Call out side effects a developer would not expect (queued jobs, emails, scheduled commands, events dispatched).
+
+## Publishing
+
+The `Docs` workflow (`.github/workflows/docs.yml`) checks the pages, navigation and links on every pull request that touches `docs/**`. On a push to `main` it then redeploys the website, because `odden.io/docs` is built from `main`.
+
+The redeploy is a `POST` to a deploy hook URL stored in the `WEBSITE_DEPLOY_HOOK` repository secret (Settings → Secrets and variables → Actions). GitHub never shows a secret's value, so the URL has to come from the website host: create or copy a deploy hook in the settings of the site that serves `odden.io`, then store it:
+
+```bash
+gh secret set WEBSITE_DEPLOY_HOOK
+```
+
+If the secret is empty, the publish step passes with a notice and the docs update on the website's next deploy. If the host deletes or regenerates the hook, the step fails with `curl: (22) ... 404`; the docs checks still pass, so the pages themselves are fine. Create a new hook, update the secret, and re-run the failed `Docs` run.
