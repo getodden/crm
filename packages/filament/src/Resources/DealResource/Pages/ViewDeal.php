@@ -50,7 +50,7 @@ class ViewDeal extends ViewRecord
                     /** @var Deal $record */
                     $record = $this->getRecord();
 
-                    return view('odden-sales::deals.health-score-modal', [
+                    return view('odden-filament::deals.health-score-modal', [
                         'health' => $record->getHealthScore(),
                     ]);
                 })

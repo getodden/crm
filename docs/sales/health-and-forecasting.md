@@ -60,7 +60,7 @@ The result for open deals is clamped to 5–99. Status is `strong` at 75 or more
 
 Any activity on the deal counts toward recency, including activities the package logs itself, such as stage automation tasks and quote portal views.
 
-The package also ships a Blade partial, `odden-sales::deals.health-score-modal`, which renders this array (passed as `$health`). The Odden Filament panel uses it on the deal page. It uses `<x-filament::icon>` components and Tailwind classes, so it only renders in an app with Filament installed; outside Filament, build your own view from the array.
+The sales package ships no view for this array, so it stays free of Filament. The Odden Filament package renders it on the deal page with `odden-filament::deals.health-score-modal` (passed as `$health`); outside Filament, build your own view from the array.
 
 ## Pipeline forecast
 

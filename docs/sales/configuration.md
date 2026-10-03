@@ -150,7 +150,6 @@ Views are registered under the `odden-sales` namespace:
 | `odden-sales::quotes.public-portal` | `odden.quotes.show` |
 | `odden-sales::meetings.book` | `odden.meetings.show` |
 | `odden-sales::mail.meeting-booked` | Body of the meeting confirmation email. |
-| `odden-sales::deals.health-score-modal` | Not used by a route. Takes a `$health` array and requires Filament. See [Health score](health-and-forecasting.md#health-score). |
 
 There is no publish tag for views. To override one, create a file with the same path under `resources/views/vendor/odden-sales/` in your app.
 

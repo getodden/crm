@@ -10,8 +10,6 @@ it('sales domain remains strictly headless (no Filament or Livewire)', function 
 });
 
 it('sales Blade views remain headless (no Filament or Livewire components)', function (): void {
-    test()->markTestIncomplete('health-score-modal uses x-filament::icon; fixed by #35.');
-
     expect(bladeViewsMatching('/<x-filament::|<x-livewire|@livewire/'))->toBeEmpty();
 });
 
