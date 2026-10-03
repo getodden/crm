@@ -20,6 +20,7 @@ use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\MarketingSubscription;
 use Odden\Marketing\Models\MarketingTemplate;
+use Odden\Marketing\Support\ContactPreferences;
 
 class MarketingProFeaturesTest extends TestCase
 {
@@ -289,8 +290,8 @@ class MarketingProFeaturesTest extends TestCase
 
         $contact->refresh();
         $this->assertSame(['webinars', 'security'], $contact->marketing_topics);
-        $this->assertTrue($contact->isSubscribedToTopic('webinars'));
-        $this->assertFalse($contact->isSubscribedToTopic('newsletter'));
+        $this->assertTrue(ContactPreferences::isSubscribedToTopic($contact, 'webinars'));
+        $this->assertFalse(ContactPreferences::isSubscribedToTopic($contact, 'newsletter'));
 
         // 3. Global opt-out
         $optOutResponse = $this->post("/marketing/preferences/{$verificationToken}", [

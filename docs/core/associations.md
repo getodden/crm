@@ -61,8 +61,8 @@ Merging records moves their associations to the surviving record. See [Duplicate
 | `label` | Label shown from the parent's side. |
 | `reverse_label` | Label shown from the child's side. Nullable. |
 | `cardinality` | `AssociationCardinality`, default `many_to_many`. |
-| `from_record_type`, `to_record_type` | Morph classes. Only used by `getLabelFor()`. |
-| `is_system` | Boolean, default `false`. Not used by Core. |
+| `from_record_type`, `to_record_type` | Morph classes. `getLabelFor()` uses them, and `AssociateRecordsAction` enforces them (see below). |
+| `is_system` | Boolean, default `false`. A system type can't be deleted, and its `name`, `from_record_type` and `to_record_type` can't change (labels and cardinality can); both throw `SystemAssociationTypeException`. |
 | `team_id` | Nullable. |
 
 ```php
@@ -93,7 +93,7 @@ $company->associateWith($sam, 'billing_contact'); // throws CardinalityViolation
 
 `CreateAssociationTypeAction::execute(array $attributes): AssociationType` converts a string `cardinality` to the enum and creates the row. `AssociationType::getLabelFor(Model $record)` returns `reverse_label` when the record's morph class equals `to_record_type`, and `label` otherwise.
 
-`from_record_type` and `to_record_type` are not enforced. Any pair of models can be linked under any type.
+When `from_record_type` and `to_record_type` are both set, the two records must be of those types, in either order. When only one is set, one of the two records must be of that type. Otherwise `AssociateRecordsAction` (and so `associateWith()`) throws `Odden\Core\Exceptions\InvalidAssociationException` and nothing is saved. With neither set, any pair of models can be linked.
 
 ### Cardinality
 

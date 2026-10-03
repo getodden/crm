@@ -119,7 +119,6 @@ Publish the file with `php artisan vendor:publish --tag=odden-core-config` to ch
 | `tables.contacts` | `odden_contacts` | Table names for each model. Read by the models and migrations, so set them before migrating. |
 | `tables.companies` | `odden_companies` | |
 | `tables.properties` | `odden_properties` | `PropertyDefinition` table. |
-| `tables.property_groups` | `odden_property_groups` | Not used. Core creates no such table. |
 | `tables.associations` | `odden_associations` | |
 | `tables.association_types` | `odden_association_types` | |
 | `tables.activities` | `odden_activities` | |

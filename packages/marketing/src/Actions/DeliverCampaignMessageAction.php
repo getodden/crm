@@ -10,6 +10,7 @@ use Odden\Marketing\Mail\MarketingMessageMailable;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\MarketingSubscription;
+use Odden\Marketing\Support\ContactPreferences;
 use Odden\Marketing\Support\MarketingMailer;
 use Throwable;
 
@@ -54,7 +55,7 @@ class DeliverCampaignMessageAction
             return false;
         }
 
-        if ($contact !== null && ! empty($campaign->topic) && ! $contact->isSubscribedToTopic((string) $campaign->topic)) {
+        if ($contact !== null && ! empty($campaign->topic) && ! ContactPreferences::isSubscribedToTopic($contact, (string) $campaign->topic)) {
             return false;
         }
 

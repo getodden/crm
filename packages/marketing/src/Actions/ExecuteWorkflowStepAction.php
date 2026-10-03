@@ -15,6 +15,7 @@ use Odden\Marketing\Models\MarketingTemplate;
 use Odden\Marketing\Models\WorkflowEnrollment;
 use Odden\Marketing\Models\WorkflowLog;
 use Odden\Marketing\Models\WorkflowStep;
+use Odden\Marketing\Support\ContactPreferences;
 use Odden\Marketing\Support\MarketingMailer;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
@@ -93,7 +94,7 @@ class ExecuteWorkflowStepAction
                         fromEmail: (string) ($step->config['from_email'] ?? config('odden-marketing.defaults.sender_email')),
                         fromName: (string) ($step->config['from_name'] ?? config('odden-marketing.defaults.sender_name')),
                         replyToEmail: ($step->config['reply_to'] ?? config('odden-marketing.defaults.reply_to')) ?: null,
-                        listUnsubscribeUrl: $contact->getPreferenceCenterUrl(),
+                        listUnsubscribeUrl: ContactPreferences::preferenceCenterUrl($contact),
                     ), $email);
 
                     // Record activity log on contact

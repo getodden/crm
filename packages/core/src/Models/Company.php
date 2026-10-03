@@ -20,6 +20,7 @@ use Odden\Core\Traits\BelongsToTeam;
 use Odden\Core\Traits\HasActivities;
 use Odden\Core\Traits\HasAssociations;
 use Odden\Core\Traits\HasCustomProperties;
+use Odden\Core\Traits\QualifiesRelatedColumns;
 use Odden\Core\Traits\HasLifecycleStageTransitions;
 
 /**
@@ -61,6 +62,7 @@ class Company extends Model
     use HasActivities;
     use HasAssociations;
     use HasCustomProperties;
+    use QualifiesRelatedColumns;
 
     /** @use HasFactory<CompanyFactory> */
     use HasFactory;

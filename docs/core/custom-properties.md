@@ -135,7 +135,7 @@ foreach ($contact->propertyHistory as $entry) {
 History is only written for changes made through Eloquent model events. These changes write no history:
 
 - `saveQuietly()`, `updateQuietly()`, and query-builder updates such as `Contact::where(...)->update([...])`.
-- the marketing verification token that `getPreferenceCenterUrl()` generates, which is saved quietly because it is a secret.
+- the marketing verification token that `ContactPreferences::preferenceCenterUrl()` generates, which is saved quietly because it is a secret.
 
 Lifecycle stage changes from `TransitionLifecycleStageAction`, `Contact::markContacted()`, and company [enrichment](contacts-and-companies.md#enrichment) do write history, in addition to the [lifecycle transition](lifecycle-stages.md) row where that applies.
 

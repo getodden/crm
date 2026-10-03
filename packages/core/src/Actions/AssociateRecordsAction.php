@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Enums\AssociationCardinality;
 use Odden\Core\Events\RecordsAssociated;
 use Odden\Core\Exceptions\CardinalityViolationException;
+use Odden\Core\Exceptions\InvalidAssociationException;
 use Odden\Core\Models\Association;
 use Odden\Core\Models\AssociationType;
 
@@ -17,6 +18,7 @@ class AssociateRecordsAction
      * Associate two records together with an optional relationship type, label, and cardinality check.
      *
      * @throws CardinalityViolationException
+     * @throws InvalidAssociationException
      */
     public function execute(
         Model $parent,
@@ -41,8 +43,9 @@ class AssociateRecordsAction
             }
         }
 
-        // Validate Cardinality Constraints
+        // Validate record types and cardinality constraints
         if ($associationType !== null) {
+            $this->enforceRecordTypes($parent, $child, $associationType);
             $this->enforceCardinality($parent, $child, $associationType);
         }
 
@@ -72,6 +75,37 @@ class AssociateRecordsAction
         }
 
         return $association;
+    }
+
+    /**
+     * Enforce the record types an association type allows. The two records must be the type's
+     * `from_record_type` and `to_record_type`, in either order; when only one is set, one of the
+     * two records must be of that type.
+     *
+     * @throws InvalidAssociationException
+     */
+    protected function enforceRecordTypes(Model $parent, Model $child, AssociationType $type): void
+    {
+        $from = $type->from_record_type;
+        $to = $type->to_record_type;
+
+        if ($from === null && $to === null) {
+            return;
+        }
+
+        $records = [$parent->getMorphClass(), $child->getMorphClass()];
+
+        $allowed = match (true) {
+            $from !== null && $to !== null => ($records[0] === $from && $records[1] === $to) || ($records[0] === $to && $records[1] === $from),
+            $from !== null => in_array($from, $records, true),
+            default => in_array($to, $records, true),
+        };
+
+        if (! $allowed) {
+            $expected = $from !== null && $to !== null ? "{$from} and {$to}" : ($from ?? $to);
+
+            throw new InvalidAssociationException("Association type [{$type->name}] links {$expected} records, not {$records[0]} and {$records[1]}.");
+        }
     }
 
     /**

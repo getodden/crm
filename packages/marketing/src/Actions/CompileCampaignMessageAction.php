@@ -10,6 +10,7 @@ use Odden\MailBuilder\MailBuilder;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\MarketingTemplate;
+use Odden\Marketing\Support\ContactPreferences;
 
 class CompileCampaignMessageAction
 {
@@ -163,7 +164,7 @@ class CompileCampaignMessageAction
             '{{contact.last_name}}' => $contact->last_name ?? '',
             '{{contact.email}}' => $contact->email,
             '{{company.name}}' => $company->name ?? 'your organization',
-            '{{unsubscribe_url}}' => $contact->getPreferenceCenterUrl(),
+            '{{unsubscribe_url}}' => ContactPreferences::preferenceCenterUrl($contact),
         ];
 
         // Values are HTML-escaped for HTML bodies: contact and company fields are untrusted input.

@@ -8,6 +8,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Odden\Core\Enums\AssociationCardinality;
+use Odden\Core\Exceptions\SystemAssociationTypeException;
 use Odden\Core\Traits\BelongsToTeam;
 
 /**
@@ -42,6 +43,24 @@ class AssociationType extends Model
         'is_system',
         'team_id',
     ];
+
+    /**
+     * System types are built in: they can't be deleted, and their name and record types can't change.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $type): void {
+            if ($type->is_system) {
+                throw new SystemAssociationTypeException("Association type [{$type->name}] is a system type and can't be deleted.");
+            }
+        });
+
+        static::updating(function (self $type): void {
+            if ($type->getOriginal('is_system') && $type->isDirty(['name', 'from_record_type', 'to_record_type', 'is_system'])) {
+                throw new SystemAssociationTypeException("Association type [{$type->getOriginal('name')}] is a system type; only its labels and cardinality can change.");
+            }
+        });
+    }
 
     /**
      * Get the table associated with the model.

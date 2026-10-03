@@ -12,8 +12,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
 use Odden\Core\Database\Factories\ContactFactory;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
@@ -23,6 +21,7 @@ use Odden\Core\Traits\BelongsToTeam;
 use Odden\Core\Traits\HasActivities;
 use Odden\Core\Traits\HasAssociations;
 use Odden\Core\Traits\HasCustomProperties;
+use Odden\Core\Traits\QualifiesRelatedColumns;
 use Odden\Core\Traits\HasLifecycleStageTransitions;
 
 /**
@@ -73,6 +72,7 @@ class Contact extends Model
     use HasActivities;
     use HasAssociations;
     use HasCustomProperties;
+    use QualifiesRelatedColumns;
 
     /** @use HasFactory<ContactFactory> */
     use HasFactory;
@@ -197,34 +197,6 @@ class Contact extends Model
     public function getBecameSqlAtAttribute(): ?CarbonInterface
     {
         return $this->became_sales_qualified_lead_at;
-    }
-
-    /**
-     * Check if contact is subscribed to a specific marketing topic channel.
-     */
-    public function isSubscribedToTopic(string $topic): bool
-    {
-        if ($this->marketing_topics === null) {
-            return true; // All channels opted in by default
-        }
-
-        return in_array($topic, (array) $this->marketing_topics, true);
-    }
-
-    /**
-     * Get the subscriber preference center URL.
-     */
-    public function getPreferenceCenterUrl(): string
-    {
-        $token = $this->marketing_verification_token ?: Str::random(40);
-        if ($this->marketing_verification_token === null) {
-            $this->updateQuietly(['marketing_verification_token' => $token]);
-        }
-
-        // The preference center is served by getodden/crm-marketing when it is installed.
-        return Route::has('odden.marketing.preferences.show')
-            ? route('odden.marketing.preferences.show', $token)
-            : url('/marketing/preferences/'.$token);
     }
 
     /**

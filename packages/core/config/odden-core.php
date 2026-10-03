@@ -15,7 +15,6 @@ return [
         'contacts' => 'odden_contacts',
         'companies' => 'odden_companies',
         'properties' => 'odden_properties',
-        'property_groups' => 'odden_property_groups',
         'associations' => 'odden_associations',
         'association_types' => 'odden_association_types',
         'activities' => 'odden_activities',

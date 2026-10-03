@@ -86,11 +86,13 @@ The `POST` route is exempt from CSRF verification, because providers send it wit
 The preference center lets a contact choose topics or opt out of everything.
 
 ```php
-$url = $contact->getPreferenceCenterUrl();
+use Odden\Marketing\Support\ContactPreferences;
+
+$url = ContactPreferences::preferenceCenterUrl($contact);
 // e.g. https://example.com/marketing/preferences/{token}
 ```
 
-`Contact::getPreferenceCenterUrl()` (from Core) generates the contact's `marketing_verification_token` the first time it's called and saves it quietly. The preference routes accept that token or any `CampaignRecipient` unsubscribe token for the contact.
+`ContactPreferences::preferenceCenterUrl()` (`Odden\Marketing\Support\ContactPreferences`) generates the contact's `marketing_verification_token` the first time it's called and saves it quietly. The preference routes accept that token or any `CampaignRecipient` unsubscribe token for the contact.
 
 **`GET /marketing/preferences/{token}`** lists every `MarketingSubscriptionTopic` with the contact's current choices.
 
@@ -154,7 +156,7 @@ $campaign->update(['topic_id' => $webinars->id]);
 
 ### Contact topic slugs
 
-The contact's own `marketing_topics` column holds an array of topic slugs. `Contact::isSubscribedToTopic(string $topic)` returns `true` if the slug is in the array, or if the column is `null` (a contact who never chose is subscribed to everything).
+The contact's own `marketing_topics` column holds an array of topic slugs. `ContactPreferences::isSubscribedToTopic(Contact $contact, string $topic)` returns `true` if the slug is in the array, or if the column is `null` (a contact who never chose is subscribed to everything).
 
 Set a campaign's `topic` (a string, up to 50 characters) to make dispatch check it:
 
@@ -170,8 +172,9 @@ Double opt-in asks a new subscriber to confirm their address by clicking a link.
 
 ```php
 use Illuminate\Support\Facades\Mail;
+use Odden\Marketing\Support\ContactPreferences;
 
-$contact->getPreferenceCenterUrl(); // ensures the contact has a marketing_verification_token
+ContactPreferences::preferenceCenterUrl($contact); // ensures the contact has a marketing_verification_token
 
 $confirmUrl = route('odden.marketing.confirm', $contact->marketing_verification_token);
 

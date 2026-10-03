@@ -47,7 +47,9 @@ $contact = ContactLookup::findOrCreate(' Dana@Example.com', ['first_name' => 'Da
 $contact->email; // "dana@example.com" for a new contact
 ```
 
-`Contact` also uses Laravel's `Notifiable` trait and has `isSubscribedToTopic()` and `getPreferenceCenterUrl()`. Those read the `marketing_topics` and `marketing_verification_token` columns, which the Marketing package adds. They fail without it.
+`Contact` also uses Laravel's `Notifiable` trait. The subscription helpers that depend on Marketing's columns live in Marketing, as `Odden\Marketing\Support\ContactPreferences::isSubscribedToTopic()` and `preferenceCenterUrl()`.
+
+`$contact->companies()` and `$company->contacts()` qualify plain column names when you `pluck()` through them, so `$contact->companies()->pluck('id')` works even though the association table has its own `id`.
 
 ### Lead status
 

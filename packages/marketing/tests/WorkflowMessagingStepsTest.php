@@ -20,6 +20,7 @@ use Odden\Marketing\Models\MarketingTemplate;
 use Odden\Marketing\Models\MarketingWorkflow;
 use Odden\Marketing\Models\WorkflowEnrollment;
 use Odden\Marketing\Models\WorkflowLog;
+use Odden\Marketing\Support\ContactPreferences;
 use Odden\Marketing\Tests\Fixtures\User;
 
 /**
@@ -56,7 +57,7 @@ class WorkflowMessagingStepsTest extends TestCase
             $this->assertTrue($mail->hasFrom('newsletter@odden.test'));
             $this->assertStringContainsString('Hello Linus', $mail->htmlBody);
             $this->assertStringContainsString('Hello Linus', $mail->textBody);
-            $this->assertSame('<'.$contact->fresh()?->getPreferenceCenterUrl().'>', $headers['List-Unsubscribe']);
+            $this->assertSame('<'.ContactPreferences::preferenceCenterUrl($contact->fresh()).'>', $headers['List-Unsubscribe']);
             $this->assertArrayNotHasKey('List-Unsubscribe-Post', $headers);
 
             return $mail->hasTo('linus@example.com');
