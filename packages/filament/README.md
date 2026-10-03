@@ -1,52 +1,13 @@
-# Odden Filament (`getodden/crm-filament`)
+# Odden Filament
 
-> This is a read-only split of the [getodden/crm](https://github.com/getodden/crm) monorepo. Please open issues and pull requests there.
+`getodden/crm-filament` is a [Filament](https://filamentphp.com) plugin that adds an admin interface for every Odden module installed in your app: resources, cockpits and dashboards for contacts and companies, sales, service and marketing.
 
-The unified administrative dashboard and RevOps cockpit for the Odden platform, built on Filament v4. Integrates Core CRM, Sales, Service, Marketing, and Mail Builder into a modular, plug-and-play admin interface with auto-discovering resources, executive cockpits, and dynamic EAV form rendering.
+## Requirements
 
----
-
-## Architecture & Capabilities
-
-```
-+-------------------------------------------------------------------------+
-|                              ODDEN FILAMENT                             |
-|                                                                         |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|  | Executive Overview |   | Sales Cockpit &    |   | Service Cockpit |  |
-|  | & KPI Dashboards   |   | Kanban Board       |   | & SLA Monitors  |  |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|             \                       |                       /           |
-|              v                      v                      v            |
-|       +---------------------------------------------------------+       |
-|       |               OddenPlugin (Auto-Discovery)              |       |
-|       |  Detects installed packages (Core, Sales, Service, etc) |       |
-|       +---------------------------------------------------------+       |
-|             |                       |                       |           |
-|             v                       v                       v           |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|  | Custom Property    |   | Marketing & ABM    |   | Data Quality &  |  |
-|  | Dynamic Builder    |   | Cockpits           |   | Deduplication   |  |
-|  +--------------------+   +--------------------+   +-----------------+  |
-+-------------------------------------------------------------------------+
-```
-
-### Core Features
-
-- **Single-Plugin Registration (`OddenPlugin`):** Register the entire RevOps suite in your Filament panel with one line. Detects which Odden packages are installed and registers matching resources, pages, and widgets dynamically.
-- **Dedicated Operational Cockpits:**
-  - `ExecutiveOverview`: C-level KPI dashboard displaying pipeline value, win rates, SLA compliance, and marketing ROI.
-  - `SalesCockpit`: Rep and manager hub with Kanban deal pipelines, quota tracking, and cadence tasks.
-  - `ServiceCockpit`: Real-time support queue monitoring SLA clocks, pending replies, and agent workloads.
-  - `MarketingCockpit`: Omnichannel performance tracking, active workflow enrollments, and conversion funnels.
-  - `AbmCockpit`: Target account engagement matrices and intent scores.
-  - `DataQuality`: Automated deduplication finder, orphaned record scanner, and data hygiene audits.
-  - `MarketingAttribution`: Interactive multi-touch revenue attribution modeling explorer.
-  - `SenderDomainHealth`: Real-time deliverability diagnostic panel (SPF, DKIM, DMARC, ESP status).
-- **Dynamic EAV Field Builder (`CustomPropertyFieldBuilder`):** Inspects dynamic `PropertyDefinition` records and dynamically injects typed form inputs and table columns into Contact and Company resources without requiring code changes.
-- **Audience & Navigation Clustering:** Organizes dozens of CRM tools into clean navigation clusters (*CRM Core*, *Sales*, *Help Desk*, *Marketing*, *Analytics*, *Configuration*).
-
----
+- PHP 8.3 or newer
+- Laravel 12 or 13
+- Filament 5.9 or newer
+- `getodden/crm-core` plus any of the sales, service and marketing packages
 
 ## Installation
 
@@ -54,81 +15,42 @@ The unified administrative dashboard and RevOps cockpit for the Odden platform, 
 composer require getodden/crm-filament
 ```
 
-Register `OddenPlugin` in your Filament Panel Provider (e.g., `app/Providers/Filament/AdminPanelProvider.php`):
+Register the plugin on your panel:
 
 ```php
 use Odden\Filament\OddenPlugin;
 
-public function panel(Panel $panel): Panel
-{
-    return $panel
-        ->default()
-        ->id('admin')
-        ->path('admin')
-        ->plugins([
-            OddenPlugin::make(),
-        ]);
-}
+return $panel
+    // ...
+    ->plugins([
+        OddenPlugin::make(),
+    ]);
 ```
 
----
-
-## Granular Module Control
-
-By default, `OddenPlugin` detects installed packages automatically. You can also explicitly toggle modules:
+The plugin registers resources and pages for the Odden packages it finds installed. To turn a module off, leave out a resource or page, or swap in your own class:
 
 ```php
 OddenPlugin::make()
-    ->enableCore(true)
-    ->enableSales(true)
-    ->enableService(false)    // Disable service resources and cockpit
-    ->enableMarketing(true)
-    ->enableMailBuilder(true)
+    ->disableModules('marketing')
+    ->except(\Odden\Filament\Pages\DataQuality::class)
+    ->replace(\Odden\Filament\Resources\ContactResource::class, \App\Filament\Resources\ContactResource::class);
 ```
 
----
+## Documentation
 
-## Available Filament Resources & Pages
+- [Filament admin overview](https://github.com/getodden/crm/tree/main/docs/filament/index.md)
+- [Resources](https://github.com/getodden/crm/tree/main/docs/filament/resources.md), [pages and cockpits](https://github.com/getodden/crm/tree/main/docs/filament/pages.md), [custom properties in forms](https://github.com/getodden/crm/tree/main/docs/filament/custom-properties.md)
+- [Authorization](https://github.com/getodden/crm/tree/main/docs/filament/authorization.md), [configuration](https://github.com/getodden/crm/tree/main/docs/filament/configuration.md), [customizing and extending](https://github.com/getodden/crm/tree/main/docs/filament/customizing.md)
 
-### Core Resources
-- `ContactResource`: Manage contacts, lifecycle transitions, polymorphic associations, and custom properties.
-- `CompanyResource`: Manage accounts, corporate domains, health scores, and associated contacts.
-- `PropertyDefinitionResource`: Admin interface for creating dynamic EAV fields.
-- `CrmListResource`: Build and manage dynamic/static contact lists.
-
-### Sales Resources
-- `DealResource`: Interactive Kanban board and tabular views with rotting indicators and deal health scores.
-- `PipelineResource`: Configure sales stages, probabilities, rotting limits, and stage gate requirements.
-- `QuoteResource`: CPQ proposal builder with line items, tax, and preview links.
-- `SalesQuotaResource`: Manage rep quotas across monthly, quarterly, and annual intervals.
-- `SalesSequenceResource`: Design multi-touch outbound cadences.
-- `SalesPlaybookResource`: Script objection handling and question checklists for sales reps.
-- `SalesMeetingLinkResource`: Manage rep calendar booking availability.
-- `LeadRoutingRuleResource`: Configure lead assignment strategies.
-
-### Service Resources
-- `TicketResource`: Multi-channel ticket management with threaded replies, internal notes, and SLA timers.
-- `SlaPolicyResource`: Define SLA targets by priority with business-hours schedules.
-- `TicketRoutingRuleResource`: Configure automated ticket routing.
-- `KnowledgeArticleResource`: Author public self-service documentation.
-- `CannedResponseResource`: Manage quick macro responses with variable tokens.
-
-### Marketing Resources
-- `CampaignResource`: Schedule broadcast and A/B test marketing campaigns.
-- `MarketingWorkflowResource`: Configure automated drip workflows.
-- `MarketingFormResource`: Build lead capture forms with progressive profiling.
-- `LandingPageResource`: Publish responsive landing pages.
-- `MarketingAssetResource`: Track downloadable content and gated whitepapers.
-- `MarketingEventResource`: Manage webinars and event registrations.
-- `MarketingSubscriptionResource`: Configure subscription topics and consent preferences.
-- `LeadScoringRuleResource`: Configure scoring point rules and inactivity decay.
-- `NpsSurveyResource`: Manage Net Promoter Score surveys and track satisfaction.
-- `AdAudienceSyncResource`: Manage sync to Meta, Google, and LinkedIn.
-
----
+The full documentation lives in the [`docs/`](https://github.com/getodden/crm/tree/main/docs/filament) folder of the [monorepo](https://github.com/getodden/crm), which is the single source of truth for behavior, signatures, configuration keys and commands. This README only covers installing the package.
 
 ## Testing
 
 ```bash
-vendor/bin/pest packages/filament/tests --compact
+composer install
+vendor/bin/pest
 ```
+
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).

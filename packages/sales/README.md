@@ -1,207 +1,44 @@
-# Odden Sales (`getodden/crm-sales`)
+# Odden Sales
 
-> This is a read-only split of the [getodden/crm](https://github.com/getodden/crm) monorepo. Please open issues and pull requests there.
+`getodden/crm-sales` adds pipelines and deals, products and quotes with online acceptance, forecasting and quotas, lead routing, outbound sequences, qualification playbooks, and public meeting-booking links on top of Odden Core.
 
-The revenue and deal acceleration engine for the Odden RevOps platform. Delivers multi-pipeline Kanban tracking, CPQ quoting, automated outbound cadences, stage gate enforcement, weighted revenue forecasting, quota attainment, and intelligent lead routing.
+## Requirements
 
----
-
-## Architecture & Capabilities
-
-```
-+-------------------------------------------------------------------------+
-|                               ODDEN SALES                               |
-|                                                                         |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|  | Multi-Pipelines &  |   |  Stage Gates &     |   | CPQ Quoting &   |  |
-|  | Kanban Stages      |   |  Rotting Watchdogs |   | Deal Products   |  |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|             \                       |                       /           |
-|              v                      v                      v            |
-|       +---------------------------------------------------------+       |
-|       |             Deal Health Scoring & Stage Engine          |       |
-|       |     (Automated triggers, velocity audits, health 0-100) |       |
-|       +---------------------------------------------------------+       |
-|             |                       |                       |           |
-|             v                       v                       v           |
-|  +--------------------+   +--------------------+   +-----------------+  |
-|  | Outbound Cadences  |   | Intelligent Lead   |   | Quotas, Velocity|  |
-|  | & Sales Sequences  |   | Routing Strategies |   | & Forecasting   |  |
-|  +--------------------+   +--------------------+   +-----------------+  |
-+-------------------------------------------------------------------------+
-```
-
-### Core Features
-
-- **Multi-Pipeline Deal Management:** Manage complex sales cycles across multiple pipelines (e.g., *Enterprise New Business*, *Self-Serve Expansion*, *Channel Partners*) with distinct stages and probabilities.
-- **Stage Gate Enforcement:** Require specific fields or custom properties before advancing deals (e.g., require `decision_maker_identified` and `budget_confirmed` before moving to Proposal).
-- **Deal Rotting & Health Scoring:** Automatic calculation of deal vitality (0–100) based on stage stall duration, recent rep touchpoints, and upcoming scheduled activities.
-- **CPQ & Product Catalog:** Attach line-item products to deals with volume discounts, margin tracking, and auto-sync deal amounts. Generate web quotes with customer self-service acceptance.
-- **Outbound Cadences (Sequences):** Multi-day cadences that schedule email, call, and LinkedIn steps for reps and log each step to the contact timeline. Email steps send the step's rendered template to the contact as a queued email and log it to the timeline.
-- **Stage Automations:** Automatically trigger tasks, send internal alerts, update fields, or dispatch webhooks when deals transition across pipeline stages.
-- **Intelligent Lead & Deal Routing:** Route inbound records to reps using `RoundRobin`, `Weighted`, `Territory`, or `SkillBased` routing rules.
-- **Weighted Revenue Forecasting & Quotas:** Calculate real-time pipeline forecasts ($\sum \text{amount} \times \text{probability}$) and track rep quota attainment over monthly, quarterly, or annual periods.
-- **Sales Playbooks & Meeting Scheduler:** Provide reps with structured qualification scripts while letting prospects book open slots (from each link's working hours, minus existing bookings) via personalized booking links, with queued confirmation emails and .ics invites.
-
----
+- PHP 8.3 or newer
+- Laravel 12 or 13
+- `getodden/crm-core` (installed automatically)
 
 ## Installation
 
 ```bash
 composer require getodden/crm-sales
-```
-
-Publish configuration and migrations:
-
-```bash
-php artisan vendor:publish --tag=odden-sales-migrations
-php artisan vendor:publish --tag=odden-sales-config
-```
-
-Run migrations:
-
-```bash
 php artisan migrate
 ```
 
----
+The service provider is auto-discovered and loads its own migrations. Publish the config file only if you need to change something:
 
-## Quick Start & Code Examples
-
-### 1. Advancing Deal Stages with Gate Enforcement
-
-```php
-use Odden\Sales\Actions\ChangeDealStageAction;
-use Odden\Sales\Exceptions\StageRequirementException;
-
-try {
-    app(ChangeDealStageAction::class)->execute(
-        deal: $deal,
-        targetStage: $negotiationStage,
-        actorId: auth()->id()
-    );
-} catch (StageRequirementException $e) {
-    // Thrown if required stage gate fields (e.g., 'procurement_contact') are missing
-    logger()->warning("Cannot advance deal {$deal->id}: " . $e->getMessage());
-}
+```bash
+php artisan vendor:publish --tag=odden-sales-config
 ```
 
-### 2. CPQ: Attaching Products & Generating Quotes
+Some features need the scheduler (sequences, quote expiry); the installation guide lists the commands to schedule.
 
-```php
-use Odden\Sales\Actions\GenerateQuoteFromDealAction;
-use Odden\Sales\Models\DealProduct;
+## Documentation
 
-// Attach products with discounts
-DealProduct::create([
-    'deal_id' => $deal->id,
-    'name' => 'Enterprise Platform License',
-    'unit_price' => 12000,
-    'quantity' => 2,
-    'discount_percent' => 10, // Line total: $21,600
-]);
+- [Sales overview](https://github.com/getodden/crm/tree/main/docs/sales/index.md)
+- [Pipelines and stages](https://github.com/getodden/crm/tree/main/docs/sales/pipelines-and-stages.md), [deals](https://github.com/getodden/crm/tree/main/docs/sales/deals.md), [quotes](https://github.com/getodden/crm/tree/main/docs/sales/quotes.md)
+- [Health score and forecasting](https://github.com/getodden/crm/tree/main/docs/sales/health-and-forecasting.md), [lead routing](https://github.com/getodden/crm/tree/main/docs/sales/lead-routing.md), [sequences](https://github.com/getodden/crm/tree/main/docs/sales/sequences.md), [meeting links](https://github.com/getodden/crm/tree/main/docs/sales/meeting-links.md)
+- [Configuration, routes and commands](https://github.com/getodden/crm/tree/main/docs/sales/configuration.md)
 
-// Generate quote with secure acceptance token
-$quote = app(GenerateQuoteFromDealAction::class)->execute(
-    deal: $deal,
-    expiresAt: now()->addDays(30)
-);
-
-echo "Quote URL: " . route('sales.quotes.view', ['token' => $quote->public_token]);
-```
-
-### 3. Outbound Cadences (Sales Sequences)
-
-```php
-use Odden\Sales\Actions\EnrollContactInSequenceAction;
-use Odden\Sales\Models\SalesSequence;
-
-$sequence = SalesSequence::where('name', 'Outbound Enterprise SDR')->first();
-
-app(EnrollContactInSequenceAction::class)->execute(
-    sequence: $sequence,
-    contact: $contact,
-    enrolledById: auth()->id()
-);
-
-// Progress pending sequence steps via scheduler
-// Schedule it yourself: php artisan sales:process-cadences (and run a queue worker for email steps)
-```
-
-### 4. Pipeline Forecasting & Quota Attainment
-
-```php
-use Odden\Sales\Actions\CalculatePipelineForecastAction;
-use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
-use Odden\Sales\Enums\QuotaPeriod;
-
-// Weighted and unweighted pipeline forecast
-$forecast = app(CalculatePipelineForecastAction::class)->execute(pipelineId: $pipeline->id);
-// Returns: ['total_pipeline' => 450000, 'weighted_pipeline' => 215000, 'by_stage' => [...]]
-
-// Rep quota progress
-$attainment = app(CalculateQuotaAttainmentAction::class)->execute(
-    userId: $salesRep->id,
-    period: QuotaPeriod::Quarterly,
-    date: now()
-);
-// Returns: ['quota' => 200000, 'closed_won' => 165000, 'percent' => 82.5]
-```
-
-### 5. Automated Lead Routing
-
-```php
-use Odden\Sales\Actions\RouteLeadAction;
-
-$assignedRepId = app(RouteLeadAction::class)->execute(
-    lead: $inboundContact,
-    territory: 'EMEA',
-    dealSize: 75000
-);
-```
-
----
-
-## Routes
-
-The public quote e-sign portal (`/quotes/{token}`) and meeting scheduler (`/meet/{slug}`) are registered in the `web` group with no prefix by default.
-
-Configure them in `config/odden-sales.php` (publish with `php artisan vendor:publish --tag=odden-sales-config`) or through environment variables:
-
-```env
-ODDEN_SALES_PREFIX=sales                # /quotes/{token} becomes /sales/quotes/{token}
-ODDEN_SALES_DOMAIN=deals.example.com     # optional
-ODDEN_SALES_ROUTES_ENABLED=true
-```
-
-Each group also accepts `middleware`. To register the routes yourself, set `routes.enabled` to `false` and define routes with the same names (`odden.quotes.*`, `odden.meetings.*`), because models, emails and notifications generate links from those names.
-
----
-
-## Data Models & Schema Reference
-
-| Model | Table | Responsibility |
-| :--- | :--- | :--- |
-| `Deal` | `deals` | Sales opportunities with amount, stage, health score, rotting status, and expected close date. |
-| `Pipeline` | `pipelines` | Sales pipelines organizing sequential stages. |
-| `PipelineStage` | `pipeline_stages` | Individual stages with probabilities, rotting limits, and gate requirements. |
-| `DealProduct` | `deal_products` | Line-item catalog items attached to deals. |
-| `DealStageHistory` | `deal_stage_histories` | Stage entry/exit timestamps and velocity audit logging. |
-| `Quote` | `quotes` | Formal proposals with expiration dates and public acceptance links. |
-| `QuoteItem` | `quote_items` | Individual line items on a quote. |
-| `SalesQuota` | `sales_quotas` | Revenue targets assigned to reps over defined calendar intervals. |
-| `SalesSequence` | `sales_sequences` | Multi-touch outbound engagement cadences. |
-| `SalesSequenceEnrollment`| `sales_sequence_enrollments` | Contact state tracking across cadence steps. |
-| `SalesPlaybook` | `sales_playbooks` | Interactive question checklists and qualification objection handlers. |
-| `SalesMeetingLink` | `sales_meeting_links` | Rep calendar booking links and meeting slot configurations. |
-| `SalesMeetingBooking` | `sales_meeting_bookings` | Booked slots; active bookings block the rep's availability. |
-| `LeadRoutingRule` | `lead_routing_rules` | Assignment rules mapping inbound criteria to rep pools. |
-| `StageAutomation` | `stage_automations` | Actions triggered upon entering or exiting pipeline stages. |
-
----
+The full documentation lives in the [`docs/`](https://github.com/getodden/crm/tree/main/docs/sales) folder of the [monorepo](https://github.com/getodden/crm), which is the single source of truth for behavior, signatures, configuration keys and commands. This README only covers installing the package.
 
 ## Testing
 
 ```bash
-vendor/bin/pest packages/sales/tests --compact
+composer install
+vendor/bin/pest
 ```
+
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).
