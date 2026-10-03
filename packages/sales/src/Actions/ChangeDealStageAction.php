@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Sales\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Odden\Core\Models\Contact;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Events\DealLost;
 use Odden\Sales\Events\DealMovedStage;
@@ -96,7 +97,7 @@ class ChangeDealStageAction
 
             // Auto-unenroll associated contacts from active outbound cadences on deal closure
             if ($newStatus === DealStatus::Won || $newStatus === DealStatus::Lost) {
-                $contactIds = $deal->contacts()->pluck('odden_contacts.id')->all();
+                $contactIds = $deal->contacts()->pluck((new Contact)->getQualifiedKeyName())->all();
                 if (! empty($contactIds)) {
                     SalesSequenceEnrollment::query()
                         ->whereIn('contact_id', $contactIds)

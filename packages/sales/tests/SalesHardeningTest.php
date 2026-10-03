@@ -6,6 +6,7 @@ namespace Odden\Sales\Tests;
 
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
@@ -166,6 +167,38 @@ class SalesHardeningTest extends TestCase
         $enrollment->refresh();
         $this->assertSame('unenrolled', $enrollment->status);
         $this->assertNull($enrollment->next_step_due_at);
+    }
+
+    public function test_closing_a_deal_unenrolls_contacts_when_the_contacts_table_is_renamed(): void
+    {
+        $pipeline = Pipeline::factory()->withStages()->create();
+        /** @var PipelineStage $wonStage */
+        $wonStage = $pipeline->stages->firstWhere('is_closed_won', true);
+
+        $contact = Contact::factory()->create();
+        $deal = Deal::factory()->create([
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $pipeline->stages->first()->id,
+            'status' => DealStatus::Open,
+        ]);
+        $deal->contacts()->attach($contact->id, [
+            'parent_type' => $deal->getMorphClass(),
+            'child_type' => $contact->getMorphClass(),
+        ]);
+
+        $sequence = SalesSequence::create([
+            'name' => 'Renamed Table Cadence',
+            'steps' => [['step' => 1, 'type' => 'email', 'delay_days' => 1, 'title' => 'Touch 1']],
+            'is_active' => true,
+        ]);
+        $enrollment = app(EnrollContactInSequenceAction::class)->execute($contact, $sequence);
+
+        Schema::rename('odden_contacts', 'renamed_contacts');
+        config(['odden-core.tables.contacts' => 'renamed_contacts']);
+
+        app(ChangeDealStageAction::class)->execute($deal, $wonStage);
+
+        $this->assertSame('unenrolled', $enrollment->fresh()->status);
     }
 
     public function test_booking_meeting_unenrolls_contact_from_active_sequences(): void

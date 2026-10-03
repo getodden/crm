@@ -42,18 +42,19 @@ class EvaluateActiveListAction
 
             // Marketing behavioral cohort criteria
             if ($property === 'has_downloaded_asset' && $modelClass === Contact::class) {
+                $contactsTable = (new Contact)->getTable();
                 $table = config('odden-marketing.tables.asset_downloads', 'odden_marketing_asset_downloads');
                 if ((bool) $value) {
-                    $query->whereExists(function ($sub) use ($table): void {
+                    $query->whereExists(function ($sub) use ($table, $contactsTable): void {
                         $sub->selectRaw(1)
                             ->from($table)
-                            ->whereColumn('contact_id', 'odden_contacts.id');
+                            ->whereColumn('contact_id', "{$contactsTable}.id");
                     });
                 } else {
-                    $query->whereNotExists(function ($sub) use ($table): void {
+                    $query->whereNotExists(function ($sub) use ($table, $contactsTable): void {
                         $sub->selectRaw(1)
                             ->from($table)
-                            ->whereColumn('contact_id', 'odden_contacts.id');
+                            ->whereColumn('contact_id', "{$contactsTable}.id");
                     });
                 }
 
@@ -61,19 +62,20 @@ class EvaluateActiveListAction
             }
 
             if ($property === 'has_attended_event' && $modelClass === Contact::class) {
+                $contactsTable = (new Contact)->getTable();
                 $table = config('odden-marketing.tables.event_registrations', 'odden_marketing_event_registrations');
                 if ((bool) $value) {
-                    $query->whereExists(function ($sub) use ($table): void {
+                    $query->whereExists(function ($sub) use ($table, $contactsTable): void {
                         $sub->selectRaw(1)
                             ->from($table)
-                            ->whereColumn('contact_id', 'odden_contacts.id')
+                            ->whereColumn('contact_id', "{$contactsTable}.id")
                             ->where('status', 'attended');
                     });
                 } else {
-                    $query->whereNotExists(function ($sub) use ($table): void {
+                    $query->whereNotExists(function ($sub) use ($table, $contactsTable): void {
                         $sub->selectRaw(1)
                             ->from($table)
-                            ->whereColumn('contact_id', 'odden_contacts.id')
+                            ->whereColumn('contact_id', "{$contactsTable}.id")
                             ->where('status', 'attended');
                     });
                 }
