@@ -8,11 +8,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Odden\Filament\Resources\DealResource\Pages\KanbanDeals;
 use Odden\Filament\Resources\DealResource\Pages\ViewDeal;
+use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
 use Odden\Filament\Tests\Fixtures\User;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Enums\LostReason;
+use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
+use Odden\Sales\Models\Quote;
 
 class DealResourceTest extends TestCase
 {
@@ -91,9 +94,6 @@ class DealResourceTest extends TestCase
 
     public function test_kanban_board_rejects_move_to_stage_of_another_pipeline(): void
     {
-        $this->markTestIncomplete('moveDeal does not check the stage belongs to the deal pipeline; fixed by #50.');
-
-
         $user = User::factory()->create();
         $pipeline = Pipeline::factory()->withStages()->create(['is_default' => true]);
         $other = Pipeline::factory()->withStages()->create(['is_default' => false]);
@@ -122,9 +122,6 @@ class DealResourceTest extends TestCase
 
     public function test_view_deal_mark_lost_stores_lost_reason_enum_value(): void
     {
-        $this->markTestIncomplete('Mark Lost takes free text instead of a LostReason enum value; fixed by #50.');
-
-
         $user = User::factory()->create();
         $pipeline = Pipeline::factory()->withStages()->create(['is_default' => true]);
         $deal = Deal::factory()->create([
@@ -148,5 +145,38 @@ class DealResourceTest extends TestCase
         $deal->refresh();
         $this->assertSame(DealStatus::Lost, $deal->status);
         $this->assertSame(LostReason::Price->value, $deal->lost_reason);
+    }
+
+    public function test_accept_and_sign_refuses_a_declined_quote_and_surfaces_the_error(): void
+    {
+        $user = User::factory()->create();
+        $pipeline = Pipeline::factory()->withStages()->create(['is_default' => true]);
+        $deal = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages->first()->id]);
+        $quote = Quote::factory()->create(['deal_id' => $deal->id, 'status' => QuoteStatus::Declined]);
+
+        Livewire::actingAs($user)
+            ->test(ListQuotes::class)
+            ->callTableAction('acceptQuote', $quote, ['signed_by_name' => 'Pat Doe', 'signed_by_email' => 'pat@example.com'])
+            ->assertNotified('Quote Not Accepted');
+
+        $this->assertSame(QuoteStatus::Declined, $quote->fresh()->status);
+        $this->assertSame(DealStatus::Open, $deal->fresh()->status);
+    }
+
+    public function test_accept_and_sign_closes_the_deal_as_won(): void
+    {
+        $user = User::factory()->create();
+        $pipeline = Pipeline::factory()->withStages()->create(['is_default' => true]);
+        $deal = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages->first()->id]);
+        $quote = Quote::factory()->create(['deal_id' => $deal->id, 'status' => QuoteStatus::Sent]);
+
+        Livewire::actingAs($user)
+            ->test(ListQuotes::class)
+            ->callTableAction('acceptQuote', $quote, ['signed_by_name' => 'Pat Doe', 'signed_by_email' => 'Pat@Example.com'])
+            ->assertNotified('Quote Accepted');
+
+        $this->assertSame(QuoteStatus::Accepted, $quote->fresh()->status);
+        $this->assertSame('pat@example.com', $quote->fresh()->signed_by_email);
+        $this->assertSame(DealStatus::Won, $deal->fresh()->status);
     }
 }

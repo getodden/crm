@@ -601,7 +601,8 @@ class SalesCockpit extends Page
         if ($first['action_type'] === 'advance_sequence' && $first['enrollment_id']) {
             $this->advanceEnrollment($first['enrollment_id']);
         } elseif ($first['action_type'] === 'touch' && $first['contact_id']) {
-            $this->logQuickTouch($first['contact_id'], 'call');
+            // Starting a call isn't a call: open the modal so the agent logs what actually happened.
+            $this->openCallModal($first['contact_id']);
         } elseif ($first['url']) {
             $this->redirect($first['url']);
         }

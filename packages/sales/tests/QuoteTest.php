@@ -7,6 +7,7 @@ namespace Odden\Sales\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\QuoteStatus;
+use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\DealProduct;
 use Odden\Sales\Models\Pipeline;
@@ -121,5 +122,19 @@ class QuoteTest extends TestCase
         $this->assertEquals(400.00, $item->total_price);
         $this->assertEquals(400.00, $item->fresh()->total_price);
         $this->assertEquals(400.00, $quote->fresh()->total_amount);
+    }
+
+    public function test_accept_refuses_a_quote_that_is_already_closed(): void
+    {
+        foreach ([QuoteStatus::Accepted, QuoteStatus::Declined, QuoteStatus::Expired] as $status) {
+            $quote = Quote::factory()->create(['status' => $status]);
+
+            try {
+                $quote->accept('Pat Doe', 'pat@example.com');
+                $this->fail("A {$status->value} quote was accepted.");
+            } catch (QuoteNotAcceptableException) {
+                $this->assertSame($status, $quote->fresh()->status);
+            }
+        }
     }
 }

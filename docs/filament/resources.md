@@ -70,9 +70,9 @@ Registered when `getodden/crm-sales` is installed. See the [sales module docs](.
 ### Deals
 
 - **List page:** the `DealPipelineForecastWidget` stats header (open pipeline, weighted forecast, closed won, win rate) and a **Pipeline Board** button. Row actions are **Playbook** and **Auto-Route** (the same actions as on contacts, run against the deal). Deals are soft-deleted, so the table has a trashed filter with bulk restore and force-delete.
-- **Board page** (`/deals/board`): a kanban of the selected pipeline's stages. It starts on the default pipeline, or the first pipeline if none is the default. Dragging a card calls `Deal::moveToStage()` with the current user.
+- **Board page** (`/deals/board`): a kanban of the selected pipeline's stages. It starts on the default pipeline, or the first pipeline if none is the default. Dragging a card calls `Deal::moveToStage()` with the current user. A card dropped on a stage of a different pipeline isn't moved, and an error notification is shown.
 - **Create page:** sets `owner_id` to the current user if left empty, and writes an initial `DealStageHistory` row.
-- **View page:** a deal health button (its label and color come from `Deal::getHealthScore()`) that opens the health analysis, **Generate Quote** (`GenerateQuoteFromDealAction`), **Run Playbook**, **Mark Won** (`Deal::markWon()`), **Mark Lost** (`Deal::markLost()`, with a free-text reason) and Edit.
+- **View page:** a deal health button (its label and color come from `Deal::getHealthScore()`) that opens the health analysis, **Generate Quote** (`GenerateQuoteFromDealAction`), **Run Playbook**, **Mark Won** (`Deal::markWon()`), **Mark Lost** (`Deal::markLost()`, with a required `LostReason` select) and Edit.
 - **Form:** includes a **Custom Properties** section for `deal` properties.
 
 Relation managers: Associated Contacts, Associated Companies (attach/detach), Products & Line Items, Quotes & Proposals (with **Generate from Products**, **Portal** and **Accept & Sign**), Stage Movement History, Activities, and Property History / Audit Trail.
@@ -81,7 +81,7 @@ Relation managers: Associated Contacts, Associated Companies (attach/detach), Pr
 
 | Resource | Extra actions |
 | --- | --- |
-| `QuoteResource` | **Portal** opens the public quote page (route `odden.quotes.show`). **Accept & Sign** asks for a signer name and email, calls `Quote::accept()` and, if the deal is still open, `Deal::markWon()`. |
+| `QuoteResource` | **Portal** opens the public quote page (route `odden.quotes.show`). **Accept & Sign** asks for a signer name and email and runs `AcceptQuoteAction::accept()`, the same rules as the public page: it refuses accepted, declined and expired quotes, and accepts the quote and closes the deal as won in one transaction. If that fails (for example a won-stage requirement), the quote and deal are left unchanged and the error is shown in a notification. The Quotes relation manager on a deal does the same. |
 | `SalesQuotaResource` | Attainment columns calculated with `CalculateQuotaAttainmentAction`. |
 | `SalesSequenceResource` | **Enroll Contact** row action (`EnrollContactInSequenceAction`). The list page has a **Process Due Cadences** header action that runs `ProcessCadencesAction` for every due enrollment, for all users, during the request. |
 | `SalesMeetingLinkResource` | Public URL column linking to route `odden.meetings.show`. The form's **Availability** section edits the link's [booking settings](../sales/meeting-links.md#working-hours): a searchable **Timezone** select (empty uses the app timezone), **Buffer Between Meetings** in minutes (0 to 240), and one tag input per weekday for working-hour windows such as `09:00-12:00`. Each window must be `HH:MM-HH:MM` with the start before the end. Days without windows are dropped, and leaving every day empty saves `null`, so the link uses `odden-sales.meetings.default_working_hours`. |

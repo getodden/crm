@@ -30,7 +30,10 @@ use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
 use Odden\Filament\Resources\QuoteResource\Pages\ViewQuote;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
+use Odden\Sales\Exceptions\QuoteNotAcceptableException;
+use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Quote;
 use UnitEnum;
 
@@ -237,15 +240,16 @@ class QuoteResource extends Resource
                             ->required(),
                     ])
                     ->action(function (Quote $record, array $data): void {
-                        $record->accept((string) $data['signed_by_name'], (string) $data['signed_by_email']);
+                        try {
+                            app(AcceptQuoteAction::class)->accept($record, (string) $data['signed_by_name'], (string) $data['signed_by_email']);
+                        } catch (QuoteNotAcceptableException|StageRequirementException $e) {
+                            Notification::make()
+                                ->title('Quote Not Accepted')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
 
-                        $deal = $record->deal;
-                        if ($deal->status->isOpen()) {
-                            try {
-                                $deal->markWon();
-                            } catch (\Throwable) {
-                                // Continue gracefully
-                            }
+                            return;
                         }
 
                         Notification::make()

@@ -134,7 +134,9 @@ $quote = app(AcceptQuoteAction::class)->execute(
 );
 ```
 
-It throws `Odden\Sales\Exceptions\QuoteNotAcceptableException` (a subclass of `InvalidArgumentException`) if no quote has the token or the quote can't be accepted. Its messages are safe to show to the customer.
+`AcceptQuoteAction::accept(Quote $quote, string $name, string $email)` applies the same rules to a quote you already hold, for example when an agent signs on a customer's behalf; the Filament **Accept & Sign** actions use it. `Quote::accept()` itself only changes the quote and also refuses accepted, declined and expired quotes.
+
+Both throw `Odden\Sales\Exceptions\QuoteNotAcceptableException` (a subclass of `InvalidArgumentException`) if no quote has the token or the quote can't be accepted. Its messages are safe to show to the customer.
 
 ### Which quotes can be accepted
 

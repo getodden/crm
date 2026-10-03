@@ -99,4 +99,23 @@ class SalesCockpitTest extends TestCase
             'type' => ActivityType::Call->value,
         ]);
     }
+
+    public function test_start_all_opens_the_call_modal_instead_of_logging_a_call(): void
+    {
+        $user = User::factory()->create();
+        $contact = Contact::factory()->create([
+            'lead_status' => LeadStatus::New,
+            'owner_id' => $user->id,
+            'last_contacted_at' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(SalesCockpit::class)
+            ->call('startAllGuidedActions')
+            ->assertSet('showCallModal', true)
+            ->assertSet('callContactId', $contact->id);
+
+        $this->assertSame(0, $contact->activities()->where('type', ActivityType::Call->value)->count());
+        $this->assertNull($contact->fresh()->last_contacted_at);
+    }
 }

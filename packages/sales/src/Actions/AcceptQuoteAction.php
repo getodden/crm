@@ -17,9 +17,6 @@ class AcceptQuoteAction
     /**
      * Accept and sign a quote via public token.
      *
-     * The quote acceptance and the deal's move to won happen in one transaction, so a failing
-     * won-stage requirement leaves both the quote and the deal unchanged.
-     *
      * @throws QuoteNotAcceptableException
      */
     public function execute(string $token, string $signedByName, string $signedByEmail): Quote
@@ -31,27 +28,40 @@ class AcceptQuoteAction
             throw new QuoteNotAcceptableException('Invalid or expired quote link.');
         }
 
+        return $this->accept($quote, $signedByName, $signedByEmail);
+    }
+
+    /**
+     * Accept and sign a quote, whether the customer did it on the public page or an agent on their behalf.
+     *
+     * The quote acceptance and the deal's move to won happen in one transaction, so a failing
+     * won-stage requirement leaves both the quote and the deal unchanged.
+     *
+     * @throws QuoteNotAcceptableException
+     */
+    public function accept(Quote $quote, string $signedByName, string $signedByEmail): Quote
+    {
         $this->ensureAcceptable($quote);
 
-        return DB::transaction(function () use ($token, $signedByName, $signedByEmail): Quote {
-            /** @var Quote $quote */
-            $quote = Quote::query()
-                ->where('public_token', $token)
+        return DB::transaction(function () use ($quote, $signedByName, $signedByEmail): Quote {
+            /** @var Quote $locked */
+            $locked = Quote::query()
+                ->whereKey($quote->getKey())
                 ->lockForUpdate()
                 ->with(['deal.pipeline.stages', 'deal.contacts'])
                 ->firstOrFail();
 
             // Re-check under the row lock so concurrent submissions cannot both accept.
-            $this->ensureAcceptable($quote);
+            $this->ensureAcceptable($locked);
 
-            $quote->update([
+            $locked->update([
                 'status' => QuoteStatus::Accepted,
                 'accepted_at' => now(),
                 'signed_by_name' => trim($signedByName),
                 'signed_by_email' => strtolower(trim($signedByEmail)),
             ]);
 
-            return $this->closeDealAsWon($quote);
+            return $this->closeDealAsWon($locked);
         });
     }
 

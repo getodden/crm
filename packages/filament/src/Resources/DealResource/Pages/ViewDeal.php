@@ -19,6 +19,7 @@ use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\DealStatus;
+use Odden\Sales\Enums\LostReason;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesPlaybook;
 use Odden\Sales\Support\Money;
@@ -169,9 +170,11 @@ class ViewDeal extends ViewRecord
                 ->visible(fn (): bool => $this->getRecord() instanceof Deal && $this->getRecord()->status !== DealStatus::Lost)
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->form([
-                    Textarea::make('lost_reason')
+                    Select::make('lost_reason')
                         ->label('Reason for Loss')
-                        ->placeholder('e.g. Budget cuts, chose competitor...')
+                        ->options(collect(LostReason::cases())->mapWithKeys(
+                            fn (LostReason $reason) => [$reason->value => $reason->label()]
+                        ))
                         ->required(),
                 ])
                 ->action(function (array $data): void {

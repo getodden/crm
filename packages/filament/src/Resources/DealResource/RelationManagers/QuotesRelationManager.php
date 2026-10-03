@@ -21,8 +21,11 @@ use Filament\Tables\Table;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\QuoteResource;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\QuoteStatus;
+use Odden\Sales\Exceptions\QuoteNotAcceptableException;
+use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
 
@@ -153,16 +156,16 @@ class QuotesRelationManager extends RelationManager
                             ->required(),
                     ])
                     ->action(function (Quote $record, array $data): void {
-                        $record->accept((string) $data['signed_by_name'], (string) $data['signed_by_email']);
+                        try {
+                            app(AcceptQuoteAction::class)->accept($record, (string) $data['signed_by_name'], (string) $data['signed_by_email']);
+                        } catch (QuoteNotAcceptableException|StageRequirementException $e) {
+                            Notification::make()
+                                ->title('Quote Not Accepted')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
 
-                        /** @var Deal $deal */
-                        $deal = $this->getOwnerRecord();
-                        if ($deal->status->isOpen()) {
-                            try {
-                                $deal->markWon();
-                            } catch (\Throwable) {
-                                // If no closed won stage, continue gracefully
-                            }
+                            return;
                         }
 
                         Notification::make()

@@ -48,7 +48,7 @@ These actions write data:
 - **Advance step** calls `SalesSequenceEnrollment::advanceStep()`.
 - **Complete** marks an activity completed.
 - **Quick touches**, the **call log** modal and the **meeting log** modal each create an activity on the contact. The call log can also create a follow-up task.
-- **Start** on guided actions acts on the first item in the queue. It advances a sequence step, logs a call touch on the contact, or redirects, depending on the item.
+- **Start** on guided actions acts on the first item in the queue. It advances a sequence step, opens the call modal for the contact (nothing is logged until you save the call), or redirects, depending on the item.
 
 ## Service pages
 

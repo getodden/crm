@@ -17,7 +17,7 @@ An `Odden\Sales\Models\Deal` is an opportunity sitting in one stage of one pipel
 | `status` | `DealStatus` | Database default `open`. |
 | `expected_close_date` | date, nullable | Used by quotas and the health score. |
 | `closed_at` | datetime, nullable | Set when the deal enters a closed stage. |
-| `lost_reason` | string, nullable | Free text; the `LostReason` enum values are suggested. |
+| `lost_reason` | string, nullable | Free text in the model; the Filament panel only offers the `LostReason` enum values. |
 | `lost_notes` | string, nullable | |
 | `properties` | array, nullable | Custom properties. |
 | `owner_id` | int, nullable | The user who owns the deal (your configured user model). |

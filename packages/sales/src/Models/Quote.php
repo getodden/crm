@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Odden\Core\Support\UserModel;
 use Odden\Sales\Database\Factories\QuoteFactory;
 use Odden\Sales\Enums\QuoteStatus;
+use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 
 /**
  * @property int $id
@@ -205,10 +206,17 @@ class Quote extends Model
     }
 
     /**
-     * Accept the quote and record digital signature.
+     * Accept the quote and record digital signature. Only the quote's own state is changed; use
+     * AcceptQuoteAction to also close the deal as won.
+     *
+     * @throws QuoteNotAcceptableException
      */
     public function accept(string $name, string $email): self
     {
+        if ($this->status->isTerminal()) {
+            throw new QuoteNotAcceptableException("Quote {$this->quote_number} is {$this->status->value} and can no longer be accepted.");
+        }
+
         $this->update([
             'status' => QuoteStatus::Accepted,
             'accepted_at' => now(),

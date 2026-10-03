@@ -109,6 +109,16 @@ class KanbanDeals extends Page
         /** @var PipelineStage $stage */
         $stage = PipelineStage::query()->findOrFail($stageId);
 
+        if ((int) $stage->pipeline_id !== (int) $deal->pipeline_id) {
+            Notification::make()
+                ->title('Deal Not Moved')
+                ->body("[{$stage->name}] belongs to a different pipeline.")
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $deal->moveToStage($stage, OddenAuthorization::userId());
 
         Notification::make()
