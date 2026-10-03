@@ -101,7 +101,7 @@ it('evaluates behavioral list rules against a renamed contacts table', function 
         'odden-marketing.tables.event_registrations' => 'custom_event_registrations',
     ]);
 
-    $evaluate = function (string $property) use ($neither): array {
+    $evaluate = function (string $property): array {
         $list = CrmList::create([
             'name' => $property,
             'entity_type' => 'contact',

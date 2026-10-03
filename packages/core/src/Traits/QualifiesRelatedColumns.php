@@ -21,7 +21,7 @@ trait QualifiesRelatedColumns
      * @param  string  $parentKey
      * @param  string  $relatedKey
      * @param  string|null  $relationName
-     * @return BelongsToMany<Model, $this>
+     * @return BelongsToMany<Model, Model>
      */
     protected function newBelongsToMany(Builder $query, Model $parent, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relationName = null)
     {

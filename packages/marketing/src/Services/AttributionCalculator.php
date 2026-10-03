@@ -27,7 +27,7 @@ class AttributionCalculator
      * Touches of the given contacts, oldest first.
      *
      * @param  Collection<int, int>|list<int>  $contactIds
-     * @return list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: 'email'|'form'}>
+     * @return list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: string}>
      */
     public function touchesFor(Collection|array $contactIds): array
     {
@@ -45,10 +45,11 @@ class AttributionCalculator
             })
             ->get(['campaign_id', 'contact_id', 'opened_at', 'clicked_at'])
             ->each(function (CampaignRecipient $recipient) use (&$touches): void {
-                $times = array_filter([$recipient->opened_at, $recipient->clicked_at]);
-                $first = collect($times)->sort()->first();
+                $first = collect([$recipient->opened_at, $recipient->clicked_at])->filter()->sort()->first();
 
-                $touches[] = ['campaign_id' => (int) $recipient->campaign_id, 'contact_id' => (int) $recipient->contact_id, 'at' => $first, 'type' => 'email'];
+                if ($first !== null) {
+                    $touches[] = ['campaign_id' => (int) $recipient->campaign_id, 'contact_id' => (int) $recipient->contact_id, 'at' => $first, 'type' => 'email'];
+                }
             });
 
         $campaignBySlug = Campaign::query()->get()->mapWithKeys(fn (Campaign $campaign): array => [$campaign->utmCampaignSlug() => $campaign->id]);
@@ -60,7 +61,7 @@ class AttributionCalculator
             ->each(function (FormSubmission $submission) use (&$touches, $campaignBySlug): void {
                 $campaignId = $campaignBySlug->get(Str::slug((string) $submission->utm_campaign));
 
-                if ($campaignId !== null) {
+                if ($campaignId !== null && $submission->created_at !== null) {
                     $touches[] = ['campaign_id' => (int) $campaignId, 'contact_id' => (int) $submission->contact_id, 'at' => $submission->created_at, 'type' => 'form'];
                 }
             });
@@ -81,7 +82,7 @@ class AttributionCalculator
      * - time decay: each touch is worth half as much for every `time_decay_half_life_days` (default 7)
      *   before the last touch, so recent touches count most
      *
-     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: 'email'|'form'}>  $touches
+     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: string}>  $touches
      * @return list<float>
      */
     public function weights(array $touches, AttributionModel $model): array
@@ -153,13 +154,13 @@ class AttributionCalculator
                 break;
         }
 
-        return $weights;
+        return array_values($weights);
     }
 
     /**
      * The share of a deal's credit that goes to one campaign: the weights of that campaign's touches.
      *
-     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: 'email'|'form'}>  $touches
+     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: string}>  $touches
      */
     public function campaignCredit(array $touches, AttributionModel $model, int $campaignId): float
     {
@@ -179,7 +180,7 @@ class AttributionCalculator
      * The touch that converted the lead for the W-shaped model: the first form submission strictly
      * between the first and last touch, otherwise the middle touch.
      *
-     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: 'email'|'form'}>  $touches
+     * @param  list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: string}>  $touches
      */
     private function conversionIndex(array $touches): int
     {

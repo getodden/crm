@@ -89,17 +89,19 @@ class CustomPropertyFieldBuilder
             return [];
         }
 
-        return PropertyDefinition::forEntity($entityType)
-            ->where('is_searchable', true)
-            ->get()
-            ->map(fn (PropertyDefinition $definition): TextColumn => TextColumn::make("properties.{$definition->name}")
+        $columns = [];
+
+        foreach (PropertyDefinition::forEntity($entityType)->where('is_searchable', true)->get() as $definition) {
+            $columns[] = TextColumn::make("properties.{$definition->name}")
                 ->label($definition->label)
                 ->toggleable()
                 ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(
                     "properties->{$definition->name}",
                     'like',
                     '%'.$search.'%'
-                )))
-            ->all();
+                ));
+        }
+
+        return $columns;
     }
 }

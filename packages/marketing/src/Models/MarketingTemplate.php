@@ -127,9 +127,9 @@ class MarketingTemplate extends Model
      * stored text is blank, or when it is just the text generated from the previous content (so it
      * was never edited by hand). A hand-edited text is left alone.
      *
-     * @param  array<int, array<string, mixed>>|string  $source  The slots or HTML the text is made from.
+     * @param  list<array<string, mixed>>|string  $source  The slots or HTML the text is made from.
      */
-    private static function refreshedPlainText(self $template, string $textColumn, array|string $source, string $sourceColumn): ?string
+    private static function refreshedPlainText(self $template, string $textColumn, array|string $source, string $sourceColumn): string
     {
         $current = $template->{$textColumn};
         $generated = MailBuilder::plainText($source);

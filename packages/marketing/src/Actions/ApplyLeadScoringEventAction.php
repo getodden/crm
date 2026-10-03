@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Company;
@@ -46,7 +47,7 @@ class ApplyLeadScoringEventAction
 
             $scoreDelta = $points ?? ($rule !== null
                 ? $rule->score_change
-                : (self::DEFAULT_SCORES[$eventType->value] ?? 5));
+                : self::DEFAULT_SCORES[$eventType->value]);
 
             $newScore = max(0, $contact->lead_score + $scoreDelta);
             $eventDesc = $description ?? $eventType->label();
@@ -107,7 +108,7 @@ class ApplyLeadScoringEventAction
      */
     protected function matchingRule(Contact $contact, LeadScoringEventType $eventType, array $context): ?LeadScoringRule
     {
-        /** @var \Illuminate\Database\Eloquent\Collection<int, LeadScoringRule> $rules */
+        /** @var Collection<int, LeadScoringRule> $rules */
         $rules = LeadScoringRule::query()
             ->where('is_active', true)
             ->where('event_type', $eventType->value)

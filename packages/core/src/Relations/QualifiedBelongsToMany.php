@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Odden\Core\Relations;
 
+use Illuminate\Contracts\Database\Query\Expression;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Collection;
 
 /**
  * A many-to-many relation that qualifies plain column names with the related table when plucking.
@@ -12,17 +15,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * The association table has its own `id`, so `$contact->companies()->pluck('id')` would otherwise
  * fail with an ambiguous column error.
  *
- * @template TRelatedModel of \Illuminate\Database\Eloquent\Model
- * @template TDeclaringModel of \Illuminate\Database\Eloquent\Model
- *
- * @extends BelongsToMany<TRelatedModel, TDeclaringModel>
+ * @extends BelongsToMany<Model, Model>
  */
 class QualifiedBelongsToMany extends BelongsToMany
 {
     /**
-     * @param  \Illuminate\Contracts\Database\Query\Expression|string  $column
+     * @param  Expression|string  $column
      * @param  string|null  $key
-     * @return \Illuminate\Support\Collection<array-key, mixed>
+     * @return Collection<array-key, mixed>
      */
     public function pluck($column, $key = null)
     {

@@ -14,6 +14,7 @@ use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\FormSubmission;
 use Odden\Marketing\Models\MarketingForm;
+use Odden\Marketing\Services\AttributionCalculator;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
@@ -291,7 +292,7 @@ class MultiTouchAttributionModelsTest extends TestCase
 
     public function test_attribution_weights_always_add_up_to_one(): void
     {
-        $calculator = app(\Odden\Marketing\Services\AttributionCalculator::class);
+        $calculator = app(AttributionCalculator::class);
 
         foreach ([1, 2, 3, 4, 7] as $count) {
             $touches = [];

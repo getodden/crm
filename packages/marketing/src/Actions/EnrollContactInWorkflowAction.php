@@ -105,7 +105,7 @@ class EnrollContactInWorkflowAction
 
         foreach ($workflows as $workflow) {
             $stage = $workflow->trigger_config['lifecycle_stage'] ?? null;
-            if ($stage === null || $contact->lifecycle_stage?->value === (string) $stage) {
+            if ($stage === null || $contact->lifecycle_stage->value === (string) $stage) {
                 $this->execute($workflow, $contact);
             }
         }

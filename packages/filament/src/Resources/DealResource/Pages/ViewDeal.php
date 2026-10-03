@@ -70,7 +70,7 @@ class ViewDeal extends ViewRecord
 
                     Notification::make()
                         ->title('Draft Quote Generated')
-                        ->body("Proposal #{$quote->quote_number} generated for ".Money::format($quote->total_amount, $quote->currency).".")
+                        ->body("Proposal #{$quote->quote_number} generated for ".Money::format($quote->total_amount, $quote->currency).'.')
                         ->success()
                         ->send();
                 }),

@@ -6,6 +6,7 @@ namespace Odden\Marketing\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Odden\Marketing\Enums\RecipientStatus;
 use Odden\Marketing\Mail\MarketingMessageMailable;
 use Odden\Marketing\Models\Campaign;
@@ -18,7 +19,7 @@ class EspProviderEventMappingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function webhook(string $provider, array $payload): \Illuminate\Testing\TestResponse
+    private function webhook(string $provider, array $payload): TestResponse
     {
         return $this->postJson("/marketing/webhooks/esp/{$provider}", $payload);
     }

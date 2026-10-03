@@ -196,7 +196,7 @@ class CompileCampaignMessageAction
                 'email' => $email,
                 'job_title' => (string) $contact?->job_title,
                 'phone' => (string) $contact?->phone,
-                'lifecycle_stage' => $contact?->lifecycle_stage?->value ?? '',
+                'lifecycle_stage' => $contact?->lifecycle_stage->value ?? '',
             ],
             'company' => [
                 'name' => $company?->name !== null && $company->name !== '' ? $company->name : 'your organization',
@@ -205,7 +205,7 @@ class CompileCampaignMessageAction
             ],
             'sender' => [
                 'name' => $owner !== null ? UserModel::displayName($owner, '') : (string) $campaign?->sender_name,
-                'email' => (string) ($campaign?->sender_email ?? config('odden-marketing.defaults.sender_email')),
+                'email' => (string) ($campaign !== null ? $campaign->sender_email : config('odden-marketing.defaults.sender_email')),
             ],
             'campaign' => [
                 'subject' => (string) $campaign?->subject,
