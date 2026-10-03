@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Filament\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Pages\ServiceCockpit;
@@ -14,6 +15,8 @@ use Odden\Service\Enums\TicketStatus;
 use Odden\Service\Models\CannedResponse;
 use Odden\Service\Models\KnowledgeArticle;
 use Odden\Service\Models\Ticket;
+use Odden\Service\Notifications\TicketRepliedNotification;
+use Odden\Service\Notifications\TicketResolvedCsatNotification;
 
 class ServiceCockpitTest extends TestCase
 {
@@ -145,14 +148,22 @@ class ServiceCockpitTest extends TestCase
             'owner_id' => null,
         ]);
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(ServiceCockpit::class)
-            ->call('setActiveTab', 'my_tickets')
-            ->assertSet('activeTab', 'my_tickets')
-            ->set('search', 'Alpha')
-            ->assertSuccessful()
-            ->call('setPriorityFilter', TicketPriority::Urgent->value)
+            ->call('setActiveTab', 'all')
+            ->assertSet('activeTab', 'all');
+
+        $this->assertEqualsCanonicalizing(
+            [$ticketA->id, $ticketB->id],
+            $component->instance()->allTickets->pluck('id')->all()
+        );
+
+        $component->set('search', 'Alpha');
+        $this->assertSame([$ticketA->id], $component->instance()->allTickets->pluck('id')->all());
+
+        $component->set('search', '')->call('setPriorityFilter', TicketPriority::Urgent->value)
             ->assertSet('priorityFilter', TicketPriority::Urgent->value);
+        $this->assertSame([$ticketB->id], $component->instance()->allTickets->pluck('id')->all());
     }
 
     public function test_support_agent_receives_copilot_article_suggestions_and_can_insert_link(): void
@@ -221,5 +232,59 @@ class ServiceCockpitTest extends TestCase
             ->assertSet('replyBody', 'Hello, thank you for reaching out to support!')
             ->call('insertCannedResponse', '')
             ->assertSuccessful();
+    }
+
+    public function test_quick_reply_emails_the_customer(): void
+    {
+        $this->markTestIncomplete('Quick reply calls Ticket::addMessage() directly so no customer email is sent; fixed by #49.');
+
+
+        Notification::fake();
+        $user = User::factory()->create();
+        $contact = Contact::factory()->create(['email' => 'gordon@blackmesa.com']);
+        $ticket = Ticket::create([
+            'subject' => 'Cannot configure SSO',
+            'description' => 'SAML endpoint returns 500 error.',
+            'status' => TicketStatus::Open,
+            'priority' => TicketPriority::High,
+            'contact_id' => $contact->id,
+            'owner_id' => $user->id,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(ServiceCockpit::class)
+            ->call('openReplyModal', $ticket->id)
+            ->set('replyBody', 'We are looking into it.')
+            ->set('replyIsInternalNote', false)
+            ->call('sendQuickReply');
+
+        Notification::assertSentTo($contact, TicketRepliedNotification::class);
+    }
+
+    public function test_quick_resolve_emails_the_customer(): void
+    {
+        $this->markTestIncomplete('Quick resolve calls Ticket::resolve() directly so no customer email is sent; fixed by #49.');
+
+
+        Notification::fake();
+        $user = User::factory()->create();
+        $contact = Contact::factory()->create(['email' => 'gordon@blackmesa.com']);
+        $ticket = Ticket::create([
+            'subject' => 'Cannot configure SSO',
+            'description' => 'SAML endpoint returns 500 error.',
+            'status' => TicketStatus::Open,
+            'priority' => TicketPriority::High,
+            'contact_id' => $contact->id,
+            'owner_id' => $user->id,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(ServiceCockpit::class)
+            ->call('openResolveModal', $ticket->id)
+            ->set('resolveNote', 'Fixed the SAML endpoint.')
+            ->call('quickResolveTicket');
+
+        $this->assertSame(TicketStatus::Resolved, $ticket->refresh()->status);
+        Notification::assertSentTo($contact, TicketResolvedCsatNotification::class);
     }
 }

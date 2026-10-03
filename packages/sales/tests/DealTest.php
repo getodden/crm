@@ -231,4 +231,22 @@ class DealTest extends TestCase
         $this->assertSame('Opted for alternative vendor due to lower initial setup cost.', $deal->fresh()->lost_notes);
         $this->assertNotNull($deal->fresh()->closed_at);
     }
+
+    public function test_deal_created_without_status_defaults_to_open_in_memory(): void
+    {
+        $this->markTestIncomplete('Deal status is null in memory until refresh(); fixed by #34.');
+
+        $pipeline = Pipeline::factory()->withStages()->create();
+
+        $deal = Deal::create([
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $pipeline->stages()->firstOrFail()->id,
+            'name' => 'No Explicit Status',
+            'amount' => 1000.00,
+        ]);
+
+        $this->assertSame(DealStatus::Open, $deal->status);
+        $this->assertFalse($deal->isRotten());
+        $this->assertIsArray($deal->getHealthScore());
+    }
 }

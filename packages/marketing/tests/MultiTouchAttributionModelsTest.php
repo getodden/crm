@@ -63,7 +63,7 @@ class MultiTouchAttributionModelsTest extends TestCase
         ]);
 
         $pipeline = Pipeline::create(['name' => 'Govt Tech', 'code' => 'govt_tech']);
-        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'order' => 1]);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'sort_order' => 1]);
 
         $deal = Deal::create([
             'name' => 'DoD Compiler Deployment',
@@ -113,7 +113,7 @@ class MultiTouchAttributionModelsTest extends TestCase
         ]);
 
         $pipeline = Pipeline::create(['name' => 'Defense', 'code' => 'defense']);
-        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'order' => 1]);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'sort_order' => 1]);
 
         $deal = Deal::create([
             'name' => 'Bletchley Park Analysis Contract',
@@ -145,5 +145,97 @@ class MultiTouchAttributionModelsTest extends TestCase
         $wMetrics = $action->execute(AttributionModel::WShaped);
         $this->assertSame('w_shaped', $wMetrics['attribution_model']);
         $this->assertEquals(35000.00, $wMetrics['attributed_closed_won_revenue']); // 50000 * 0.70
+    }
+
+    public function test_u_shaped_attribution_weights_each_touch_40_20_40(): void
+    {
+        $this->markTestIncomplete('Attribution models apply flat multipliers, not per-touch weights; fixed by #26.');
+
+        $contact = Contact::create(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@analytical.test']);
+
+        $make = fn (string $name) => Campaign::create([
+            'name' => $name,
+            'subject' => $name,
+            'sender_name' => 'Odden',
+            'sender_email' => 'news@odden.test',
+        ]);
+        $first = $make('First Touch Campaign');
+        $middle = $make('Middle Touch Campaign');
+        $last = $make('Last Touch Campaign');
+
+        foreach ([[$first, 30], [$middle, 15], [$last, 1]] as $i => [$campaign, $daysAgo]) {
+            CampaignRecipient::create([
+                'campaign_id' => $campaign->id,
+                'contact_id' => $contact->id,
+                'email' => $contact->email,
+                'tracking_token' => 'tok_ada_'.$i,
+                'unsubscribe_token' => 'unsub_ada_'.$i,
+                'opened_at' => now()->subDays($daysAgo),
+            ]);
+        }
+
+        $pipeline = Pipeline::create(['name' => 'Analytical', 'code' => 'analytical']);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'sort_order' => 1]);
+        $deal = Deal::create([
+            'name' => 'Engine Deal',
+            'amount' => 100000.00,
+            'status' => DealStatus::Won,
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $stage->id,
+        ]);
+        $contact->associateWith($deal);
+
+        $action = new GetCampaignAttributionAction;
+
+        // U-shaped: 40% first touch, 20% shared across middle touches, 40% last touch.
+        $this->assertEquals(40000.00, $action->execute($first, AttributionModel::UShaped)['attributed_won_revenue']);
+        $this->assertEquals(20000.00, $action->execute($middle, AttributionModel::UShaped)['attributed_won_revenue']);
+        $this->assertEquals(40000.00, $action->execute($last, AttributionModel::UShaped)['attributed_won_revenue']);
+    }
+
+    public function test_time_decay_attribution_favors_more_recent_touches(): void
+    {
+        $this->markTestIncomplete('TimeDecay applies a flat 0.65 regardless of touch recency; fixed by #26.');
+
+        $contact = Contact::create(['first_name' => 'Edsger', 'last_name' => 'Dijkstra', 'email' => 'edsger@algo.test']);
+
+        $make = fn (string $name) => Campaign::create([
+            'name' => $name,
+            'subject' => $name,
+            'sender_name' => 'Odden',
+            'sender_email' => 'news@odden.test',
+        ]);
+        $old = $make('Old Campaign');
+        $recent = $make('Recent Campaign');
+
+        foreach ([[$old, 90], [$recent, 1]] as $i => [$campaign, $daysAgo]) {
+            CampaignRecipient::create([
+                'campaign_id' => $campaign->id,
+                'contact_id' => $contact->id,
+                'email' => $contact->email,
+                'tracking_token' => 'tok_dij_'.$i,
+                'unsubscribe_token' => 'unsub_dij_'.$i,
+                'opened_at' => now()->subDays($daysAgo),
+            ]);
+        }
+
+        $pipeline = Pipeline::create(['name' => 'Algo', 'code' => 'algo']);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'sort_order' => 1]);
+        $deal = Deal::create([
+            'name' => 'Shortest Path Deal',
+            'amount' => 100000.00,
+            'status' => DealStatus::Won,
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $stage->id,
+        ]);
+        $contact->associateWith($deal);
+
+        $action = new GetCampaignAttributionAction;
+        $oldCredit = $action->execute($old, AttributionModel::TimeDecay)['attributed_won_revenue'];
+        $recentCredit = $action->execute($recent, AttributionModel::TimeDecay)['attributed_won_revenue'];
+
+        $this->assertGreaterThan($oldCredit, $recentCredit);
+        // Credit across touches is split, not multiplied per campaign.
+        $this->assertEqualsWithDelta(100000.00, $oldCredit + $recentCredit, 0.01);
     }
 }

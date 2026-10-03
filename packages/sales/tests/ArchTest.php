@@ -9,6 +9,12 @@ it('sales domain remains strictly headless (no Filament or Livewire)', function 
     expect(sourceFilesMatching('/(?<![\\\\\w])(Filament|Livewire)\\\\+[A-Z]/'))->toBeEmpty();
 });
 
+it('sales Blade views remain headless (no Filament or Livewire components)', function (): void {
+    test()->markTestIncomplete('health-score-modal uses x-filament::icon; fixed by #35.');
+
+    expect(bladeViewsMatching('/<x-filament::|<x-livewire|@livewire/'))->toBeEmpty();
+});
+
 it('sales does not depend on service, marketing, or the Filament UI', function (): void {
     expect(sourceFilesMatching('/\bOdden\\\\+(Service|Marketing|Filament)\\\\+/'))->toBeEmpty();
 });

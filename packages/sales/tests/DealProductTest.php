@@ -70,4 +70,27 @@ class DealProductTest extends TestCase
 
         $this->assertEquals(0.00, $product->fresh()->total_price);
     }
+
+    public function test_missing_quantity_defaults_to_one_when_calculating_total_price(): void
+    {
+        $this->markTestIncomplete('Missing quantity yields total_price 0.00; fixed by #34.');
+
+        $pipeline = Pipeline::factory()->withStages()->create();
+        $deal = Deal::factory()->create([
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $pipeline->stages()->firstOrFail()->id,
+            'amount' => 0.00,
+        ]);
+
+        $product = DealProduct::create([
+            'deal_id' => $deal->id,
+            'name' => 'Default Quantity Item',
+            'unit_price' => 250.00,
+            'discount_percent' => 0.00,
+        ]);
+
+        $this->assertEquals(250.00, $product->total_price);
+        $this->assertEquals(250.00, $product->fresh()->total_price);
+        $this->assertEquals(250.00, $deal->fresh()->amount);
+    }
 }

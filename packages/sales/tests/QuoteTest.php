@@ -11,6 +11,7 @@ use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\DealProduct;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\Quote;
+use Odden\Sales\Models\QuoteItem;
 
 class QuoteTest extends TestCase
 {
@@ -95,5 +96,32 @@ class QuoteTest extends TestCase
 
         $this->assertFalse($activeQuote->isExpired());
         $this->assertTrue($expiredQuote->isExpired());
+    }
+
+    public function test_quote_item_missing_quantity_defaults_to_one_when_calculating_total_price(): void
+    {
+        $this->markTestIncomplete('Missing quantity yields total_price 0.00; fixed by #34.');
+
+        $pipeline = Pipeline::factory()->withStages()->create();
+        $deal = Deal::factory()->create([
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $pipeline->stages()->firstOrFail()->id,
+        ]);
+        $quote = Quote::factory()->create([
+            'deal_id' => $deal->id,
+            'discount_amount' => 0.00,
+            'tax_amount' => 0.00,
+        ]);
+
+        $item = QuoteItem::create([
+            'quote_id' => $quote->id,
+            'name' => 'Default Quantity Item',
+            'unit_price' => 400.00,
+            'discount_percent' => 0.00,
+        ]);
+
+        $this->assertEquals(400.00, $item->total_price);
+        $this->assertEquals(400.00, $item->fresh()->total_price);
+        $this->assertEquals(400.00, $quote->fresh()->total_amount);
     }
 }

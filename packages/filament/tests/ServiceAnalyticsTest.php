@@ -62,10 +62,21 @@ class ServiceAnalyticsTest extends TestCase
             'csat_rating' => null,
         ]);
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(ServiceAnalytics::class)
             ->call('setDateRange', '30_days')
             ->assertSet('dateRange', '30_days')
             ->assertSuccessful();
+
+        $stats = $component->instance()->summaryStats;
+
+        $this->assertSame(2, $stats['total_tickets']);
+        $this->assertSame(1, $stats['resolved_tickets']);
+        $this->assertSame(50.0, $stats['resolution_rate']);
+        $this->assertSame(22.5, $stats['avg_frt_minutes']);
+        $this->assertSame(5.0, $stats['csat_average']);
+        $this->assertSame(1, $stats['csat_total_ratings']);
+        $this->assertSame(100.0, $stats['sla_compliance_rate']);
+        $this->assertSame(0, $stats['sla_breaches_total']);
     }
 }

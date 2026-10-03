@@ -177,4 +177,48 @@ class HelpCenterAndPortalTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/innerHTML\s*=\s*payload/', $content);
         $this->assertStringContainsString('link.href = safeUrl(item.url)', $content);
     }
+
+    public function test_repeat_views_by_same_visitor_are_not_double_counted(): void
+    {
+        $this->markTestIncomplete('Every help page view increments views_count; fixed by #43.');
+
+
+        $article = KnowledgeArticle::create([
+            'title' => 'Dedupe Views Guide',
+            'slug' => 'dedupe-views',
+            'category' => 'API',
+            'body' => 'Body.',
+            'is_published' => true,
+            'views_count' => 0,
+        ]);
+
+        $this->get("/help/{$article->slug}")->assertSuccessful();
+        $this->get("/help/{$article->slug}")->assertSuccessful();
+
+        $this->assertSame(1, $article->fresh()->views_count);
+    }
+
+    public function test_invalid_vote_type_is_rejected_and_not_counted(): void
+    {
+        $this->markTestIncomplete('Any vote type other than helpful counts as not helpful; fixed by #43.');
+
+
+        $article = KnowledgeArticle::create([
+            'title' => 'Vote Validation Guide',
+            'slug' => 'vote-validation',
+            'category' => 'API',
+            'body' => 'Body.',
+            'is_published' => true,
+            'helpful_count' => 0,
+            'not_helpful_count' => 0,
+        ]);
+
+        $response = $this->post("/help/{$article->slug}/vote", ['type' => 'bogus']);
+
+        $response->assertSessionHasErrors('type');
+
+        $article->refresh();
+        $this->assertSame(0, $article->helpful_count);
+        $this->assertSame(0, $article->not_helpful_count);
+    }
 }

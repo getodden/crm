@@ -94,7 +94,7 @@ class MarketingEnterpriseDifferentiationSuiteTest extends TestCase
             'pipeline_id' => $pipeline->id,
             'name' => 'Discovery',
             'code' => 'discovery',
-            'order' => 1,
+            'sort_order' => 1,
             'probability' => 20,
         ]);
 
@@ -181,10 +181,21 @@ class MarketingEnterpriseDifferentiationSuiteTest extends TestCase
         $this->assertEquals('Welcome! Your CTA is: Upgrade to Enterprise.', $evaluator->execute($inlineHtml, $vipCustomer));
         $this->assertEquals('Welcome! Your CTA is: Start 14-Day Free Trial.', $evaluator->execute($inlineHtml, $lead));
 
-        // 4. Blade syntax @smart
+    }
+
+    public function test_blade_style_smart_directives_are_evaluated(): void
+    {
+        $this->markTestIncomplete('@smart(...) is rewritten to [...] instead of [smart ...], so it is never evaluated; fixed by #29.');
+
+        $customer = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
+        $lead = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
+        $evaluator = app(EvaluateSmartContentBlocksAction::class);
+
         $bladeHtml = 'Hello! @smart(stage="customer") Thank you for being a customer! @smart(default) Learn more about us. @endsmart';
-        $this->assertStringContainsString('Thank you for being a customer!', $evaluator->execute($bladeHtml, $vipCustomer));
-        $this->assertStringContainsString('Learn more about us.', $evaluator->execute($bladeHtml, $lead));
+
+        // Exact match: the directives must be consumed, not just the text present.
+        $this->assertSame('Hello! Thank you for being a customer!', trim($evaluator->execute($bladeHtml, $customer)));
+        $this->assertSame('Hello! Learn more about us.', trim($evaluator->execute($bladeHtml, $lead)));
     }
 
     public function test_closed_loop_revenue_and_velocity_analytics(): void
@@ -197,7 +208,7 @@ class MarketingEnterpriseDifferentiationSuiteTest extends TestCase
             'pipeline_id' => $pipeline->id,
             'name' => 'Closed Won',
             'code' => 'closed_won',
-            'order' => 5,
+            'sort_order' => 5,
             'probability' => 100,
         ]);
 

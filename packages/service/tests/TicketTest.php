@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Service\Tests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
@@ -180,5 +181,62 @@ class TicketTest extends TestCase
 
         $this->assertSame(TicketStatus::Open, $ticket->status);
         $this->assertNull($ticket->resolved_at);
+    }
+
+    public function test_priority_change_recalculates_sla_due_dates(): void
+    {
+        $this->markTestIncomplete('SLA due dates are not recalculated on priority change; fixed by #39.');
+
+
+        Carbon::setTestNow(Carbon::parse('2026-01-05 09:00:00'));
+
+        $policy = SlaPolicy::create([
+            'name' => 'Tiered SLA',
+            'urgent_first_response_minutes' => 15,
+            'urgent_resolution_minutes' => 60,
+            'high_first_response_minutes' => 60,
+            'high_resolution_minutes' => 240,
+            'medium_first_response_minutes' => 120,
+            'medium_resolution_minutes' => 480,
+            'low_first_response_minutes' => 240,
+            'low_resolution_minutes' => 960,
+        ]);
+
+        $ticket = Ticket::create([
+            'subject' => 'Priority bump',
+            'status' => TicketStatus::New,
+            'priority' => TicketPriority::Medium,
+            'source' => TicketSource::WebPortal,
+            'sla_policy_id' => $policy->id,
+        ]);
+
+        $this->assertTrue($ticket->first_response_due_at->equalTo(Carbon::parse('2026-01-05 11:00:00')));
+
+        $ticket->update(['priority' => TicketPriority::Urgent]);
+        $ticket->refresh();
+
+        $this->assertTrue($ticket->first_response_due_at->equalTo(Carbon::parse('2026-01-05 09:15:00')));
+        $this->assertTrue($ticket->resolution_due_at->equalTo(Carbon::parse('2026-01-05 10:00:00')));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_inactive_default_sla_policy_is_not_applied_to_new_tickets(): void
+    {
+        $this->markTestIncomplete('Inactive default SLA policy is still applied on create; fixed by #39.');
+
+
+        SlaPolicy::query()->update(['is_active' => false]);
+
+        $ticket = Ticket::create([
+            'subject' => 'No active policy',
+            'status' => TicketStatus::New,
+            'priority' => TicketPriority::High,
+            'source' => TicketSource::WebPortal,
+        ]);
+
+        $this->assertNull($ticket->sla_policy_id);
+        $this->assertNull($ticket->first_response_due_at);
+        $this->assertNull($ticket->resolution_due_at);
     }
 }

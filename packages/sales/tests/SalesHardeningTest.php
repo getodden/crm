@@ -21,6 +21,7 @@ use Odden\Sales\Actions\RouteLeadAction;
 use Odden\Sales\Actions\SyncDealAmountAction;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Enums\LeadRoutingStrategy;
+use Odden\Sales\Enums\QuotaPeriod;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Enums\StageAutomationActionType;
 use Odden\Sales\Exceptions\StageRequirementException;
@@ -345,7 +346,6 @@ class SalesHardeningTest extends TestCase
 
         app(EnrollContactInSequenceAction::class)->execute($contact, $sequence);
 
-        $this->assertTrue($contact->relationLoaded('salesSequenceEnrollments') || method_exists($contact, 'salesSequenceEnrollments') || $contact->salesSequenceEnrollments()->exists());
         $this->assertCount(1, $contact->salesSequenceEnrollments);
         $this->assertSame('Q4 Enterprise Inbound', $contact->salesSequenceEnrollments->first()->sequence->name);
     }
@@ -358,7 +358,7 @@ class SalesHardeningTest extends TestCase
         // High performer has 80% attainment
         SalesQuota::create([
             'user_id' => $repHigh->id,
-            'period' => 'quarterly',
+            'period_type' => QuotaPeriod::Quarterly,
             'period_start' => now()->startOfQuarter(),
             'period_end' => now()->endOfQuarter(),
             'target_amount' => 100000.00,
@@ -373,7 +373,7 @@ class SalesHardeningTest extends TestCase
         // Low performer has 20% attainment
         SalesQuota::create([
             'user_id' => $repLow->id,
-            'period' => 'quarterly',
+            'period_type' => QuotaPeriod::Quarterly,
             'period_start' => now()->startOfQuarter(),
             'period_end' => now()->endOfQuarter(),
             'target_amount' => 100000.00,

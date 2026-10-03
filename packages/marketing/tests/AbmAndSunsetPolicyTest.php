@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Odden\Marketing\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Mailable;
+use Illuminate\Support\Facades\Mail;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Actions\CalculateCompanyIntentScoreAction;
 use Odden\Marketing\Actions\CheckFatiguePolicyAction;
 use Odden\Marketing\Actions\DetectUnengagedContactsAction;
 use Odden\Marketing\Actions\ExecuteSunsetPolicyAction;
+use Odden\Marketing\Models\Campaign;
+use Odden\Marketing\Models\CampaignRecipient;
 
 class AbmAndSunsetPolicyTest extends TestCase
 {
@@ -121,5 +125,72 @@ class AbmAndSunsetPolicyTest extends TestCase
 
         $this->assertFalse($fatigueResult['can_send']);
         $this->assertSame('Contact suppressed under deliverability sunset policy', $fatigueResult['reason']);
+    }
+
+    public function test_sunset_flags_mailed_but_never_engaged_contacts_and_ignores_contacts_no_longer_mailed(): void
+    {
+        $this->markTestIncomplete('Detection only flags contacts not mailed for N days, missing mailed-but-never-opened ones; fixed by #28.');
+
+        $mailedNeverOpens = Contact::create([
+            'first_name' => 'Mailed',
+            'last_name' => 'Ghost',
+            'email' => 'ghost@example.com',
+            'last_marketing_email_sent_at' => now()->subDays(3),
+            'is_unengaged' => false,
+        ]);
+        $stoppedMailing = Contact::create([
+            'first_name' => 'Stopped',
+            'last_name' => 'Mailing',
+            'email' => 'stopped@example.com',
+            'last_marketing_email_sent_at' => now()->subDays(120),
+            'is_unengaged' => false,
+        ]);
+
+        foreach ([100, 60, 3] as $i => $daysAgo) {
+            $campaign = Campaign::create([
+                'name' => 'Newsletter '.$i,
+                'subject' => 'Newsletter '.$i,
+                'sender_name' => 'Odden',
+                'sender_email' => 'news@odden.test',
+            ]);
+            CampaignRecipient::create([
+                'campaign_id' => $campaign->id,
+                'contact_id' => $mailedNeverOpens->id,
+                'email' => $mailedNeverOpens->email,
+                'tracking_token' => 'tok_ghost_'.$i,
+                'unsubscribe_token' => 'unsub_ghost_'.$i,
+                'sent_at' => now()->subDays($daysAgo),
+            ]);
+        }
+
+        $flagged = (new DetectUnengagedContactsAction)->execute(daysInactive: 90);
+
+        $this->assertSame([$mailedNeverOpens->id], $flagged->pluck('id')->all());
+        $this->assertTrue($mailedNeverOpens->refresh()->is_unengaged);
+        $this->assertFalse($stoppedMailing->refresh()->is_unengaged);
+    }
+
+    public function test_sunset_reengagement_stage_sends_an_email(): void
+    {
+        $this->markTestIncomplete('reengagement_sent stage only logs a task and sends no email; fixed by #28.');
+
+        Mail::fake();
+
+        $contact = Contact::create([
+            'first_name' => 'Quiet',
+            'last_name' => 'Subscriber',
+            'email' => 'quiet@example.com',
+            'is_unengaged' => true,
+            'sunset_stage' => 'flagged',
+        ]);
+
+        (new ExecuteSunsetPolicyAction)->execute($contact);
+
+        $this->assertSame('reengagement_sent', $contact->refresh()->sunset_stage);
+        $this->assertCount(
+            1,
+            Mail::sent(Mailable::class)->merge(Mail::queued(Mailable::class)),
+            'Expected a re-engagement email to be sent to the contact.'
+        );
     }
 }

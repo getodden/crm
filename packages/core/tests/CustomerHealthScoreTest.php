@@ -31,14 +31,15 @@ test('calculates healthy standing for actively engaged company', function () {
 
     $updated = app(CalculateCustomerHealthScoreAction::class)->execute($company);
 
-    expect($updated->health_score)->toBeGreaterThanOrEqual(70)
+    // 70 baseline + 15 (activity within 14d) + 10 (3+ contacts)
+    expect($updated->health_score)->toBe(95)
         ->and($updated->health_status)->toBe(CustomerHealthStatus::Healthy)
         ->and($updated->isHealthy())->toBeTrue()
         ->and($updated->isAtRisk())->toBeFalse()
         ->and($updated->last_health_calculated_at)->not->toBeNull();
 });
 
-test('detects at risk account and logs churn alert task when inactive or lacking engagement', function () {
+test('inactive account with no contacts bottoms out at neutral without a churn alert', function () {
     /** @var Company $company */
     $company = Company::factory()->create([
         'name' => 'Stale Corporation',
@@ -60,8 +61,8 @@ test('detects at risk account and logs churn alert task when inactive or lacking
     // 70 - 20 (inactive >= 60d) - 10 (0 contacts) = 40 (Neutral)
     expect($updated->health_status)->toBe(CustomerHealthStatus::Neutral);
 
-    // Now test severe support issues dropping score < 40 -> AtRisk
-    // Let's add another inactive penalty or lower score
-    $company->update(['health_score' => 25, 'health_status' => CustomerHealthStatus::AtRisk]);
-    expect($company->isAtRisk())->toBeTrue();
+    // Inactivity and no contacts alone floor at 40 (Neutral), so no churn alert yet.
+    // Dropping below 40 needs service/sales signals; see CustomerHealthCrossHubSignalsTest.
+    expect($updated->health_score)->toBe(40)
+        ->and($updated->isAtRisk())->toBeFalse();
 });

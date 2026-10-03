@@ -46,7 +46,7 @@ class CampaignBudgetAndRoiTest extends TestCase
         ]);
 
         $pipeline = Pipeline::create(['name' => 'Sales Funnel', 'code' => 'sales_funnel']);
-        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'order' => 1]);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'closed_won', 'sort_order' => 1]);
 
         $deal = Deal::create([
             'name' => 'MegaCorp Enterprise License',

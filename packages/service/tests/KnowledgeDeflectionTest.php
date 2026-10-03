@@ -110,4 +110,26 @@ class KnowledgeDeflectionTest extends TestCase
         $this->assertStringNotContainsString(' ', $url);
         $this->assertStringContainsString('/help/webhook%22%3E%3Cimg%20src=x', $url);
     }
+
+    public function test_deflecting_unpublished_article_returns_404_and_does_not_increment(): void
+    {
+        $this->markTestIncomplete('Deflect endpoint counts unpublished articles; fixed by #43.');
+
+
+        $article = KnowledgeArticle::create([
+            'title' => 'Internal Runbook',
+            'slug' => 'internal-runbook',
+            'category' => 'Internal',
+            'body' => 'Staff only.',
+            'is_published' => false,
+            'deflections_count' => 2,
+        ]);
+
+        $response = $this->postJson(route('odden.service.knowledge.deflect'), [
+            'article_id' => $article->id,
+        ]);
+
+        $response->assertNotFound();
+        $this->assertSame(2, $article->fresh()->deflections_count);
+    }
 }

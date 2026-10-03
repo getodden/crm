@@ -91,4 +91,26 @@ class TemplateParserTest extends TestCase
         $this->assertSame('Hello <img src=x onerror=alert(1)> O\'Brien & Sons', $rendered['subject']);
         $this->assertSame('<p>Hi &lt;img src=x onerror=alert(1)&gt; O&#039;Brien &amp; Sons</p>', $rendered['body_html']);
     }
+
+    public function test_deal_formatted_amount_uses_the_deal_currency_instead_of_a_hardcoded_dollar_sign(): void
+    {
+        $this->markTestIncomplete('formatted_amount hardcodes a $ prefix and ignores currency; fixed by #34.');
+
+        $pipeline = Pipeline::factory()->withStages()->create();
+        $deal = Deal::factory()->create([
+            'pipeline_id' => $pipeline->id,
+            'stage_id' => $pipeline->stages->first()->id,
+            'amount' => 1234.50,
+            'currency' => 'EUR',
+        ]);
+
+        $context = (new TemplateParser)->buildContext(null, $deal);
+
+        $this->assertStringNotContainsString('$', $context['deal']['formatted_amount']);
+        $this->assertStringContainsString('1,234.50', $context['deal']['formatted_amount']);
+        $this->assertTrue(
+            str_contains($context['deal']['formatted_amount'], 'EUR') || str_contains($context['deal']['formatted_amount'], '€'),
+            'formatted_amount must reflect the deal currency',
+        );
+    }
 }

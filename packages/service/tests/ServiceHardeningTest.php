@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Service\Tests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
@@ -225,5 +226,46 @@ class ServiceHardeningTest extends TestCase
 
         $this->assertSame('Please navigate to Settings > Security and click Reset Password.', $message->body);
         $this->assertSame($agent->id, $message->user_id);
+    }
+
+    public function test_sla_breach_escalation_recalculates_due_dates_for_new_priority(): void
+    {
+        $this->markTestIncomplete('Breach escalation leaves SLA due dates on the old priority; fixed by #39.');
+
+
+        Carbon::setTestNow(Carbon::parse('2026-01-05 09:00:00'));
+
+        $policy = SlaPolicy::create([
+            'name' => 'Tiered SLA',
+            'urgent_first_response_minutes' => 15,
+            'urgent_resolution_minutes' => 60,
+            'high_first_response_minutes' => 60,
+            'high_resolution_minutes' => 240,
+            'medium_first_response_minutes' => 120,
+            'medium_resolution_minutes' => 480,
+            'low_first_response_minutes' => 240,
+            'low_resolution_minutes' => 960,
+        ]);
+
+        $ticket = Ticket::create([
+            'subject' => 'Escalation recalculation',
+            'status' => TicketStatus::New,
+            'priority' => TicketPriority::Medium,
+            'source' => TicketSource::WebPortal,
+            'owner_id' => null,
+            'sla_policy_id' => $policy->id,
+            'first_response_due_at' => now()->subMinutes(10),
+            'resolution_due_at' => now()->addHours(8),
+        ]);
+
+        app(CheckSlaBreachesAction::class)->execute();
+
+        $fresh = $ticket->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(TicketPriority::High, $fresh->priority);
+        // High resolution target is 240 minutes from now.
+        $this->assertTrue($fresh->resolution_due_at->equalTo(Carbon::parse('2026-01-05 13:00:00')));
+
+        Carbon::setTestNow();
     }
 }

@@ -71,7 +71,7 @@ class ConversionFunnelAnalysisTest extends TestCase
 
         // 4. Deals Won (2 deals closed won)
         $pipeline = Pipeline::create(['name' => 'Sales', 'code' => 'sales']);
-        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'won', 'order' => 1]);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'won', 'sort_order' => 1]);
 
         for ($i = 1; $i <= 2; $i++) {
             Deal::create([

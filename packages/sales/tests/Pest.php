@@ -41,3 +41,32 @@ function sourceFilesMatching(string $pattern): array
 
     return $matches;
 }
+
+/**
+ * Blade views under the package's resources/views whose contents match a pattern.
+ *
+ * @return list<string>
+ */
+function bladeViewsMatching(string $pattern): array
+{
+    $root = dirname(__DIR__);
+    $views = "{$root}/resources/views";
+    $matches = [];
+
+    if (! is_dir($views)) {
+        return $matches;
+    }
+
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($views, FilesystemIterator::SKIP_DOTS));
+
+    foreach ($files as $file) {
+        if ($file instanceof SplFileInfo && str_ends_with($file->getFilename(), '.blade.php')
+            && preg_match($pattern, (string) file_get_contents($file->getPathname())) === 1) {
+            $matches[] = substr($file->getPathname(), strlen($root) + 1);
+        }
+    }
+
+    sort($matches);
+
+    return $matches;
+}
