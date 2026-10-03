@@ -9,6 +9,7 @@ use Illuminate\Support\ServiceProvider;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Support\ModelRegistry;
 use Odden\Sales\Console\Commands\ExpireStaleQuotesCommand;
 use Odden\Sales\Console\Commands\ProcessCadencesCommand;
 use Odden\Sales\Listeners\MoveMergedRecords;
@@ -26,6 +27,10 @@ class SalesServiceProvider extends ServiceProvider
             __DIR__.'/../config/odden-sales.php',
             'odden-sales'
         );
+
+        $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
+            $registry->discover(__DIR__.'/Models', 'Odden\\Sales\\Models');
+        });
     }
 
     /**

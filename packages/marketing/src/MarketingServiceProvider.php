@@ -14,6 +14,7 @@ use Odden\Core\Events\ContactCreated;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\ListMembership;
+use Odden\Core\Support\ModelRegistry;
 use Odden\MailBuilder\MergeTags\MergeTagRegistry;
 use Odden\Marketing\Actions\EnrollContactInWorkflowAction;
 use Odden\Marketing\Console\Commands\DecayLeadScoresCommand;
@@ -43,6 +44,10 @@ class MarketingServiceProvider extends ServiceProvider
             __DIR__.'/../config/odden-marketing.php',
             'odden-marketing'
         );
+
+        $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
+            $registry->discover(__DIR__.'/Models', 'Odden\\Marketing\\Models');
+        });
 
         $this->callAfterResolving(MergeTagRegistry::class, function (MergeTagRegistry $registry): void {
             $this->registerMergeTags($registry);
