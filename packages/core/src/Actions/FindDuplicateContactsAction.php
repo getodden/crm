@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Odden\Core\Actions;
 
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 use Odden\Core\Models\Contact;
 
 class FindDuplicateContactsAction
 {
     /**
      * Find groups of duplicate contacts based on matching email, phone, or full name.
+     *
+     * Emails match case-insensitively, phone numbers match on their digits only (so "(555) 010-1234"
+     * and "555.010.1234" are the same number), and names match on first plus last name,
+     * case-insensitively. A group of contacts that was already reported under an earlier field
+     * (email, then phone, then name) is not reported again.
      *
      * @return array<int, array{
      *     match_field: string,
@@ -21,55 +25,52 @@ class FindDuplicateContactsAction
      */
     public function execute(): array
     {
-        $duplicates = [];
+        /** @var array<string, array<string, list<int>>> $buckets */
+        $buckets = ['email' => [], 'phone' => [], 'name' => []];
 
-        // 1. Duplicate Emails (case-insensitive)
-        $duplicateEmails = Contact::query()
-            ->select('email', DB::raw('count(*) as count'))
-            ->whereNotNull('email')
-            ->where('email', '!=', '')
-            ->groupBy('email')
-            ->havingRaw('count(*) > ?', [1])
-            ->pluck('email');
+        Contact::query()
+            ->select(['id', 'email', 'phone', 'first_name', 'last_name'])
+            ->orderBy('id')
+            ->chunkById(1000, function (Collection $contacts) use (&$buckets): void {
+                foreach ($contacts as $contact) {
+                    $email = mb_strtolower(trim((string) $contact->email));
+                    if ($email !== '') {
+                        $buckets['email'][$email][] = $contact->id;
+                    }
 
-        foreach ($duplicateEmails as $email) {
-            $contacts = Contact::query()->where('email', $email)->orderBy('id')->get();
-            if ($contacts->count() > 1) {
-                $duplicates[] = [
-                    'match_field' => 'email',
-                    'match_value' => (string) $email,
-                    'contacts' => $contacts,
-                ];
-            }
-        }
+                    $phone = (string) preg_replace('/\D+/', '', (string) $contact->phone);
+                    if ($phone !== '') {
+                        $buckets['phone'][$phone][] = $contact->id;
+                    }
 
-        // 2. Duplicate Phones (ignoring non-digit characters)
-        $duplicatePhones = Contact::query()
-            ->select('phone', DB::raw('count(*) as count'))
-            ->whereNotNull('phone')
-            ->where('phone', '!=', '')
-            ->groupBy('phone')
-            ->havingRaw('count(*) > ?', [1])
-            ->pluck('phone');
-
-        foreach ($duplicatePhones as $phone) {
-            $contacts = Contact::query()->where('phone', $phone)->orderBy('id')->get();
-            // Don't duplicate if already matched by email
-            $ids = $contacts->pluck('id')->sort()->values()->all();
-            $alreadyMatched = false;
-            foreach ($duplicates as $existing) {
-                $existingIds = $existing['contacts']->pluck('id')->sort()->values()->all();
-                if ($ids === $existingIds) {
-                    $alreadyMatched = true;
-                    break;
+                    $first = mb_strtolower(trim((string) $contact->first_name));
+                    $last = mb_strtolower(trim((string) $contact->last_name));
+                    if ($first !== '' && $last !== '') {
+                        $buckets['name']["{$first} {$last}"][] = $contact->id;
+                    }
                 }
-            }
+            });
 
-            if (! $alreadyMatched && $contacts->count() > 1) {
+        $duplicates = [];
+        $reported = [];
+
+        foreach ($buckets as $field => $groups) {
+            foreach ($groups as $value => $ids) {
+                if (count($ids) < 2) {
+                    continue;
+                }
+
+                sort($ids);
+                $signature = implode(',', $ids);
+                if (isset($reported[$signature])) {
+                    continue;
+                }
+                $reported[$signature] = true;
+
                 $duplicates[] = [
-                    'match_field' => 'phone',
-                    'match_value' => (string) $phone,
-                    'contacts' => $contacts,
+                    'match_field' => $field,
+                    'match_value' => (string) $value,
+                    'contacts' => Contact::query()->whereIn('id', $ids)->orderBy('id')->get(),
                 ];
             }
         }

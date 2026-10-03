@@ -25,10 +25,11 @@ $groups = app(FindDuplicateContactsAction::class)->execute();
 
 It matches on:
 
-1. `email`: contacts with exactly the same value. Whether the comparison ignores case depends on your database collation. `CreateContactAction` lowercases emails, so contacts created through it compare reliably.
-2. `phone`: contacts with exactly the same string. Formatting differences such as `555-0100` and `5550100` are not matched. A phone group is skipped if the same set of contacts was already matched by email.
+1. `email`: the same address, ignoring case and surrounding whitespace. `match_value` is the lowercased address.
+2. `phone`: the same digits, ignoring formatting, so `(555) 010-1234` and `555.010.1234` match. `match_value` is the digits only.
+3. `name`: the same first and last name, ignoring case and surrounding whitespace. Contacts missing either name are never matched on name. `match_value` is the lowercased `first last`.
 
-It doesn't match on names, and it takes no arguments, so you can't scope it to one contact or one team.
+Fields are checked in that order, and a group of exactly the same contacts is reported once, under the first field that matched. The action takes no arguments, so you can't scope it to one contact or one team.
 
 ## Finding duplicate companies
 
