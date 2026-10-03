@@ -52,6 +52,9 @@ Route::group(RouteGroup::attributes('odden-service.routes.api'), function (): vo
         ->name('odden.service.knowledge.deflect');
 
     // Embeddable Web Chat & Support Messenger
+    Route::get('/widget.js', [ChatWidgetController::class, 'script'])
+        ->middleware('throttle:odden-poll')
+        ->name('odden.service.widget');
     Route::post('/chat/start', [ChatWidgetController::class, 'start'])
         ->withoutMiddleware(CsrfExemption::middleware())
         ->middleware('throttle:odden-public')

@@ -60,7 +60,12 @@ class HelpCenterController extends Controller
             ->where('is_published', true)
             ->firstOrFail();
 
-        $article->recordView();
+        // Count one view per visitor session, so refreshes and repeat visits don't inflate it.
+        $viewed = (array) session()->get('odden.viewed_articles', []);
+        if (! in_array($article->id, $viewed, true)) {
+            $article->recordView();
+            session()->put('odden.viewed_articles', [...$viewed, $article->id]);
+        }
 
         $relatedArticles = KnowledgeArticle::query()
             ->where('category', $article->category)
@@ -86,7 +91,9 @@ class HelpCenterController extends Controller
             ->where('is_published', true)
             ->firstOrFail();
 
-        $voteType = $request->string('type')->value();
+        $voteType = $request->validate([
+            'type' => ['required', 'in:helpful,not_helpful'],
+        ])['type'];
 
         if ($voteType === 'helpful') {
             $article->voteHelpful();

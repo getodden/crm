@@ -44,9 +44,9 @@ The help center routes are in the `web` route group, with no prefix by default:
 
 `GET /help` lists published articles, 12 per page, most viewed first. `?q=` filters by a substring of the title or body, and `?category=` by exact category.
 
-`GET /help/{slug}` shows a published article (unpublished or unknown slugs return `404`) and up to four other published articles in the same category. Every request increments `views_count`.
+`GET /help/{slug}` shows a published article (unpublished or unknown slugs return `404`) and up to four other published articles in the same category. `views_count` goes up once per visitor session: refreshing or revisiting the article in the same session doesn't count again.
 
-`POST /help/{slug}/vote` takes `type`. `helpful` increments `helpful_count`; any other value increments `not_helpful_count`. It redirects back with a `feedback_submitted` flash message. Votes are not limited per visitor beyond the rate limit, and the route uses the web group's CSRF protection.
+`POST /help/{slug}/vote` takes `type`. `type` is required and must be `helpful` (increments `helpful_count`) or `not_helpful` (increments `not_helpful_count`); anything else is rejected with a validation error and nothing is counted. It redirects back with a `feedback_submitted` flash message. Votes are not limited per visitor beyond the rate limit, and the route uses the web group's CSRF protection.
 
 The views are `odden-service::help.index` and `odden-service::help.show`. Override them the same way as the [portal views](customer-portal.md#customizing-the-pages).
 
@@ -135,4 +135,4 @@ curl -X POST https://crm.example.com/api/service/knowledge/deflect \
 }
 ```
 
-An unknown `article_id` returns `404` with `{"success": false, "message": "Article not found."}`. The endpoint doesn't check `is_published` and doesn't limit repeat submissions beyond the rate limit, so treat `deflections_count` as an indicator rather than an exact figure.
+An unknown `article_id` returns `404` with `{"success": false, "message": "Article not found."}`. Unpublished articles also return `404` and are not counted. The endpoint doesn't limit repeat submissions beyond the rate limit, so treat `deflections_count` as an indicator rather than an exact figure.

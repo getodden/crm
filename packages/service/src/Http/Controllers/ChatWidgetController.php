@@ -16,6 +16,7 @@ use Odden\Service\Enums\TicketPriority;
 use Odden\Service\Enums\TicketSource;
 use Odden\Service\Models\Ticket;
 use Odden\Service\Models\TicketMessage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ChatWidgetController extends Controller
 {
@@ -184,5 +185,16 @@ class ChatWidgetController extends Controller
             ->all());
 
         return $list;
+    }
+
+    /**
+     * Serve the embeddable chat widget script.
+     */
+    public function script(): BinaryFileResponse
+    {
+        return response()->file(__DIR__.'/../../../resources/js/widget.js', [
+            'Content-Type' => 'application/javascript; charset=utf-8',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
     }
 }

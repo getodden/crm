@@ -180,9 +180,6 @@ class HelpCenterAndPortalTest extends TestCase
 
     public function test_repeat_views_by_same_visitor_are_not_double_counted(): void
     {
-        $this->markTestIncomplete('Every help page view increments views_count; fixed by #43.');
-
-
         $article = KnowledgeArticle::create([
             'title' => 'Dedupe Views Guide',
             'slug' => 'dedupe-views',
@@ -200,9 +197,6 @@ class HelpCenterAndPortalTest extends TestCase
 
     public function test_invalid_vote_type_is_rejected_and_not_counted(): void
     {
-        $this->markTestIncomplete('Any vote type other than helpful counts as not helpful; fixed by #43.');
-
-
         $article = KnowledgeArticle::create([
             'title' => 'Vote Validation Guide',
             'slug' => 'vote-validation',

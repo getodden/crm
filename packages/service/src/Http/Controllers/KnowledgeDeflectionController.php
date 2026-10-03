@@ -39,7 +39,9 @@ class KnowledgeDeflectionController extends Controller
         ]);
 
         /** @var KnowledgeArticle|null $article */
-        $article = KnowledgeArticle::query()->find($validated['article_id']);
+        $article = KnowledgeArticle::query()
+            ->where('is_published', true)
+            ->find($validated['article_id']);
 
         if ($article === null) {
             return response()->json([

@@ -7,23 +7,18 @@ The package includes `widget.js`, a dependency-free script that adds a chat laun
 
 ## Embedding the widget
 
-The script is at `resources/js/widget.js` in the package. It is not published or served by a route, so copy it into your public directory (or your asset pipeline):
+The package serves the script itself at `GET /widget.js` in the API route group (route name `odden.service.widget`, so `/api/service/widget.js` with the default prefix), cached for an hour. You can load it straight from there, or publish a copy into your public directory (or asset pipeline) with `php artisan vendor:publish --tag=odden-service-widget`, which writes `public/js/odden-chat-widget.js`.
 
-```bash
-mkdir -p public/js
-cp vendor/getodden/crm-service/resources/js/widget.js public/js/odden-chat-widget.js
-```
-
-Then add it to the pages where the launcher should appear. Set `window.ODDEN_CHAT_API_URL` to the full base URL of the chat API, including any configured prefix, before the script loads:
+Add it to the pages where the launcher should appear. Set `window.ODDEN_CHAT_API_URL` to the full base URL of the chat API, including any configured prefix, before the script loads:
 
 ```html
 <script>
     window.ODDEN_CHAT_API_URL = 'https://crm.example.com/api/service';
 </script>
-<script src="https://crm.example.com/js/odden-chat-widget.js" async></script>
+<script src="https://crm.example.com/api/service/widget.js" async></script>
 ```
 
-Without `ODDEN_CHAT_API_URL`, the widget calls `/api/service` on the page's own origin. Re-copy the file when you update the package. Copies taken from earlier versions inserted the sender name into the page as HTML, so re-copy the script if yours predates this fix.
+Without `ODDEN_CHAT_API_URL`, the widget calls `/api/service` on the page's own origin. Re-publish the file when you update the package if you use a published copy. Copies taken from earlier versions inserted the sender name into the page as HTML, so re-publish the script if yours predates this fix.
 
 The widget:
 
@@ -153,4 +148,4 @@ Response:
 
 A chat session never follows a merge. The chat widget doesn't verify the visitor's email address, so anyone can start a chat in another customer's name, and the chat ticket is attached to that customer's contact. Once the chat's ticket is merged into another ticket, both endpoints keep returning the chat's own ticket (its `ticket_number`, `status`, and public messages; the merge moved its messages to the primary, so the list is empty), with `merged` set to `true` and `notice` set to "This conversation has moved to another support ticket. Please check your email for updates from our support team and reply there." The bundled widget shows the notice and hides the message box. The primary ticket's thread, number, and status are never exposed through the chat token. See [Replies to merged tickets](routing.md#replies-to-merged-tickets).
 
-An unknown token returns `404` with `{"error": "Chat session not found."}`. This endpoint has no rate limit, since the widget polls it.
+An unknown token returns `404` with `{"error": "Chat session not found."}`. This endpoint uses the `odden-poll` limiter (120 requests per minute per IP by default), sized for the widget's polling.

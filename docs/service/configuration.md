@@ -165,9 +165,10 @@ POST routes in the `web` group keep CSRF protection; the bundled forms include t
 
 ## Rate limits
 
-The throttled routes use Core's two limiters, both keyed by IP address:
+The throttled routes use Core's limiters, keyed by IP address and module:
 
 - `odden-public`: `odden-core.rate_limits.public`, default 30 requests per minute.
+- `odden-poll`: `odden-core.rate_limits.poll`, default 120 requests per minute.
 - `odden-api`: `odden-core.rate_limits.api`, default 600 requests per minute.
 
 Each limiter keeps one counter per IP for each Odden module, shared by that module's routes that use it. A visitor who sends chat messages, votes on articles, and submits the support form is counted once against the same 30 per minute for the service module, but marketing or sales routes have their own counters. If many customers reach your app through one proxy address, configure trusted proxies as described in [Rate limits](../configuration.md#rate-limits).

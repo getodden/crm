@@ -119,4 +119,13 @@ class ChatWidgetTest extends TestCase
         $this->assertStringContainsString('body.textContent = m.body', $script);
         $this->assertStringContainsString('encodeURIComponent(currentToken)', $script);
     }
+
+    public function test_widget_script_is_served_by_a_route(): void
+    {
+        $response = $this->get(route('odden.service.widget'));
+
+        $response->assertSuccessful();
+        $this->assertStringContainsString('javascript', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('OddenChatWidgetLoaded', $response->streamedContent());
+    }
 }

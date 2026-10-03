@@ -66,6 +66,10 @@ class ServiceHubServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'odden-service-migrations');
+
+            $this->publishes([
+                __DIR__.'/../resources/js/widget.js' => public_path('js/odden-chat-widget.js'),
+            ], 'odden-service-widget');
         }
     }
 }

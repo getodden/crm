@@ -113,9 +113,6 @@ class KnowledgeDeflectionTest extends TestCase
 
     public function test_deflecting_unpublished_article_returns_404_and_does_not_increment(): void
     {
-        $this->markTestIncomplete('Deflect endpoint counts unpublished articles; fixed by #43.');
-
-
         $article = KnowledgeArticle::create([
             'title' => 'Internal Runbook',
             'slug' => 'internal-runbook',
