@@ -76,15 +76,14 @@ class MultiTouchAttributionModelsTest extends TestCase
 
         $action = new GetCampaignAttributionAction;
 
-        // U-Shaped (80% weighted credit)
+        // With a single touch, every model gives that touch all of the credit.
         $uShaped = $action->execute($campaign, AttributionModel::UShaped);
         $this->assertSame('u_shaped', $uShaped['attribution_model']);
-        $this->assertEquals(80000.00, $uShaped['attributed_won_revenue']);
+        $this->assertEquals(100000.00, $uShaped['attributed_won_revenue']);
 
-        // Time-Decay (65% weighted credit)
         $timeDecay = $action->execute($campaign, AttributionModel::TimeDecay);
         $this->assertSame('time_decay', $timeDecay['attribution_model']);
-        $this->assertEquals(65000.00, $timeDecay['attributed_won_revenue']);
+        $this->assertEquals(100000.00, $timeDecay['attributed_won_revenue']);
     }
 
     public function test_calculate_closed_loop_metrics_with_u_shaped_and_w_shaped_models(): void
@@ -110,6 +109,7 @@ class MultiTouchAttributionModelsTest extends TestCase
             'email' => $contact->email,
             'tracking_token' => 'tok_tur_1',
             'unsubscribe_token' => 'unsub_tur_1',
+            'opened_at' => now()->subDay(),
         ]);
 
         $pipeline = Pipeline::create(['name' => 'Defense', 'code' => 'defense']);
@@ -135,22 +135,25 @@ class MultiTouchAttributionModelsTest extends TestCase
 
         $action = new CalculateClosedLoopMetricsAction;
 
-        // U-Shaped (80% attribution)
+        // A deal's credit is split across its touches and adds up to the whole deal, whatever the model.
         $uMetrics = $action->execute(AttributionModel::UShaped);
         $this->assertSame('u_shaped', $uMetrics['attribution_model']);
         $this->assertEquals(50000.00, $uMetrics['total_closed_won_revenue']);
-        $this->assertEquals(40000.00, $uMetrics['attributed_closed_won_revenue']); // 50000 * 0.80
+        $this->assertEquals(50000.00, $uMetrics['attributed_closed_won_revenue']);
+        $this->assertEquals(50000.00, $uMetrics['top_campaigns'][0]['attributed_won_revenue']);
 
-        // W-Shaped (70% attribution)
         $wMetrics = $action->execute(AttributionModel::WShaped);
         $this->assertSame('w_shaped', $wMetrics['attribution_model']);
-        $this->assertEquals(35000.00, $wMetrics['attributed_closed_won_revenue']); // 50000 * 0.70
+        $this->assertEquals(50000.00, $wMetrics['attributed_closed_won_revenue']);
+
+        // Without a model nothing is weighted, and the per-campaign attributed figure is left out.
+        $unweighted = $action->execute();
+        $this->assertEquals(50000.00, $unweighted['attributed_closed_won_revenue']);
+        $this->assertArrayNotHasKey('attributed_won_revenue', $unweighted['top_campaigns'][0]);
     }
 
     public function test_u_shaped_attribution_weights_each_touch_40_20_40(): void
     {
-        $this->markTestIncomplete('Attribution models apply flat multipliers, not per-touch weights; fixed by #26.');
-
         $contact = Contact::create(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@analytical.test']);
 
         $make = fn (string $name) => Campaign::create([
@@ -195,8 +198,6 @@ class MultiTouchAttributionModelsTest extends TestCase
 
     public function test_time_decay_attribution_favors_more_recent_touches(): void
     {
-        $this->markTestIncomplete('TimeDecay applies a flat 0.65 regardless of touch recency; fixed by #26.');
-
         $contact = Contact::create(['first_name' => 'Edsger', 'last_name' => 'Dijkstra', 'email' => 'edsger@algo.test']);
 
         $make = fn (string $name) => Campaign::create([
@@ -237,5 +238,105 @@ class MultiTouchAttributionModelsTest extends TestCase
         $this->assertGreaterThan($oldCredit, $recentCredit);
         // Credit across touches is split, not multiplied per campaign.
         $this->assertEqualsWithDelta(100000.00, $oldCredit + $recentCredit, 0.01);
+    }
+
+    /**
+     * A won deal worth $100,000 for a contact, so tests only describe the touches.
+     */
+    private function wonDealFor(Contact $contact, bool $dealIsParent = false): Deal
+    {
+        $pipeline = Pipeline::create(['name' => 'P'.$contact->id, 'code' => 'p'.$contact->id]);
+        $stage = PipelineStage::create(['pipeline_id' => $pipeline->id, 'name' => 'Closed Won', 'code' => 'won'.$contact->id, 'sort_order' => 1]);
+        $deal = Deal::create(['name' => 'Deal '.$contact->id, 'amount' => 100000.00, 'status' => DealStatus::Won, 'pipeline_id' => $pipeline->id, 'stage_id' => $stage->id]);
+
+        $dealIsParent ? $deal->associateWith($contact) : $contact->associateWith($deal);
+
+        return $deal;
+    }
+
+    private function campaignNamed(string $name, array $attributes = []): Campaign
+    {
+        return Campaign::create([...['name' => $name, 'subject' => $name, 'sender_name' => 'Odden', 'sender_email' => 'news@odden.test'], ...$attributes]);
+    }
+
+    public function test_w_shaped_attribution_weights_first_conversion_and_last_touch_30_30_30_and_10_for_the_rest(): void
+    {
+        $contact = Contact::create(['first_name' => 'Hedy', 'last_name' => 'Lamarr', 'email' => 'hedy@spread.test']);
+        $this->wonDealFor($contact);
+
+        $campaigns = [];
+        foreach (['first', 'second', 'convert', 'fourth', 'last'] as $i => $name) {
+            $campaigns[$name] = $this->campaignNamed("W {$name}");
+        }
+
+        $at = fn (int $daysAgo) => now()->subDays($daysAgo);
+        foreach ([['first', 40], ['second', 30], ['fourth', 10], ['last', 2]] as $i => [$name, $daysAgo]) {
+            CampaignRecipient::create(['campaign_id' => $campaigns[$name]->id, 'contact_id' => $contact->id, 'email' => $contact->email, 'tracking_token' => "w_{$i}", 'unsubscribe_token' => "wu_{$i}", 'opened_at' => $at($daysAgo)]);
+        }
+
+        // The form submission that converted the lead sits between the first and last touch.
+        $form = MarketingForm::create(['title' => 'Convert', 'slug' => 'convert', 'fields_schema' => []]);
+        $submission = FormSubmission::create(['form_id' => $form->id, 'contact_id' => $contact->id, 'form_data' => [], 'utm_campaign' => $campaigns['convert']->utmCampaignSlug()]);
+        $submission->forceFill(['created_at' => $at(20)])->saveQuietly();
+
+        $action = new GetCampaignAttributionAction;
+        $credit = fn (string $name) => $action->execute($campaigns[$name], AttributionModel::WShaped)['attributed_won_revenue'];
+
+        $this->assertEqualsWithDelta(30000.00, $credit('first'), 0.01);
+        $this->assertEqualsWithDelta(30000.00, $credit('convert'), 0.01);
+        $this->assertEqualsWithDelta(30000.00, $credit('last'), 0.01);
+        $this->assertEqualsWithDelta(5000.00, $credit('second'), 0.01);
+        $this->assertEqualsWithDelta(5000.00, $credit('fourth'), 0.01);
+    }
+
+    public function test_attribution_weights_always_add_up_to_one(): void
+    {
+        $calculator = app(\Odden\Marketing\Services\AttributionCalculator::class);
+
+        foreach ([1, 2, 3, 4, 7] as $count) {
+            $touches = [];
+            for ($i = 0; $i < $count; $i++) {
+                $touches[] = ['campaign_id' => $i + 1, 'contact_id' => 1, 'at' => now()->subDays($count - $i), 'type' => $i === 1 ? 'form' : 'email'];
+            }
+
+            foreach (AttributionModel::cases() as $model) {
+                $this->assertEqualsWithDelta(1.0, array_sum($calculator->weights($touches, $model)), 1e-9, "{$model->value} with {$count} touches");
+            }
+        }
+    }
+
+    public function test_form_submissions_match_the_campaign_utm_the_same_way_auto_tagging_builds_it(): void
+    {
+        $contact = Contact::create(['first_name' => 'Ken', 'last_name' => 'Thompson', 'email' => 'ken@unix.test']);
+        $this->wonDealFor($contact);
+
+        // The campaign's UTM value differs from its name, and the submission spells it differently.
+        $campaign = $this->campaignNamed('Spring Launch Blast', ['utm_campaign' => 'Spring Sale 2026']);
+        $this->assertSame('spring-sale-2026', $campaign->utmCampaignSlug());
+
+        $form = MarketingForm::create(['title' => 'Spring', 'slug' => 'spring', 'fields_schema' => []]);
+        FormSubmission::create(['form_id' => $form->id, 'contact_id' => $contact->id, 'form_data' => [], 'utm_campaign' => 'Spring  Sale 2026']);
+
+        $result = (new GetCampaignAttributionAction)->execute($campaign, AttributionModel::FirstTouch);
+
+        $this->assertSame(1, $result['leads_count']);
+        $this->assertEquals(100000.00, $result['attributed_won_revenue']);
+    }
+
+    public function test_deals_count_whichever_side_of_the_association_they_are_on(): void
+    {
+        $campaign = $this->campaignNamed('Both Directions', ['delivered_count' => 2]);
+
+        foreach ([[false, 'contact-first@dir.test'], [true, 'deal-first@dir.test']] as $i => [$dealIsParent, $email]) {
+            $contact = Contact::create(['first_name' => 'Dir', 'last_name' => (string) $i, 'email' => $email]);
+            $this->wonDealFor($contact, $dealIsParent);
+            CampaignRecipient::create(['campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'email' => $email, 'tracking_token' => "dir_{$i}", 'unsubscribe_token' => "diru_{$i}", 'opened_at' => now()->subDay()]);
+        }
+
+        $metrics = (new CalculateClosedLoopMetricsAction)->execute(AttributionModel::Linear);
+
+        $this->assertEquals(200000.00, $metrics['top_campaigns'][0]['won_revenue']);
+        $this->assertEquals(200000.00, $metrics['top_campaigns'][0]['pipeline_influenced']);
+        $this->assertEquals(200000.00, $metrics['top_campaigns'][0]['attributed_won_revenue']);
     }
 }

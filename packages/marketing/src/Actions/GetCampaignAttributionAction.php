@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
+use Illuminate\Support\Str;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Enums\AttributionModel;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\FormSubmission;
+use Odden\Marketing\Services\AttributionCalculator;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 
@@ -36,17 +38,20 @@ class GetCampaignAttributionAction
      */
     public function execute(Campaign $campaign, AttributionModel $model = AttributionModel::Linear): array
     {
-        $campaignSlug = strtolower(str_replace(' ', '-', $campaign->name));
+        $calculator = app(AttributionCalculator::class);
 
-        // 1. Leads generated via form submissions with matching UTM campaign
-        $formSubmissions = FormSubmission::query()
-            ->where(function ($q) use ($campaign, $campaignSlug): void {
-                $q->where('utm_campaign', $campaignSlug)
-                    ->orWhere('utm_campaign', $campaign->name);
-            })
-            ->get();
-
-        $formContactIds = $formSubmissions->pluck('contact_id')->filter()->unique()->all();
+        // 1. Leads generated via form submissions whose utm_campaign is this campaign's slug
+        // (the same slug UTM auto-tagging puts in the campaign's links).
+        $campaignSlug = $campaign->utmCampaignSlug();
+        $formContactIds = FormSubmission::query()
+            ->whereNotNull('utm_campaign')
+            ->whereNotNull('contact_id')
+            ->get(['contact_id', 'utm_campaign'])
+            ->filter(fn (FormSubmission $submission): bool => Str::slug((string) $submission->utm_campaign) === $campaignSlug)
+            ->pluck('contact_id')
+            ->unique()
+            ->values()
+            ->all();
 
         // 2. Engaged campaign recipients (opened or clicked)
         $engagedContactIds = $campaign->recipients()
@@ -63,41 +68,43 @@ class GetCampaignAttributionAction
         $dealsCount = 0;
         $rawPipelineValue = 0.0;
         $rawWonRevenue = 0.0;
+        $attributedPipeline = 0.0;
+        $attributedWon = 0.0;
 
         if (! empty($allInfluencedContactIds) && class_exists(Deal::class)) {
-            // Find deals associated with influenced contacts
+            // Deals associated with the influenced contacts, in either direction
             $contacts = Contact::query()->whereIn('id', $allInfluencedContactIds)->get();
 
-            $dealIds = [];
+            $deals = [];
             foreach ($contacts as $contact) {
-                $associatedDeals = $contact->getAssociated(Deal::class);
-                foreach ($associatedDeals as $deal) {
-                    $dealIds[$deal->id] = $deal;
+                foreach ($contact->getAssociated(Deal::class) as $deal) {
+                    $deals[$deal->id] = $deal;
                 }
             }
 
-            $dealsCount = count($dealIds);
-            foreach ($dealIds as $deal) {
+            $dealsCount = count($deals);
+            foreach ($deals as $deal) {
+                $amount = (float) $deal->amount;
+                if ($deal->status !== DealStatus::Won && $deal->status !== DealStatus::Open) {
+                    continue;
+                }
+
+                // This campaign's share of the deal: its touches among every touch of the deal's contacts.
+                $dealContactIds = $deal->getAssociated(Contact::class)->pluck('id');
+                $credit = $calculator->campaignCredit($calculator->touchesFor($dealContactIds), $model, $campaign->id);
+
                 if ($deal->status === DealStatus::Won) {
-                    $rawWonRevenue += (float) $deal->amount;
-                } elseif ($deal->status === DealStatus::Open) {
-                    $rawPipelineValue += (float) $deal->amount;
+                    $rawWonRevenue += $amount;
+                    $attributedWon += $amount * $credit;
+                } else {
+                    $rawPipelineValue += $amount;
+                    $attributedPipeline += $amount * $credit;
                 }
             }
         }
 
-        // Apply attribution weighting factor based on selected model
-        $weight = match ($model) {
-            AttributionModel::FirstTouch => ! empty($formContactIds) ? 1.0 : 0.5,
-            AttributionModel::LastTouch => ! empty($engagedContactIds) ? 1.0 : 0.5,
-            AttributionModel::UShaped => (! empty($formContactIds) && ! empty($engagedContactIds)) ? 0.80 : 0.60,
-            AttributionModel::WShaped => 0.70, // 30% first + 30% lead + 10% nurture
-            AttributionModel::TimeDecay => 0.65, // Recency-weighted decay
-            AttributionModel::Linear => 0.50,  // Equal multi-channel contribution
-        };
-
-        $attributedPipeline = $rawPipelineValue * $weight;
-        $attributedWon = $rawWonRevenue * $weight;
+        $attributedPipeline = round($attributedPipeline, 2);
+        $attributedWon = round($attributedWon, 2);
 
         $cost = (float) ($campaign->actual_spend ?: $campaign->actual_cost ?: 0.0);
         $netProfit = $attributedWon - $cost;
@@ -117,8 +124,8 @@ class GetCampaignAttributionAction
             'cost_per_lead' => $costPerLead,
             'pipeline_value' => round($rawPipelineValue, 2),
             'won_revenue' => round($rawWonRevenue, 2),
-            'attributed_pipeline_value' => round($attributedPipeline, 2),
-            'attributed_won_revenue' => round($attributedWon, 2),
+            'attributed_pipeline_value' => $attributedPipeline,
+            'attributed_won_revenue' => $attributedWon,
         ];
     }
 }

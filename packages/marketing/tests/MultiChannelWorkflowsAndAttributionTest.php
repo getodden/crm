@@ -13,6 +13,7 @@ use Odden\Marketing\Enums\AttributionModel;
 use Odden\Marketing\Enums\WorkflowStepType;
 use Odden\Marketing\Enums\WorkflowTriggerType;
 use Odden\Marketing\Models\Campaign;
+use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\FormSubmission;
 use Odden\Marketing\Models\MarketingForm;
 use Odden\Marketing\Models\MarketingWorkflow;
@@ -190,21 +191,49 @@ class MultiChannelWorkflowsAndAttributionTest extends TestCase
         ]);
         $contact->associateWith($deal);
 
+        // The same contact later engages with a nurture campaign, so the journey has two touches:
+        // the summit form submission, then the follow-up email open.
+        $followUp = Campaign::create([
+            'name' => 'Follow-up Nurture',
+            'subject' => 'Thanks for registering',
+            'sender_name' => 'Events',
+            'sender_email' => 'events@odden.test',
+        ]);
+        CampaignRecipient::create([
+            'campaign_id' => $followUp->id,
+            'contact_id' => $contact->id,
+            'email' => $contact->email,
+            'tracking_token' => 'tok_jvn_followup',
+            'unsubscribe_token' => 'unsub_jvn_followup',
+            'opened_at' => now()->addHour(),
+        ]);
+
         $action = new GetCampaignAttributionAction;
 
-        // 1. First-Touch Attribution (100% credit to acquisition campaign)
+        // 1. First-Touch Attribution: all credit to the acquisition campaign, none to the follow-up
         $firstTouch = $action->execute($campaign, AttributionModel::FirstTouch);
         $this->assertSame(100000.00, $firstTouch['attributed_won_revenue']);
         $this->assertSame('first_touch', $firstTouch['attribution_model']);
+        $this->assertSame(0.0, $action->execute($followUp, AttributionModel::FirstTouch)['attributed_won_revenue']);
 
-        // 2. Linear Attribution (50% split across multi-touch journey)
+        // 2. Last-Touch Attribution: the other way round
+        $this->assertSame(0.0, $action->execute($campaign, AttributionModel::LastTouch)['attributed_won_revenue']);
+        $this->assertSame(100000.00, $action->execute($followUp, AttributionModel::LastTouch)['attributed_won_revenue']);
+
+        // 3. Linear Attribution: the two touches split the deal evenly
         $linear = $action->execute($campaign, AttributionModel::Linear);
         $this->assertSame(50000.00, $linear['attributed_won_revenue']);
         $this->assertSame('linear', $linear['attribution_model']);
 
-        // 3. W-Shaped Attribution (70% weighted contribution)
+        // 4. W-Shaped Attribution: with two touches, first and last share it evenly
         $wShaped = $action->execute($campaign, AttributionModel::WShaped);
-        $this->assertSame(70000.00, $wShaped['attributed_won_revenue']);
+        $this->assertSame(50000.00, $wShaped['attributed_won_revenue']);
         $this->assertSame('w_shaped', $wShaped['attribution_model']);
+
+        // Every model hands out exactly the whole deal across the two campaigns.
+        foreach (AttributionModel::cases() as $model) {
+            $total = $action->execute($campaign, $model)['attributed_won_revenue'] + $action->execute($followUp, $model)['attributed_won_revenue'];
+            $this->assertEqualsWithDelta(100000.00, $total, 0.01, $model->value);
+        }
     }
 }

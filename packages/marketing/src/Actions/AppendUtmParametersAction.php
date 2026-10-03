@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
-use Illuminate\Support\Str;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 
@@ -24,9 +23,7 @@ class AppendUtmParametersAction
             return $url;
         }
 
-        $campaignSlug = ! empty($campaign->utm_campaign)
-            ? Str::slug($campaign->utm_campaign)
-            : Str::slug($campaign->name);
+        $campaignSlug = $campaign->utmCampaignSlug();
 
         $utmParams = [
             'utm_source' => 'odden',

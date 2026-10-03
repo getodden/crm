@@ -11,6 +11,7 @@ use Odden\Marketing\Enums\AttributionModel;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\FormSubmission;
+use Odden\Marketing\Services\AttributionCalculator;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 
@@ -30,7 +31,7 @@ class CalculateClosedLoopMetricsAction
      *     open_deals_count: int,
      *     marketing_win_rate: float,
      *     average_sales_cycle_days: float,
-     *     top_campaigns: array<int, array{name: string, won_revenue: float, pipeline_influenced: float, spend: float, roi_percentage: float}>,
+     *     top_campaigns: array<int, array{name: string, won_revenue: float, pipeline_influenced: float, spend: float, roi_percentage: float, attributed_won_revenue?: float}>,
      *     attribution_model: string|null,
      *     attributed_closed_won_revenue: float,
      *     attributed_pipeline: float,
@@ -39,6 +40,7 @@ class CalculateClosedLoopMetricsAction
      */
     public function execute(?AttributionModel $model = null): array
     {
+        $calculator = app(AttributionCalculator::class);
         $totalSpend = (float) Campaign::query()->sum('actual_spend');
         if ($totalSpend === 0.0) {
             $totalSpend = (float) Campaign::query()->sum('actual_cost');
@@ -200,11 +202,21 @@ class CalculateClosedLoopMetricsAction
                 continue;
             }
 
+            // Deals linked to the campaign's contacts, whichever side of the association the deal is on.
             $campDealIds = DB::table($associationsTable)
                 ->where('parent_type', $contactMorph)
                 ->whereIn('parent_id', $campContactIds)
                 ->where('child_type', $dealMorph)
-                ->pluck('child_id');
+                ->pluck('child_id')
+                ->merge(
+                    DB::table($associationsTable)
+                        ->where('child_type', $contactMorph)
+                        ->whereIn('child_id', $campContactIds)
+                        ->where('parent_type', $dealMorph)
+                        ->pluck('parent_id')
+                )
+                ->unique()
+                ->values();
 
             if ($campDealIds->isNotEmpty()) {
                 $campDeals = Deal::query()->whereIn('id', $campDealIds)->get();
@@ -214,13 +226,25 @@ class CalculateClosedLoopMetricsAction
                 $campRoi = $campSpend > 0 ? round((($wonRev - $campSpend) / $campSpend) * 100, 1) : 0.0;
 
                 if ($pipe > 0) {
-                    $topCampaigns[] = [
+                    $entry = [
                         'name' => $camp->name,
                         'won_revenue' => $wonRev,
                         'pipeline_influenced' => $pipe,
                         'spend' => $campSpend,
                         'roi_percentage' => $campRoi,
                     ];
+
+                    // With an attribution model, also show the campaign's weighted share of the won revenue.
+                    if ($model !== null) {
+                        $attributedShare = 0.0;
+                        foreach ($campDeals->where('status', DealStatus::Won) as $campDeal) {
+                            $touches = $calculator->touchesFor($this->contactIdsForDeal($campDeal, $associationsTable, $contactMorph, $dealMorph));
+                            $attributedShare += (float) $campDeal->amount * $calculator->campaignCredit($touches, $model, $camp->id);
+                        }
+                        $entry['attributed_won_revenue'] = round($attributedShare, 2);
+                    }
+
+                    $topCampaigns[] = $entry;
                 }
             }
         }
@@ -228,17 +252,32 @@ class CalculateClosedLoopMetricsAction
         usort($topCampaigns, fn (array $a, array $b): int => $b['won_revenue'] <=> $a['won_revenue']);
         $topCampaigns = array_slice($topCampaigns, 0, 5);
 
-        $modelWeight = $model !== null ? match ($model) {
-            AttributionModel::FirstTouch => 1.0,
-            AttributionModel::LastTouch => 1.0,
-            AttributionModel::UShaped => 0.80,
-            AttributionModel::WShaped => 0.70,
-            AttributionModel::TimeDecay => 0.65,
-            AttributionModel::Linear => 0.50,
-        } : 1.0;
+        // Without a model nothing is weighted. With one, a deal's credit is split across its marketing
+        // touches and always adds up to the whole deal, so the totals only count deals that have at
+        // least one touch; how the credit divides between campaigns is in each campaign's own result.
+        $attributedWonRevenue = $totalClosedWonRevenue;
+        $attributedPipeline = $totalInfluencedPipeline;
 
-        $attributedWonRevenue = round($totalClosedWonRevenue * $modelWeight, 2);
-        $attributedPipeline = round($totalInfluencedPipeline * $modelWeight, 2);
+        if ($model !== null) {
+            $attributedWonRevenue = 0.0;
+            $attributedPipeline = 0.0;
+
+            foreach ($influencedDeals as $deal) {
+                if ($calculator->touchesFor($this->contactIdsForDeal($deal, $associationsTable, $contactMorph, $dealMorph)) === []) {
+                    continue;
+                }
+
+                if ($deal->status === DealStatus::Won) {
+                    $attributedWonRevenue += (float) $deal->amount;
+                    $attributedPipeline += (float) $deal->amount;
+                } elseif ($deal->status === DealStatus::Open) {
+                    $attributedPipeline += (float) $deal->amount;
+                }
+            }
+        }
+
+        $attributedWonRevenue = round($attributedWonRevenue, 2);
+        $attributedPipeline = round($attributedPipeline, 2);
         $attributedRoi = $totalSpend > 0 ? round((($attributedWonRevenue - $totalSpend) / $totalSpend) * 100, 1) : 0.0;
 
         return [
@@ -258,5 +297,28 @@ class CalculateClosedLoopMetricsAction
             'attributed_pipeline' => $attributedPipeline,
             'attributed_roi_percentage' => $attributedRoi,
         ];
+    }
+
+    /**
+     * Ids of the contacts linked to a deal, on either side of the association.
+     *
+     * @return Collection<int, int>
+     */
+    private function contactIdsForDeal(Deal $deal, string $associationsTable, string $contactMorph, string $dealMorph): Collection
+    {
+        return DB::table($associationsTable)
+            ->where('parent_type', $dealMorph)
+            ->where('parent_id', $deal->id)
+            ->where('child_type', $contactMorph)
+            ->pluck('child_id')
+            ->merge(
+                DB::table($associationsTable)
+                    ->where('child_type', $dealMorph)
+                    ->where('child_id', $deal->id)
+                    ->where('parent_type', $contactMorph)
+                    ->pluck('parent_id')
+            )
+            ->unique()
+            ->values();
     }
 }

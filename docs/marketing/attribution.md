@@ -9,7 +9,7 @@ Revenue figures come from deals in `getodden/crm-sales`. Without that package in
 
 ## Attribution models
 
-`Odden\Marketing\Enums\AttributionModel` selects how much of the influenced revenue is credited to marketing:
+`Odden\Marketing\Enums\AttributionModel` selects how a deal's credit is split across the marketing touches that led to it:
 
 | Case | Value |
 | --- | --- |
@@ -22,7 +22,20 @@ Revenue figures come from deals in `getodden/crm-sales`. Without that package in
 
 `label()` returns a display name such as `U-Shaped Attribution (40/40/20 Weighting)`.
 
-The models don't distribute credit across individual touchpoints. Each model is a fixed multiplier applied to the total influenced pipeline and won revenue, as shown in the tables below. Treat them as weighting presets for reporting, not as per-touch attribution. The labels' percentages describe the classic models; the code doesn't apply them.
+### Touches and weights
+
+A **touch** is either a campaign recipient's first open or click (at the time of that first engagement), or a form submission whose `utm_campaign` matches a campaign (see [Campaign attribution](#campaign-attribution)). `Odden\Marketing\Services\AttributionCalculator` collects the touches of **all** the contacts associated with a deal, across every campaign, puts them in time order, and splits the deal's credit across them. The weights of a deal always add up to 1, so no model creates or loses revenue; it only decides which campaign gets it. A touch counts whenever it happened, before or after the deal closed.
+
+| Model | Split |
+| --- | --- |
+| `FirstTouch` | 100% to the first touch |
+| `LastTouch` | 100% to the last touch |
+| `Linear` | Equal shares |
+| `UShaped` | 40% first, 40% last, 20% shared by the touches in between (50/50 with two touches) |
+| `WShaped` | 30% first, 30% the touch that converted the lead (the first form submission between the first and last touch, else the middle touch), 30% last, and 10% shared by the rest (if there are no others, the three share it equally; 50/50 with two touches) |
+| `TimeDecay` | Each touch is worth half as much for every `odden-marketing.attribution.time_decay_half_life_days` (default 7, env `MARKETING_ATTRIBUTION_HALF_LIFE_DAYS`) before the deal's last touch, normalized to 1 |
+
+With a single touch, every model gives it all of the credit. A campaign's credit for a deal is the sum of the weights of its touches.
 
 ## Campaign attribution
 
@@ -33,27 +46,18 @@ use Odden\Marketing\Enums\AttributionModel;
 $report = app(GetCampaignAttributionAction::class)->execute($campaign, AttributionModel::UShaped);
 
 $report['won_revenue'];            // won deal amounts, unweighted
-$report['attributed_won_revenue']; // won revenue × model weight
+$report['attributed_won_revenue']; // this campaign's share of the won revenue under the model
 $report['roi_percentage'];
 ```
 
 `execute(Campaign $campaign, AttributionModel $model = AttributionModel::Linear): array` collects two groups of contacts:
 
-- **Leads**: contacts with a [form submission](forms-and-landing-pages.md#what-happens-on-submission) whose `utm_campaign` equals the campaign's `name`, or the name lowercased with spaces replaced by hyphens (`Q3 Launch` matches `Q3 Launch` and `q3-launch`).
+- **Leads**: contacts with a [form submission](forms-and-landing-pages.md#what-happens-on-submission) whose `utm_campaign` matches the campaign's UTM slug, `Campaign::utmCampaignSlug()`: `Str::slug()` of its `utm_campaign` field, or of its name when that is empty. Both sides are compared as slugs, so `Spring  Sale 2026` matches a campaign whose `utm_campaign` is `spring-sale-2026`.
 - **Engaged contacts**: the campaign's recipients who opened or clicked.
 
-It then sums the amounts of every deal associated with any of these contacts: `won` deals into won revenue and `open` deals into pipeline. Each deal is counted once.
+It then looks at every deal associated with any of these contacts, on either side of the association: `won` deals go into won revenue and `open` deals into pipeline, each counted once. The attributed values are the deal amounts times this campaign's credit for that deal (see above).
 
-The campaign's own `utm_campaign` field isn't used. Links tagged by [UTM auto-tagging](campaigns.md) use `Str::slug()` of the `utm_campaign` field or the name, so they match only when `utm_campaign` is empty and the name slugs the same way (letters, digits, and single spaces).
-
-| Model | Weight |
-| --- | --- |
-| `FirstTouch` | 1.0 if the campaign has leads, else 0.5 |
-| `LastTouch` | 1.0 if the campaign has engaged contacts, else 0.5 |
-| `UShaped` | 0.8 if it has both leads and engaged contacts, else 0.6 |
-| `WShaped` | 0.7 |
-| `TimeDecay` | 0.65 |
-| `Linear` | 0.5 |
+The same slug is what [UTM auto-tagging](campaigns.md) writes into the campaign's links, so a tracked link and the matching form submission always agree.
 
 The returned array:
 
@@ -66,12 +70,12 @@ The returned array:
 | `budget` | The campaign's `budget`, or `null`. |
 | `actual_cost` | `actual_spend`, falling back to `actual_cost`, else 0. |
 | `pipeline_value`, `won_revenue` | Unweighted open and won deal amounts. |
-| `attributed_pipeline_value`, `attributed_won_revenue` | The same, multiplied by the weight. |
+| `attributed_pipeline_value`, `attributed_won_revenue` | This campaign's weighted share of the open and won amounts. |
 | `net_profit` | `attributed_won_revenue − actual_cost`. |
 | `roi_percentage` | `net_profit / actual_cost × 100`, or 0 without a cost. |
 | `cost_per_lead` | `actual_cost / leads_count`, or 0 without leads. |
 
-For example, a campaign with one lead whose contact has a $5,000 won deal and $1,000 `actual_spend`, using `UShaped` without engaged recipients (weight 0.6), reports `attributed_won_revenue` 3000, `roi_percentage` 200, and `cost_per_lead` 1000.
+For example, a contact reached by three campaigns (touches 30, 15 and 1 days ago) with a $100,000 won deal gives the first and last campaign 40,000 each and the middle one 20,000 under `UShaped`. For a campaign with one lead whose $5,000 won deal has no other touches, `attributed_won_revenue` is 5000 under any model; with $1,000 `actual_spend`, `roi_percentage` is 400 and `cost_per_lead` 1000.
 
 Budget fields such as `budget`, `actual_spend`, and `target_revenue` are set on the campaign; see [campaigns](campaigns.md).
 
@@ -99,14 +103,12 @@ Total marketing spend is the sum of all campaigns' `actual_spend`, or, if that s
 | `won_deals_count`, `open_deals_count` | Influenced deals by status. |
 | `marketing_win_rate` | Won / (won + lost) × 100, one decimal. |
 | `average_sales_cycle_days` | Average days from the first associated contact's `created_at` to the deal's `closed_at` (or `updated_at`), minimum 1 per deal. |
-| `top_campaigns` | Up to five campaigns with delivered emails and influenced pipeline, sorted by won revenue. Each has `name`, `won_revenue`, `pipeline_influenced`, `spend`, `roi_percentage`. |
+| `top_campaigns` | Up to five campaigns with delivered emails and influenced pipeline, sorted by won revenue. Each has `name`, `won_revenue`, `pipeline_influenced`, `spend`, `roi_percentage`, and, when you pass a model, `attributed_won_revenue` (the campaign's weighted share of the won revenue). |
 | `attribution_model` | The model value, or `null`. |
-| `attributed_closed_won_revenue`, `attributed_pipeline` | Won revenue and pipeline × model weight. |
+| `attributed_closed_won_revenue`, `attributed_pipeline` | Without a model, the same as the totals. With one, the won revenue and pipeline of the deals that have at least one marketing touch (a deal's credit adds up to the whole deal whatever the model, so the models differ per campaign, not in this total). |
 | `attributed_roi_percentage` | ROI using the attributed won revenue. |
 
-The weights here are 1.0 for `FirstTouch`, `LastTouch`, and no model, then 0.8 (`UShaped`), 0.7 (`WShaped`), 0.65 (`TimeDecay`), and 0.5 (`Linear`). When there are no marketing contacts or influenced deals, every value except the spend (and `cost_per_lead`, when there are contacts) is 0.
-
-`top_campaigns` only finds deals where the contact is the parent of the association (`$contact->associateWith($deal)`), while the totals count both directions.
+When there are no marketing contacts or influenced deals, every value except the spend (and `cost_per_lead`, when there are contacts) is 0. `top_campaigns` finds deals associated with the campaign's contacts in either direction, like the totals.
 
 ## Conversion funnels
 

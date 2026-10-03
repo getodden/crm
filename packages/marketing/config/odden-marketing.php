@@ -106,6 +106,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Attribution
+    |--------------------------------------------------------------------------
+    |
+    | The time-decay attribution model halves a touch's weight for every
+    | "half life" it happened before the deal's last touch.
+    |
+    */
+    'attribution' => [
+        'time_decay_half_life_days' => (float) env('MARKETING_ATTRIBUTION_HALF_LIFE_DAYS', 7),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Routes
     |--------------------------------------------------------------------------
     |

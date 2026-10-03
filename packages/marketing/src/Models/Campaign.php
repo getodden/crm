@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\CrmList;
 use Odden\Marketing\Actions\CalculateRecipientOptimalSendTimeAction;
@@ -179,6 +180,15 @@ class Campaign extends Model
     public function calculateScheduledTimeForContact(?Contact $contact = null, ?CarbonInterface $baseDate = null): CarbonInterface
     {
         return app(CalculateRecipientOptimalSendTimeAction::class)->execute($this, $contact, $baseDate);
+    }
+
+    /**
+     * The campaign's UTM campaign value as a slug: its `utm_campaign` when set, else its name.
+     * UTM auto-tagging writes this value into links, and attribution matches form submissions on it.
+     */
+    public function utmCampaignSlug(): string
+    {
+        return Str::slug(! empty($this->utm_campaign) ? (string) $this->utm_campaign : $this->name);
     }
 
     /**
