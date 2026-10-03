@@ -11,7 +11,7 @@ use Odden\Sales\Models\Deal;
 class CalculatePipelineForecastAction
 {
     /**
-     * Calculate pipeline sales forecast and conversion metrics.
+     * Calculate pipeline sales forecast and conversion metrics, optionally for one pipeline and/or one team's deals.
      *
      * @return array{
      *     open_value: float,
@@ -26,7 +26,7 @@ class CalculatePipelineForecastAction
      *     stale_deals_count: int
      * }
      */
-    public function execute(?int $pipelineId = null): array
+    public function execute(?int $pipelineId = null, ?int $teamId = null): array
     {
         $dealsTable = config('odden-sales.tables.deals', 'odden_deals');
         $stagesTable = config('odden-sales.tables.stages', 'odden_pipeline_stages');
@@ -34,6 +34,9 @@ class CalculatePipelineForecastAction
         $baseQuery = Deal::query();
         if ($pipelineId !== null) {
             $baseQuery->where("{$dealsTable}.pipeline_id", $pipelineId);
+        }
+        if ($teamId !== null) {
+            $baseQuery->where("{$dealsTable}.team_id", $teamId);
         }
 
         // 1. Open deals and value

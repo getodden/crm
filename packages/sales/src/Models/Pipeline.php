@@ -143,12 +143,14 @@ class Pipeline extends Model
      *     won_count: int,
      *     lost_count: int,
      *     win_rate: float,
-     *     average_deal_size: float
+     *     average_deal_size: float,
+     *     lost_reasons: array<string, int>,
+     *     stale_deals_count: int
      * }
      */
-    public function forecast(): array
+    public function forecast(?int $teamId = null): array
     {
-        return app(CalculatePipelineForecastAction::class)->execute($this->id);
+        return app(CalculatePipelineForecastAction::class)->execute($this->id, $teamId);
     }
 
     /**

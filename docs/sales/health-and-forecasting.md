@@ -3,7 +3,7 @@ title: Deal health, forecasts, and quotas
 description: Detect rotting deals, score deal health, and calculate pipeline forecasts, stage velocity, and quota attainment.
 ---
 
-The sales package calculates its metrics on demand. Nothing is cached or stored, and no scheduled job is involved: each method or action below runs its queries when you call it. None of the calculations apply team scoping, so filter by pipeline or owner yourself where that matters.
+The sales package calculates its metrics on demand. Nothing is cached or stored, and no scheduled job is involved: each method or action below runs its queries when you call it. The forecast, stage velocity, and quota calculations accept an optional `$teamId` that limits them to deals with that `team_id`; leave it `null` to include every team.
 
 ## Rotting deals
 
@@ -64,7 +64,7 @@ The sales package ships no view for this array, so it stays free of Filament. Th
 
 ## Pipeline forecast
 
-`$pipeline->forecast()` returns metrics for one pipeline. Call `Odden\Sales\Actions\CalculatePipelineForecastAction::execute(?int $pipelineId = null)` directly with `null` to cover all pipelines.
+`$pipeline->forecast()` returns metrics for one pipeline; pass a team ID (`$pipeline->forecast($teamId)`) to count only that team's deals. Call `Odden\Sales\Actions\CalculatePipelineForecastAction::execute(?int $pipelineId = null, ?int $teamId = null)` directly with `null` to cover all pipelines.
 
 ```php
 use Odden\Sales\Actions\CalculatePipelineForecastAction;
@@ -91,7 +91,7 @@ All values are all-time; there is no date filter. Soft-deleted deals are exclude
 
 ## Stage velocity
 
-`Odden\Sales\Actions\CalculateStageVelocityAction::execute(?int $pipelineId = null)` reports time spent per stage:
+`Odden\Sales\Actions\CalculateStageVelocityAction::execute(?int $pipelineId = null, ?int $teamId = null)` reports time spent per stage:
 
 ```php
 use Odden\Sales\Actions\CalculateStageVelocityAction;
@@ -124,7 +124,7 @@ An `Odden\Sales\Models\SalesQuota` is a revenue target for one user:
 | `target_amount` | decimal | |
 | `currency` | string(3) | Defaults to `USD`. Not used in calculations. |
 
-`Odden\Sales\Actions\CalculateQuotaAttainmentAction::execute(SalesQuota $quota)` measures it:
+`Odden\Sales\Actions\CalculateQuotaAttainmentAction::execute(SalesQuota $quota, ?int $teamId = null)` measures it (with a team ID, only that team's deals count toward the quota):
 
 ```php
 use Odden\Sales\Actions\CalculateQuotaAttainmentAction;

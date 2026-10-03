@@ -63,4 +63,24 @@ class ForecastTest extends TestCase
         $this->assertSame(50.0, $metrics['win_rate']); // 1 won out of 2 closed = 50%
         $this->assertSame(62500.00, $metrics['average_deal_size']); // 250,000 / 4 = 62,500
     }
+
+    public function test_forecast_can_be_scoped_to_a_team(): void
+    {
+        $pipeline = Pipeline::factory()->withStages()->create();
+        $stage = $pipeline->stages->where('code', 'discovery')->firstOrFail();
+
+        Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $stage->id, 'amount' => 1000, 'team_id' => 1]);
+        Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $stage->id, 'amount' => 5000, 'team_id' => 2]);
+
+        $all = $pipeline->forecast();
+        $team1 = $pipeline->forecast(1);
+        $team2 = app(CalculatePipelineForecastAction::class)->execute($pipeline->id, 2);
+
+        $this->assertSame(6000.0, $all['open_value']);
+        $this->assertSame(1000.0, $team1['open_value']);
+        $this->assertSame(1, $team1['open_count']);
+        $this->assertSame(5000.0, $team2['open_value']);
+        $this->assertArrayHasKey('lost_reasons', $team1);
+        $this->assertArrayHasKey('stale_deals_count', $team1);
+    }
 }

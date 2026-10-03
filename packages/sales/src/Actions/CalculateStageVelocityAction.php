@@ -26,7 +26,7 @@ class CalculateStageVelocityAction
      *     }>
      * }
      */
-    public function execute(?int $pipelineId = null): array
+    public function execute(?int $pipelineId = null, ?int $teamId = null): array
     {
         $stagesQuery = PipelineStage::query()->orderBy('sort_order');
 
@@ -42,18 +42,22 @@ class CalculateStageVelocityAction
             /** @var float|null $avgSeconds */
             $avgSeconds = DealStageHistory::query()
                 ->where('to_stage_id', $stage->id)
+                ->when($teamId !== null, fn ($query) => $query->whereHas('deal', fn ($deal) => $deal->forTeam((int) $teamId)))
                 ->whereNotNull('duration_in_stage_seconds')
                 ->avg('duration_in_stage_seconds');
 
             $count = DealStageHistory::query()
                 ->where('to_stage_id', $stage->id)
+                ->when($teamId !== null, fn ($query) => $query->whereHas('deal', fn ($deal) => $deal->forTeam((int) $teamId)))
                 ->count();
 
             // Count open deals that have exceeded rot_after_days (stale deals)
             $staleCount = 0;
             if ($stage->rot_after_days !== null && $stage->rot_after_days > 0) {
                 /** @var Collection<int, Deal> $activeDeals */
-                $activeDeals = $stage->deals()->where('status', 'open')->get();
+                $activeDeals = $stage->deals()->where('status', 'open')
+                    ->when($teamId !== null, fn ($query) => $query->forTeam((int) $teamId))
+                    ->get();
                 foreach ($activeDeals as $deal) {
                     if ($deal->daysInCurrentStage() >= $stage->rot_after_days) {
                         $staleCount++;
@@ -75,6 +79,10 @@ class CalculateStageVelocityAction
 
         // Calculate average sales cycle for won deals
         $wonDealsQuery = Deal::query()->where('status', 'won')->whereNotNull('closed_at');
+
+        if ($teamId !== null) {
+            $wonDealsQuery->forTeam($teamId);
+        }
 
         if ($pipelineId !== null) {
             $wonDealsQuery->where('pipeline_id', $pipelineId);

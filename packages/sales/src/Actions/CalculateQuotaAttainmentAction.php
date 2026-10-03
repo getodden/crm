@@ -21,7 +21,7 @@ class CalculateQuotaAttainmentAction
      *     coverage_ratio: float
      * }
      */
-    public function execute(SalesQuota $quota): array
+    public function execute(SalesQuota $quota, ?int $teamId = null): array
     {
         $dealsTable = config('odden-sales.tables.deals', 'odden_deals');
 
@@ -30,6 +30,10 @@ class CalculateQuotaAttainmentAction
 
         if ($quota->pipeline_id !== null) {
             $dealsQuery->where("{$dealsTable}.pipeline_id", $quota->pipeline_id);
+        }
+
+        if ($teamId !== null) {
+            $dealsQuery->where("{$dealsTable}.team_id", $teamId);
         }
 
         // Won deals closed within the quota period

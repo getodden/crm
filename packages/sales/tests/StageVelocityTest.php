@@ -41,4 +41,21 @@ class StageVelocityTest extends TestCase
         $this->assertArrayHasKey('average_sales_cycle_days', $metrics);
         $this->assertSame(1, $metrics['stages'][$leadStage->id]['stale_deal_count']);
     }
+
+    public function test_stage_velocity_can_be_scoped_to_a_team(): void
+    {
+        $pipeline = Pipeline::factory()->withStages()->create();
+        $leadStage = $pipeline->stages()->get()[0];
+        $leadStage->update(['rot_after_days' => 5]);
+
+        Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $leadStage->id, 'created_at' => now()->subDays(10), 'team_id' => 1]);
+        Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $leadStage->id, 'created_at' => now()->subDays(10), 'team_id' => 2]);
+        Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $leadStage->id, 'created_at' => now()->subDays(10), 'team_id' => 2]);
+
+        $action = new CalculateStageVelocityAction;
+
+        $this->assertSame(3, $action->execute($pipeline->id)['stages'][$leadStage->id]['stale_deal_count']);
+        $this->assertSame(1, $action->execute($pipeline->id, 1)['stages'][$leadStage->id]['stale_deal_count']);
+        $this->assertSame(2, $action->execute($pipeline->id, 2)['stages'][$leadStage->id]['stale_deal_count']);
+    }
 }

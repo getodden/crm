@@ -11,6 +11,7 @@ use Odden\Sales\Enums\QuotaPeriod;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\SalesQuota;
+use Odden\Sales\Tests\Fixtures\User;
 
 class SalesQuotaTest extends TestCase
 {
@@ -63,5 +64,27 @@ class SalesQuotaTest extends TestCase
         $this->assertEquals(20000.00, $metrics['gap_to_target']);
         $this->assertEquals(40000.00, $metrics['open_pipeline_amount']);
         $this->assertEquals(1.4, $metrics['coverage_ratio']); // (30,000 + 40,000) / 50,000 = 1.4x
+    }
+
+    public function test_quota_attainment_can_be_scoped_to_a_team(): void
+    {
+        $user = User::factory()->create();
+
+        $quota = SalesQuota::create([
+            'user_id' => $user->id,
+            'period_type' => QuotaPeriod::Quarterly,
+            'period_start' => now()->startOfQuarter(),
+            'period_end' => now()->endOfQuarter(),
+            'target_amount' => 100000.00,
+        ]);
+
+        Deal::factory()->create(['owner_id' => $user->id, 'status' => DealStatus::Won, 'amount' => 30000, 'closed_at' => now(), 'team_id' => 1]);
+        Deal::factory()->create(['owner_id' => $user->id, 'status' => DealStatus::Won, 'amount' => 20000, 'closed_at' => now(), 'team_id' => 2]);
+
+        $action = new CalculateQuotaAttainmentAction;
+
+        $this->assertSame(50000.0, $action->execute($quota)['won_amount']);
+        $this->assertSame(30000.0, $action->execute($quota, 1)['won_amount']);
+        $this->assertSame(20.0, $action->execute($quota, 2)['attainment_percent']);
     }
 }
