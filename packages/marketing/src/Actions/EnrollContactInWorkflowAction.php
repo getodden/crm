@@ -91,4 +91,65 @@ class EnrollContactInWorkflowAction
             }
         }
     }
+
+    /**
+     * Trigger workflows listening for new contacts. An optional `lifecycle_stage` filter limits a
+     * workflow to contacts created in that stage.
+     */
+    public function triggerContactCreatedWorkflows(Contact $contact): void
+    {
+        $workflows = MarketingWorkflow::query()
+            ->where('is_active', true)
+            ->where('trigger_type', WorkflowTriggerType::ContactCreated->value)
+            ->get();
+
+        foreach ($workflows as $workflow) {
+            $stage = $workflow->trigger_config['lifecycle_stage'] ?? null;
+            if ($stage === null || $contact->lifecycle_stage?->value === (string) $stage) {
+                $this->execute($workflow, $contact);
+            }
+        }
+    }
+
+    /**
+     * Trigger workflows listening for a contact joining an audience list. An optional `list_id`
+     * filter limits a workflow to one list.
+     */
+    public function triggerListJoinedWorkflows(Contact $contact, int $listId): void
+    {
+        $workflows = MarketingWorkflow::query()
+            ->where('is_active', true)
+            ->where('trigger_type', WorkflowTriggerType::ListJoined->value)
+            ->get();
+
+        foreach ($workflows as $workflow) {
+            $configuredListId = $workflow->trigger_config['list_id'] ?? null;
+            if ($configuredListId === null || (int) $configuredListId === $listId) {
+                $this->execute($workflow, $contact);
+            }
+        }
+    }
+
+    /**
+     * Trigger workflows whose `score` threshold the contact just crossed (the score was below it
+     * and is now at or above it). A workflow without a `score` never fires.
+     */
+    public function triggerLeadScoreWorkflows(Contact $contact, int $previousScore, int $newScore): void
+    {
+        if ($newScore <= $previousScore) {
+            return;
+        }
+
+        $workflows = MarketingWorkflow::query()
+            ->where('is_active', true)
+            ->where('trigger_type', WorkflowTriggerType::LeadScoreReached->value)
+            ->get();
+
+        foreach ($workflows as $workflow) {
+            $threshold = $workflow->trigger_config['score'] ?? null;
+            if ($threshold !== null && $previousScore < (int) $threshold && $newScore >= (int) $threshold) {
+                $this->execute($workflow, $contact);
+            }
+        }
+    }
 }

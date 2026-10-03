@@ -10,9 +10,12 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Odden\Core\Events\CompaniesMerged;
+use Odden\Core\Events\ContactCreated;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Contact;
+use Odden\Core\Models\ListMembership;
 use Odden\MailBuilder\MergeTags\MergeTagRegistry;
+use Odden\Marketing\Actions\EnrollContactInWorkflowAction;
 use Odden\Marketing\Console\Commands\DecayLeadScoresCommand;
 use Odden\Marketing\Console\Commands\DispatchScheduledCampaignsCommand;
 use Odden\Marketing\Console\Commands\EvaluateAbTestsCommand;
@@ -101,6 +104,24 @@ class MarketingServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
             $this->skipGlobalCorsForAmpRoutes();
         }
+
+        // Workflow triggers that come from Core: a contact created through CreateContactAction, and a
+        // contact joining an audience list.
+        Event::listen(ContactCreated::class, function (ContactCreated $event): void {
+            app(EnrollContactInWorkflowAction::class)->triggerContactCreatedWorkflows($event->contact);
+        });
+
+        ListMembership::created(function (ListMembership $membership): void {
+            if ($membership->member_type !== (new Contact)->getMorphClass()) {
+                return;
+            }
+
+            /** @var Contact|null $contact */
+            $contact = Contact::query()->find($membership->member_id);
+            if ($contact !== null) {
+                app(EnrollContactInWorkflowAction::class)->triggerListJoinedWorkflows($contact, (int) $membership->list_id);
+            }
+        });
 
         // Dynamic Eloquent relations on Contact
         if (class_exists(Contact::class)) {

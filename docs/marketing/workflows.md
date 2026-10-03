@@ -141,7 +141,7 @@ A non-2xx response or an exception is logged with status `failed` and the respon
 
 ## Triggers
 
-`Odden\Marketing\Enums\WorkflowTriggerType` describes what enrolls contacts. Only some triggers are wired up:
+`Odden\Marketing\Enums\WorkflowTriggerType` describes what enrolls contacts:
 
 | Case | Value | Enrolls automatically when | `trigger_config` filter |
 | --- | --- | --- | --- |
@@ -149,13 +149,13 @@ A non-2xx response or an exception is logged with status `failed` and the respon
 | `AssetDownloaded` | `asset_downloaded` | A contact downloads a [gated asset](events-and-assets.md#gated-assets) through a signed link | `asset_id` |
 | `EventAttended` | `event_attended` | A registration is [marked attended](events-and-assets.md#attendance-webhook) | `event_id` |
 | `CustomEvent` | `custom_event` | A [custom behavioral event](inbound-webhooks.md#custom-behavioral-events) is tracked for a contact | `event_name` (case-insensitive) |
-| `ContactCreated` | `contact_created` | Never | |
-| `ListJoined` | `list_joined` | Never | |
-| `LeadScoreReached` | `lead_score_reached` | Never | |
-| `InboundWebhook` | `inbound_webhook` | Never (but see [the enrollment webhook](#enrollment-webhook)) | |
-| `Manual` | `manual` | Never | |
+| `ContactCreated` | `contact_created` | A contact is created through `CreateContactAction` (which dispatches Core's `ContactCreated` event); contacts saved with `Contact::create()` directly don't fire it | `lifecycle_stage` (a `LifecycleStage` value), optional |
+| `ListJoined` | `list_joined` | A contact is added to an audience list, with `CrmList::addMember()` or when an active list syncs a new member | `list_id` |
+| `LeadScoreReached` | `lead_score_reached` | A [scoring event](lead-scoring.md) moves the contact's score from below the threshold to at or above it (it fires once per crossing, not on every later event) | `score`, the threshold. Required: a workflow without it never fires |
+| `InboundWebhook` | `inbound_webhook` | Enrolled explicitly through [the enrollment webhook](#enrollment-webhook), not by an event | |
+| `Manual` | `manual` | Enrolled explicitly, in code or from the admin, not by an event | |
 
-A trigger without its filter key matches every form, asset, event, or event name. Only active workflows are triggered. For the triggers marked "Never", enroll contacts yourself.
+A trigger without its filter key matches every form, asset, event, event name, list, or lifecycle stage (except `lead_score_reached`, which needs its `score`). Only active workflows are triggered. For `inbound_webhook` and `manual` workflows, enroll contacts yourself.
 
 ## Enrolling contacts in code
 

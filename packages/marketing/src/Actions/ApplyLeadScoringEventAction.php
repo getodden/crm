@@ -75,11 +75,16 @@ class ApplyLeadScoringEventAction
                 $lifecycleStage = LifecycleStage::MarketingQualifiedLead;
             }
 
+            $previousScore = (int) $contact->lead_score;
+
             $contact->update([
                 'lead_score' => $newScore,
                 'lead_score_updated_at' => now(),
                 'lifecycle_stage' => $lifecycleStage,
             ]);
+
+            // Workflows that wait for a score threshold
+            app(EnrollContactInWorkflowAction::class)->triggerLeadScoreWorkflows($contact, $previousScore, $newScore);
 
             // Trigger instant sales hand-off on promotion to SQL
             if (

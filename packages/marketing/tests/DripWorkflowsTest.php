@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace Odden\Marketing\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Odden\Core\Actions\CreateContactAction;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Enums\ListType;
 use Odden\Core\Models\Contact;
+use Odden\Core\Models\CrmList;
+use Odden\Marketing\Actions\ApplyLeadScoringEventAction;
 use Odden\Marketing\Actions\EnrollContactInWorkflowAction;
 use Odden\Marketing\Actions\ProcessFormSubmissionAction;
+use Odden\Marketing\Enums\LeadScoringEventType;
 use Odden\Marketing\Enums\WorkflowEnrollmentStatus;
 use Odden\Marketing\Enums\WorkflowStepType;
 use Odden\Marketing\Enums\WorkflowTriggerType;
@@ -252,5 +257,72 @@ class DripWorkflowsTest extends TestCase
             'contact_id' => $contact->id,
             'status' => WorkflowEnrollmentStatus::Completed->value,
         ]);
+    }
+
+    /**
+     * An active workflow with a delay step, so an enrollment stays active and can be counted.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function triggeredWorkflow(WorkflowTriggerType $trigger, array $config = []): MarketingWorkflow
+    {
+        $workflow = MarketingWorkflow::create(['name' => $trigger->value.'-'.count($config).'-'.uniqid(), 'is_active' => true, 'trigger_type' => $trigger, 'trigger_config' => $config]);
+        $workflow->steps()->create(['step_number' => 1, 'type' => WorkflowStepType::Delay, 'config' => ['delay_minutes' => 60]]);
+        $workflow->steps()->create(['step_number' => 2, 'type' => WorkflowStepType::UpdateContact, 'config' => ['field' => 'lead_status', 'value' => 'connected']]);
+
+        return $workflow;
+    }
+
+    public function test_contact_created_trigger_enrolls_new_contacts_matching_the_filter(): void
+    {
+        $any = $this->triggeredWorkflow(WorkflowTriggerType::ContactCreated);
+        $subscribersOnly = $this->triggeredWorkflow(WorkflowTriggerType::ContactCreated, ['lifecycle_stage' => LifecycleStage::Subscriber->value]);
+        $customersOnly = $this->triggeredWorkflow(WorkflowTriggerType::ContactCreated, ['lifecycle_stage' => LifecycleStage::Customer->value]);
+
+        $contact = app(CreateContactAction::class)->execute(['first_name' => 'New', 'last_name' => 'Person', 'email' => 'new.person@example.com', 'lifecycle_stage' => LifecycleStage::Subscriber]);
+
+        $this->assertSame(1, $any->fresh()->enrollments_count);
+        $this->assertSame(1, $subscribersOnly->fresh()->enrollments_count);
+        $this->assertSame(0, $customersOnly->fresh()->enrollments_count);
+        $this->assertTrue(WorkflowEnrollment::query()->where('contact_id', $contact->id)->where('workflow_id', $any->id)->exists());
+    }
+
+    public function test_list_joined_trigger_enrolls_contacts_added_to_the_configured_list(): void
+    {
+        $list = CrmList::create(['name' => 'VIP', 'entity_type' => 'contact', 'type' => ListType::Static]);
+        $other = CrmList::create(['name' => 'Other', 'entity_type' => 'contact', 'type' => ListType::Static]);
+
+        $forVip = $this->triggeredWorkflow(WorkflowTriggerType::ListJoined, ['list_id' => $list->id]);
+        $forOther = $this->triggeredWorkflow(WorkflowTriggerType::ListJoined, ['list_id' => $other->id]);
+        $anyList = $this->triggeredWorkflow(WorkflowTriggerType::ListJoined);
+
+        $contact = Contact::factory()->create();
+        $list->addMember($contact);
+        $list->addMember($contact); // already a member: no second enrollment
+
+        $this->assertSame(1, $forVip->fresh()->enrollments_count);
+        $this->assertSame(1, $anyList->fresh()->enrollments_count);
+        $this->assertSame(0, $forOther->fresh()->enrollments_count);
+    }
+
+    public function test_lead_score_trigger_fires_when_the_threshold_is_crossed(): void
+    {
+        $at30 = $this->triggeredWorkflow(WorkflowTriggerType::LeadScoreReached, ['score' => 30]);
+        $at80 = $this->triggeredWorkflow(WorkflowTriggerType::LeadScoreReached, ['score' => 80]);
+        $noThreshold = $this->triggeredWorkflow(WorkflowTriggerType::LeadScoreReached);
+
+        $contact = Contact::factory()->create(['lead_score' => 20]);
+        $scoring = app(ApplyLeadScoringEventAction::class);
+
+        $scoring->execute($contact, LeadScoringEventType::PropertyMatch, points: 5);   // 25: nothing yet
+        $this->assertSame(0, $at30->fresh()->enrollments_count);
+
+        $scoring->execute($contact->fresh(), LeadScoringEventType::PropertyMatch, points: 10);   // 35: crosses 30
+        $this->assertSame(1, $at30->fresh()->enrollments_count);
+
+        $scoring->execute($contact->fresh(), LeadScoringEventType::PropertyMatch, points: 5);    // 40: already past 30
+        $this->assertSame(1, $at30->fresh()->enrollments_count);
+        $this->assertSame(0, $at80->fresh()->enrollments_count);
+        $this->assertSame(0, $noThreshold->fresh()->enrollments_count);
     }
 }
