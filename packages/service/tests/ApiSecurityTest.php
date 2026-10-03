@@ -45,4 +45,28 @@ class ApiSecurityTest extends TestCase
         $this->assertNotSame(429, $first->status());
         $this->postJson(route('odden.service.chat.start'), ['email' => 'visitor@example.com', 'message' => 'Hi'])->assertTooManyRequests();
     }
+
+    public function test_public_rate_limit_is_counted_per_module(): void
+    {
+        config(['odden-core.rate_limits.public' => 1]);
+        $this->flushHeaders();
+
+        $this->postJson(route('odden.service.chat.start'), ['email' => 'visitor@example.com', 'message' => 'Hi']);
+        $this->postJson(route('odden.service.chat.start'), ['email' => 'visitor@example.com', 'message' => 'Hi'])->assertTooManyRequests();
+
+        // The chat counter is exhausted, but the support portal has its own.
+        $this->post(route('odden.support.store'), [])->assertStatus(302);
+    }
+
+    public function test_polling_endpoints_are_throttled(): void
+    {
+        config(['odden-core.rate_limits.poll' => 1]);
+        $this->flushHeaders();
+
+        $this->getJson(route('odden.service.chat.messages', 'missing-token'));
+        $this->getJson(route('odden.service.chat.messages', 'missing-token'))->assertTooManyRequests();
+
+        $this->getJson(route('odden.service.knowledge.suggest', ['q' => 'login']));
+        $this->getJson(route('odden.service.knowledge.suggest', ['q' => 'login']))->assertTooManyRequests();
+    }
 }

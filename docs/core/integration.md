@@ -90,11 +90,12 @@ Route::post('inbound', InboundWebhookController::class)
 
 ## Rate limiters
 
-`CoreServiceProvider` defines two named limiters, keyed by client IP and counted per minute:
+`CoreServiceProvider` defines three named limiters, keyed by client IP and route module (the first two segments of the route name, such as `odden.service`) and counted per minute:
 
 | Limiter | Use | Config key | Env var | Default |
 | --- | --- | --- | --- | --- |
 | `odden-public` | Browser-facing submissions: forms, chat, portal replies | `odden-core.rate_limits.public` | `ODDEN_PUBLIC_RATE_LIMIT` | 30 |
+| `odden-poll` | Read endpoints clients call repeatedly: chat polling, article suggestions | `odden-core.rate_limits.poll` | `ODDEN_POLL_RATE_LIMIT` | 120 |
 | `odden-api` | Token-authenticated webhooks and sending APIs | `odden-core.rate_limits.api` | `ODDEN_API_RATE_LIMIT` | 600 |
 
 ```php
@@ -103,6 +104,7 @@ Route::post('contact-us', ContactFormController::class)->middleware('throttle:od
 
 ```env
 ODDEN_PUBLIC_RATE_LIMIT=30
+ODDEN_POLL_RATE_LIMIT=120
 ODDEN_API_RATE_LIMIT=600
 ```
 
@@ -132,6 +134,7 @@ Publish the file with `php artisan vendor:publish --tag=odden-core-config` to ch
 | `freemail_domains` | `[]` | Extra domains treated as freemail. |
 | `lifecycle.strict_transitions` | `false` | Enforce the [transition graph](lifecycle-stages.md#strict-mode). |
 | `rate_limits.public` | `env('ODDEN_PUBLIC_RATE_LIMIT', 30)` | Requests per minute per IP for `odden-public`. |
+| `rate_limits.poll` | `env('ODDEN_POLL_RATE_LIMIT', 120)` | Requests per minute per IP for `odden-poll`. |
 | `rate_limits.api` | `env('ODDEN_API_RATE_LIMIT', 600)` | Requests per minute per IP for `odden-api`. |
 | `enrichment.driver` | `env('ODDEN_ENRICHMENT_DRIVER', 'heuristic')` | Default [enrichment](contacts-and-companies.md#enrichment) driver. |
 | `enrichment.auto_enrich` | `false` | Enrich every company created through `CreateCompanyAction`. |

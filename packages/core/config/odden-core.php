@@ -80,11 +80,15 @@ return [
     |
     | Requests per minute, per IP address, for the public routes Odden packages
     | register. "public" covers browser-facing submissions (forms, chat, portal
-    | replies); "api" covers token-authenticated webhooks and sending APIs.
+    | replies); "poll" covers read endpoints clients call repeatedly (chat
+    | polling, article suggestions); "api" covers token-authenticated webhooks
+    | and sending APIs. Each module (odden.service, odden.help, ...) has its own
+    | counter.
     |
     */
     'rate_limits' => [
         'public' => (int) env('ODDEN_PUBLIC_RATE_LIMIT', 30),
+        'poll' => (int) env('ODDEN_POLL_RATE_LIMIT', 120),
         'api' => (int) env('ODDEN_API_RATE_LIMIT', 600),
     ],
 

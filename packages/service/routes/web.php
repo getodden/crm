@@ -44,6 +44,7 @@ Route::group(RouteGroup::attributes('odden-service.routes.api'), function (): vo
 
     // AI Knowledge Deflection & Smart Suggestions
     Route::get('/knowledge/suggest', [KnowledgeDeflectionController::class, 'suggest'])
+        ->middleware('throttle:odden-poll')
         ->name('odden.service.knowledge.suggest');
     Route::post('/knowledge/deflect', [KnowledgeDeflectionController::class, 'deflect'])
         ->withoutMiddleware(CsrfExemption::middleware())
@@ -60,5 +61,6 @@ Route::group(RouteGroup::attributes('odden-service.routes.api'), function (): vo
         ->middleware('throttle:odden-public')
         ->name('odden.service.chat.message');
     Route::get('/chat/{token}/messages', [ChatWidgetController::class, 'messages'])
+        ->middleware('throttle:odden-poll')
         ->name('odden.service.chat.messages');
 });

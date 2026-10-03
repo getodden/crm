@@ -84,11 +84,12 @@ Prefer a header: query strings can end up in access logs. Each module's pages sa
 
 ## Rate limits
 
-Odden registers two rate limiters, keyed by IP address, and applies them to its public routes:
+Odden registers three rate limiters, keyed by IP address and module, and applies them to its public routes. Each module (the first two segments of the route name, such as `odden.service` or `odden.marketing`) has its own counter, so using chat does not count against a marketing form:
 
 | Limiter | Applies to | Default (requests per minute) | Environment variable |
 | :--- | :--- | :--- | :--- |
 | `odden-public` | Browser-facing submissions: forms, chat messages, portal replies, votes | 30 | `ODDEN_PUBLIC_RATE_LIMIT` |
+| `odden-poll` | Read endpoints clients call repeatedly: chat polling, article suggestions | 120 | `ODDEN_POLL_RATE_LIMIT` |
 | `odden-api` | Token-authenticated webhooks and sending APIs | 600 | `ODDEN_API_RATE_LIMIT` |
 
 Both live in `odden-core.rate_limits`. If your application runs behind a load balancer or CDN, configure [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies) so the limits apply per visitor rather than to the proxy's address.
