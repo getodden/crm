@@ -313,9 +313,12 @@ class ServiceCockpit extends Page
         /** @var CannedResponse|null $canned */
         $canned = $this->cannedResponsesQuery()->find($id);
         if ($canned !== null) {
+            $ticket = $this->replyTicketId !== null ? Ticket::query()->with(['contact', 'company'])->find($this->replyTicketId) : null;
+            $content = $canned->render($ticket, auth()->user());
+
             $this->replyBody = empty($this->replyBody)
-                ? $canned->content
-                : $this->replyBody."\n\n".$canned->content;
+                ? $content
+                : $this->replyBody."\n\n".$content;
         }
     }
 
@@ -452,13 +455,7 @@ class ServiceCockpit extends Page
      */
     protected function cannedResponsesQuery(): Builder
     {
-        $userId = OddenAuthorization::userId();
-
-        return CannedResponse::query()
-            ->where(function (Builder $query) use ($userId): void {
-                $query->where('is_shared', true)
-                    ->orWhere('user_id', $userId);
-            });
+        return CannedResponse::query()->availableTo(OddenAuthorization::userId());
     }
 
     /**

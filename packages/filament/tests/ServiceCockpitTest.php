@@ -281,4 +281,24 @@ class ServiceCockpitTest extends TestCase
         $this->assertSame(TicketStatus::Resolved, $ticket->refresh()->status);
         Notification::assertSentTo($contact, TicketResolvedCsatNotification::class);
     }
+
+    public function test_inserting_a_canned_response_fills_in_the_ticket_variables(): void
+    {
+        $user = User::factory()->create(['name' => 'Dana Agent']);
+        $contact = Contact::factory()->create(['first_name' => 'Gordon', 'email' => 'gordon@blackmesa.com']);
+        $ticket = Ticket::create(['subject' => 'Cannot log in', 'contact_id' => $contact->id, 'status' => TicketStatus::Open, 'owner_id' => $user->id]);
+        $canned = CannedResponse::create([
+            'title' => 'Greeting',
+            'shortcut' => '!hi',
+            'category' => 'General',
+            'content' => 'Hi {{contact.first_name}}, {{agent.name}} here about {{ticket.subject}}.',
+            'is_shared' => true,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(ServiceCockpit::class)
+            ->call('openReplyModal', $ticket->id)
+            ->call('insertCannedResponse', $canned->id)
+            ->assertSet('replyBody', 'Hi Gordon, Dana Agent here about Cannot log in.');
+    }
 }

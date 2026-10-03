@@ -55,7 +55,7 @@ The models and migrations both read these names. Change them before you run the 
 ],
 ```
 
-`prefix` is used for generated ticket numbers (`TICK-2026-7WBPJ`). Generated numbers keep the prefix as written. [Inbound email](inbound-email.md#threading-replies) doesn't use ticket numbers to thread replies.
+`priority` and `source` are the defaults for new `Ticket` models (`TicketPriority` and `TicketSource` values) when you don't set them. `prefix` is used for generated ticket numbers (`TICK-2026-7WBPJ`). Generated numbers keep the prefix as written. [Inbound email](inbound-email.md#threading-replies) doesn't use ticket numbers to thread replies.
 
 `priority` and `source` are not read by the package. A new ticket's defaults come from the model and the database columns (`medium` and `web_portal`) and from the arguments you pass to `CreateTicketAction`.
 

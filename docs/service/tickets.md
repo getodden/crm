@@ -20,7 +20,7 @@ A ticket is a support request from a customer. Its conversation is a list of `Ti
 | `contact_id`, `company_id` | int, nullable | Core `Contact` and `Company`. |
 | `owner_id` | int, nullable | The assigned user. |
 | `sla_policy_id` | int, nullable | See [SLA policies](sla-policies.md). |
-| `team_id` | int, nullable | Stored and indexed, but not used by the package. |
+| `team_id` | int, nullable | Stored and indexed. `Ticket::forTeam($teamId)` scopes a query to a team; nothing else in the package filters by it. |
 | `first_response_due_at`, `resolution_due_at` | datetime | SLA deadlines, set on create. |
 | `first_responded_at`, `resolved_at`, `closed_at` | datetime | Lifecycle timestamps. |
 | `is_sla_response_breached`, `is_sla_resolution_breached` | bool | SLA breach flags. |

@@ -89,7 +89,7 @@ It returns `null` when no rule matches. Routing doesn't consider workload or whe
 | `user_id` | `null` | The author, through the `user()` relationship. |
 | `is_shared` | `true` | Whether other agents should see it. |
 
-The package stores canned responses but doesn't render or filter them: there is no variable substitution, and `is_shared` is not enforced. Load the response in your agent UI and post its content with `ReplyTicketAction`:
+`CannedResponse::availableTo($userId)` limits a query to the shared responses plus the agent's own (the Filament panel uses it), and `$canned->render($ticket, $agent)` fills in the variables before you post the content with `ReplyTicketAction`:
 
 ```php
 use Odden\Service\Actions\ReplyTicketAction;
@@ -107,10 +107,25 @@ $canned = CannedResponse::where('shortcut', '/reset')->firstOrFail();
 
 app(ReplyTicketAction::class)->execute(
     ticket: $ticket,
-    body: $canned->content,
+    body: $canned->render($ticket, $agent),
     user: $agent,
 );
 ```
+
+Use `CannedResponse::query()->availableTo($agent->id)` instead of `CannedResponse::where(...)` when you list responses for an agent, since a plain query returns other agents' private ones too.
+
+### Variables
+
+`render()` replaces `{{ tag }}` variables (spaces inside the braces are optional):
+
+| Tag | Value |
+| --- | --- |
+| `{{contact.first_name}}`, `{{contact.last_name}}`, `{{contact.name}}`, `{{contact.email}}` | The ticket's contact |
+| `{{company.name}}` | The ticket's company |
+| `{{ticket.number}}`, `{{ticket.subject}}`, `{{ticket.status}}` | The ticket (`status` is its label) |
+| `{{agent.name}}` | The agent you pass |
+
+Tags that aren't in the table, or whose value is empty (no contact, say), are left as written, so an agent sees what still needs filling in. `content` itself is stored unchanged.
 
 ## Merging tickets
 

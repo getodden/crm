@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\UserModel;
+use Odden\Core\Traits\BelongsToTeam;
 use Odden\Core\Traits\HasCustomProperties;
 use Odden\Service\Enums\MessageSenderType;
 use Odden\Service\Enums\TicketPriority;
@@ -59,6 +60,7 @@ use Odden\Service\Enums\TicketStatus;
  */
 class Ticket extends Model
 {
+    use BelongsToTeam;
     use HasCustomProperties;
     use SoftDeletes;
 
@@ -101,9 +103,20 @@ class Ticket extends Model
      */
     protected $attributes = [
         'status' => 'new',
-        'priority' => 'medium',
-        'source' => 'web_portal',
     ];
+
+    /**
+     * New tickets start with the priority and source from odden-service.defaults.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function __construct(array $attributes = [])
+    {
+        $this->attributes['priority'] = (string) config('odden-service.defaults.priority', 'medium');
+        $this->attributes['source'] = (string) config('odden-service.defaults.source', 'web_portal');
+
+        parent::__construct($attributes);
+    }
 
     /**
      * Get the table associated with the model.
