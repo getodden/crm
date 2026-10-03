@@ -50,9 +50,7 @@ class SalesQuotaResource extends Resource
                         Select::make('user_id')
                             ->label('Sales Representative')
                             ->options(function (): array {
-                                $userModel = UserModel::className();
-
-                                return $userModel::query()->pluck('name', 'id')->toArray();
+                                return UserModel::query()->pluck('name', 'id')->toArray();
                             })
                             ->searchable()
                             ->required(),

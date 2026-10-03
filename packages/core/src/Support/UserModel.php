@@ -6,6 +6,7 @@ namespace Odden\Core\Support;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Contracts\TenantContext;
 use RuntimeException;
 
 /**
@@ -34,11 +35,13 @@ final class UserModel
     }
 
     /**
+     * A query on the user model, narrowed to the active tenant's users when there is one.
+     *
      * @return Builder<Model>
      */
     public static function query(): Builder
     {
-        return self::className()::query();
+        return app(TenantContext::class)->scopeUsers(self::className()::query());
     }
 
     public static function make(): Model

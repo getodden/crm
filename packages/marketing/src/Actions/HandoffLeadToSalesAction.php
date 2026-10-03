@@ -10,6 +10,7 @@ use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Support\CacheKey;
 use Odden\Core\Support\UserModel;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
@@ -109,18 +110,12 @@ class HandoffLeadToSalesAction
      */
     protected function nextOwnerId(): ?int
     {
-        /** @var class-string<Model> $userClass */
-        $userClass = UserModel::className();
-        if (! class_exists($userClass)) {
-            return null;
-        }
-
-        $ids = $userClass::query()->orderBy('id')->pluck('id')->all();
+        $ids = UserModel::query()->orderBy('id')->pluck('id')->all();
         if ($ids === []) {
             return null;
         }
 
-        $key = 'odden-marketing:handoff-owner-index';
+        $key = CacheKey::for('odden-marketing:handoff-owner-index');
         Cache::add($key, -1, now()->addYears(10));
         $index = (int) Cache::increment($key);
 

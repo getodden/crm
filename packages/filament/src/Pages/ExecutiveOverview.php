@@ -453,8 +453,6 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        $userModel = UserModel::className();
-
         $quotasByUser = [];
         if (class_exists(SalesQuota::class)) {
             $quotas = SalesQuota::query()
@@ -504,7 +502,7 @@ class ExecutiveOverview extends Page
             return [];
         }
 
-        $users = $userModel::query()->whereIn('id', $allUserIds)->get()->keyBy('id');
+        $users = UserModel::query()->whereIn('id', $allUserIds)->get()->keyBy('id');
 
         $leaderboard = [];
         foreach ($allUserIds as $userId) {

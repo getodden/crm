@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Builder;
 use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Support\NullTenantContext;
 
@@ -16,6 +17,11 @@ it('lets a host application rebind the tenant context', function (): void {
         public function id(): int|string|null
         {
             return 42;
+        }
+
+        public function scopeUsers(Builder $users): Builder
+        {
+            return $users;
         }
     });
 
