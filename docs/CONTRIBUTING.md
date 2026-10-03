@@ -42,10 +42,10 @@ Link to other pages with relative paths to the Markdown file, so the links also 
 
 The `Docs` workflow (`.github/workflows/docs.yml`) checks the pages, navigation and links on every pull request that touches `docs/**`. On a push to `main` it then redeploys the website, because `odden.io/docs` is built from `main`.
 
-The redeploy is a `POST` to a deploy hook URL stored in the `WEBSITE_DEPLOY_HOOK` repository secret (Settings → Secrets and variables → Actions). GitHub never shows a secret's value, so the URL has to come from the website host: create or copy a deploy hook in the settings of the site that serves `odden.io`, then store it:
+The redeploy is a `GET` request to a deploy hook URL stored in the `WEBSITE_DEPLOY_HOOK` repository secret (Settings → Secrets and variables → Actions). The website is hosted on Laravel Cloud, whose hook URLs look like `https://cloud.laravel.com/deploy/{id}/{token}`; a `POST` to one returns a 404. GitHub never shows a secret's value, so the URL has to come from the host: copy the deploy hook of the Laravel Cloud environment that serves `odden.io` (not the one for `app.odden.io`), then store it:
 
 ```bash
 gh secret set WEBSITE_DEPLOY_HOOK
 ```
 
-If the secret is empty, the publish step passes with a notice and the docs update on the website's next deploy. If the host deletes or regenerates the hook, the step fails with `curl: (22) ... 404`; the docs checks still pass, so the pages themselves are fine. Create a new hook, update the secret, and re-run the failed `Docs` run.
+If the secret is empty, the publish step passes with a notice and the docs update on the website's next deploy. If the host deletes or regenerates the hook, or the hook belongs to a site that no longer exists (as after the move from focalcrm.io), the step fails with `curl: (22) ... 404`; the docs checks still pass, so the pages themselves are fine. Create a new hook, update the secret, and re-run the failed `Docs` run.

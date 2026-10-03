@@ -38,4 +38,5 @@ jobs:
             echo "::notice::WEBSITE_DEPLOY_HOOK isn't set; the docs will update on the website's next deploy."
             exit 0
           fi
-          curl --fail --silent --show-error -X POST "$DEPLOY_HOOK"
+          # Laravel Cloud deploy hooks answer a GET (a POST gets a 404) and redirect on success.
+          curl --fail --silent --show-error "$DEPLOY_HOOK"
