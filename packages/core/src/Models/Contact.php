@@ -166,7 +166,7 @@ class Contact extends Model
      */
     public function markContacted(?CarbonInterface $at = null): self
     {
-        $this->updateQuietly([
+        $this->update([
             'last_contacted_at' => $at ?? now(),
         ]);
 

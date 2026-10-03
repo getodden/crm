@@ -50,7 +50,7 @@ class EnrichCompanyAction
         ], fn ($val) => $val !== null);
 
         $company->properties = array_merge($currentProperties, $enrichedFields);
-        $company->saveQuietly();
+        $company->save();
 
         event(new CompanyEnriched($company, $data));
 

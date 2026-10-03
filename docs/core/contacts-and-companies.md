@@ -27,7 +27,7 @@ Helpers on `Contact`:
 
 - `full_name`: `first_name` and `last_name` joined, falling back to `email` when both are empty.
 - `became_mql_at` and `became_sql_at`: read-only aliases for `became_marketing_qualified_lead_at` and `became_sales_qualified_lead_at`.
-- `markContacted(?CarbonInterface $at = null)`: sets `last_contacted_at` (default `now()`) with `updateQuietly()`, so no model events fire and no history is recorded.
+- `markContacted(?CarbonInterface $at = null)`: sets `last_contacted_at` (default `now()`) with a normal `update()`, so model events fire and the change is written to the [property history](custom-properties.md#change-history).
 - `owner()`: `BelongsTo` your user model (see [the user model](integration.md#the-user-model)).
 - `companies()`: `BelongsToMany` companies through `odden_associations`, where the contact is the parent and the company the child, of any association type. The pivot includes `id` and `type`.
 - `whereEmail(string $email)` scope: lowercases and trims the value before matching. It compares the stored value exactly, so it won't find a contact saved with mixed case; use `ContactLookup` below for that.
@@ -192,7 +192,7 @@ $domains->execute('ann@www.initech.io'); // "initech.io"
 
 - sets `industry` if it is empty,
 - merges `logo_url`, `tech_stack`, `employee_count_range`, `description`, `city`, `country`, `linkedin_url` (whichever the driver returned) and `enriched_at` into `properties`,
-- saves with `saveQuietly()`, so no model events fire and no property history is written,
+- saves normally, so model events fire and the changes are written to the [property history](custom-properties.md#change-history),
 - dispatches `CompanyEnriched` with the raw driver data.
 
 ```php

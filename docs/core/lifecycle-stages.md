@@ -42,7 +42,7 @@ $contact->became_marketing_qualified_lead_at;  // now
 
 1. Validates the transition (see below), unless `$force` is `true`.
 2. Sets `lifecycle_stage`, and sets `became_<stage>_at` to `now()` if it is still `null`, so it keeps the first time the record reached that stage.
-3. Saves with `saveQuietly()`. No model events fire and no [property history](custom-properties.md#change-history) is written.
+3. Saves normally, so model events fire and the change to `lifecycle_stage` (and `became_<stage>_at`) is written to the [property history](custom-properties.md#change-history).
 4. Creates a `LifecycleStageTransition` with `duration_seconds` set to the time since the previous transition, or since the record was created.
 5. Dispatches `LifecycleStageChanged`.
 

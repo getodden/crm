@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Odden\Core\Actions\EnrichCompanyAction;
+use Odden\Core\Actions\TransitionLifecycleStageAction;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 
 it('tracks changes to standard properties in audit history', function (): void {
@@ -51,4 +54,36 @@ it('tracks changes to dynamic custom properties in audit history', function (): 
 
     // Untouched property 'plan' should not have an audit record
     expect($history->firstWhere('property_name', 'plan'))->toBeNull();
+});
+
+it('writes history when markContacted updates last_contacted_at', function (): void {
+    $contact = Contact::factory()->create(['last_contacted_at' => null]);
+
+    $contact->markContacted(now()->subDay());
+
+    expect($contact->propertyHistory()->where('property_name', 'last_contacted_at')->count())->toBe(1);
+});
+
+it('writes history when a lifecycle stage transition changes the stage', function (): void {
+    $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
+
+    app(TransitionLifecycleStageAction::class)->execute($contact, LifecycleStage::MarketingQualifiedLead);
+
+    $stageAudit = $contact->propertyHistory()->where('property_name', 'lifecycle_stage')->first();
+
+    expect($stageAudit)->not->toBeNull()
+        ->and($stageAudit->old_value)->toBe('lead')
+        ->and($stageAudit->new_value)->toBe('marketing_qualified_lead')
+        ->and($contact->propertyHistory()->where('property_name', 'became_marketing_qualified_lead_at')->exists())->toBeTrue();
+});
+
+it('writes history when company enrichment fills industry and properties', function (): void {
+    $company = Company::factory()->create(['domain' => 'deepmind.ai', 'industry' => null, 'properties' => []]);
+
+    app(EnrichCompanyAction::class)->execute($company);
+
+    $names = $company->propertyHistory()->pluck('property_name')->all();
+
+    expect($names)->toContain('industry')
+        ->and($names)->toContain('enriched_at');
 });

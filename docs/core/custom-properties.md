@@ -114,8 +114,9 @@ foreach ($contact->propertyHistory as $entry) {
 History is only written for changes made through Eloquent model events. These changes write no history:
 
 - `saveQuietly()`, `updateQuietly()`, and query-builder updates such as `Contact::where(...)->update([...])`.
-- lifecycle stage changes made with `TransitionLifecycleStageAction`, which records them as [lifecycle transitions](lifecycle-stages.md) instead.
-- `Contact::markContacted()` and company [enrichment](contacts-and-companies.md#enrichment).
+- the marketing verification token that `getPreferenceCenterUrl()` generates, which is saved quietly because it is a secret.
+
+Lifecycle stage changes from `TransitionLifecycleStageAction`, `Contact::markContacted()`, and company [enrichment](contacts-and-companies.md#enrichment) do write history, in addition to the [lifecycle transition](lifecycle-stages.md) row where that applies.
 
 To tag changes that come from an import or an integration, have the client send an `X-Odden-Source` header, such as `X-Odden-Source: import`, on the HTTP request that makes them. Changes made outside an HTTP request are always recorded as `web`.
 

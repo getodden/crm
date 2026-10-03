@@ -68,7 +68,7 @@ class TransitionLifecycleStageAction
             $record->setAttribute($becameColumn, now());
         }
 
-        $record->saveQuietly();
+        $record->save();
 
         /** @var int|null $teamId */
         $teamId = $record->getAttribute('team_id');
