@@ -17,6 +17,8 @@ use Odden\Filament\Pages\Concerns\AuthorizesPageAccess;
 use Odden\Filament\Resources\TicketResource;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Service\Actions\DeflectTicketAction;
+use Odden\Service\Actions\ReplyTicketAction;
+use Odden\Service\Actions\ResolveTicketAction;
 use Odden\Service\Enums\MessageSenderType;
 use Odden\Service\Enums\TicketStatus;
 use Odden\Service\Models\CannedResponse;
@@ -355,19 +357,19 @@ class ServiceCockpit extends Page
 
         $ticket = $this->findTicketForUpdate($this->replyTicketId);
 
-        $userId = (int) OddenAuthorization::userId();
-
-        $ticket->addMessage(
+        // The same actions as the ticket resource's Add Reply and Resolve, so the customer is
+        // emailed and their timeline is updated.
+        app(ReplyTicketAction::class)->execute(
+            ticket: $ticket,
             body: $this->replyBody,
             senderType: MessageSenderType::Agent,
-            userId: $userId,
-            contactId: null,
+            user: auth()->user(),
             isInternalNote: $this->replyIsInternalNote,
         );
 
         if (! $this->replyIsInternalNote && in_array($this->replyStatus, ['open', 'waiting_on_customer', 'resolved'], true)) {
             if ($this->replyStatus === 'resolved') {
-                $ticket->resolve();
+                app(ResolveTicketAction::class)->execute($ticket);
             } else {
                 $ticket->update(['status' => $this->replyStatus]);
             }
@@ -407,7 +409,7 @@ class ServiceCockpit extends Page
 
         $ticket = $this->findTicketForUpdate($this->resolveTicketId);
 
-        $ticket->resolve(trim($this->resolveNote) !== '' ? $this->resolveNote : null);
+        app(ResolveTicketAction::class)->execute($ticket, trim($this->resolveNote) !== '' ? $this->resolveNote : null);
 
         Notification::make()
             ->title('Ticket Resolved')

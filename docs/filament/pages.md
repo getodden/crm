@@ -63,10 +63,10 @@ This is an agent workspace. It shows open, unassigned, my-active and SLA-at-risk
 These actions write data:
 
 - **Claim** sets the ticket's owner to the current user and moves `new` tickets to `open`.
-- **Quick reply** adds an agent message or internal note with `Ticket::addMessage()` and can set the status to `open`, `waiting_on_customer` or `resolved`. You can insert canned responses and suggested knowledge-base articles (from `DeflectTicketAction`).
-- **Quick resolve** calls `Ticket::resolve()` with an optional note.
+- **Quick reply** adds an agent message or internal note with `ReplyTicketAction` and can set the status to `open`, `waiting_on_customer` or `resolved`. You can insert canned responses and suggested knowledge-base articles (from `DeflectTicketAction`).
+- **Quick resolve** runs `ResolveTicketAction` with an optional note.
 
-> Quick replies and quick resolves here call the model directly, so they do **not** send the `TicketRepliedNotification` or `TicketResolvedCsatNotification` emails. Replying or resolving from the ticket resource does send them (see [Tickets](resources.md#tickets)).
+Both use the same actions as the ticket resource, so a public reply emails the customer `TicketRepliedNotification` and a resolve emails `TicketResolvedCsatNotification` (when the ticket's contact has an email address), and both are logged on the contact's timeline. Internal notes send nothing. Setting a reply's status to `resolved` runs the resolve action too.
 
 ### Service Analytics
 

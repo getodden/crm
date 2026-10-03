@@ -236,9 +236,6 @@ class ServiceCockpitTest extends TestCase
 
     public function test_quick_reply_emails_the_customer(): void
     {
-        $this->markTestIncomplete('Quick reply calls Ticket::addMessage() directly so no customer email is sent; fixed by #49.');
-
-
         Notification::fake();
         $user = User::factory()->create();
         $contact = Contact::factory()->create(['email' => 'gordon@blackmesa.com']);
@@ -263,9 +260,6 @@ class ServiceCockpitTest extends TestCase
 
     public function test_quick_resolve_emails_the_customer(): void
     {
-        $this->markTestIncomplete('Quick resolve calls Ticket::resolve() directly so no customer email is sent; fixed by #49.');
-
-
         Notification::fake();
         $user = User::factory()->create();
         $contact = Contact::factory()->create(['email' => 'gordon@blackmesa.com']);
