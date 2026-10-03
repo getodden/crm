@@ -76,9 +76,9 @@ curl -X POST https://your-app.test/api/marketing/leads/webhook/linkedin \
 3. Sets the custom properties `lead_source` (the source) and `lead_campaign` (the `campaign` field), merges `properties` on top, and sets `last_contacted_at` to now.
 4. If `company` is given, loads the company with that exact name or creates it with the email's domain as `domain`, and associates it with the contact as `primary`.
 5. Applies the `form_submission` [scoring event](lead-scoring.md) (15 points by default), described as `Ingested via {source}`.
-6. Enrolls the contact in every active `form_submitted` workflow. The workflows' `trigger_config.form_id` isn't checked, so every such workflow receives external leads.
+6. Enrolls the contact in active `form_submitted` workflows that aren't tied to a specific form. A workflow with `trigger_config.form_id` set is skipped, because an external lead didn't submit that form.
 
-`enrolled_workflows` is the number of active `form_submitted` workflows, including any the contact was already enrolled in or that have no steps. `lead_score` is the score after step 5.
+`enrolled_workflows` is the number of enrollments this lead actually started: workflows the contact was already actively enrolled in, that have no steps, or that are tied to a form don't count. `lead_score` is the score after step 5.
 
 You can call the action directly, for example from an import job. `email` is the only required key:
 

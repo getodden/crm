@@ -67,3 +67,45 @@ test('workflow enrollment webhook persists submitted properties on new and exist
     expect($existing->getProperty('plan_tier'))->toBe('growth')
         ->and($existing->getProperty('region'))->toBe('emea');
 });
+
+test('external leads skip form-specific workflows and report only real enrollments', function () {
+    $makeWorkflow = function (string $name, array $triggerConfig, bool $withStep = true): MarketingWorkflow {
+        $workflow = MarketingWorkflow::create([
+            'name' => $name,
+            'is_active' => true,
+            'trigger_type' => WorkflowTriggerType::FormSubmitted,
+            'trigger_config' => $triggerConfig,
+        ]);
+
+        if ($withStep) {
+            $workflow->steps()->create([
+                'step_number' => 1,
+                // A delay keeps the enrollment active, so a repeat lead is already in the workflow.
+                'type' => WorkflowStepType::Delay,
+                'config' => ['delay_minutes' => 60],
+            ]);
+            $workflow->steps()->create([
+                'step_number' => 2,
+                'type' => WorkflowStepType::UpdateContact,
+                'config' => ['field' => 'lead_status', 'value' => 'connected'],
+            ]);
+        }
+
+        return $workflow;
+    };
+
+    $anyForm = $makeWorkflow('Any form', []);
+    $oneForm = $makeWorkflow('Demo form only', ['form_id' => 42]);
+    $makeWorkflow('No steps', [], withStep: false);
+
+    $first = $this->postJson('/api/marketing/leads/webhook/zapier', ['email' => 'lead@example.com'])->assertOk();
+    $first->assertJsonPath('enrolled_workflows', 1);
+
+    expect($anyForm->fresh()->enrollments_count)->toBe(1)
+        ->and($oneForm->fresh()->enrollments_count)->toBe(0);
+
+    // The same lead again is already in the workflow, so nothing new is reported.
+    $this->postJson('/api/marketing/leads/webhook/zapier', ['email' => 'lead@example.com'])
+        ->assertOk()
+        ->assertJsonPath('enrolled_workflows', 0);
+});

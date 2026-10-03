@@ -10,8 +10,10 @@ use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Enums\LeadScoringEventType;
+use Odden\Marketing\Enums\WorkflowEnrollmentStatus;
 use Odden\Marketing\Enums\WorkflowTriggerType;
 use Odden\Marketing\Models\MarketingWorkflow;
+use Odden\Marketing\Models\WorkflowEnrollment;
 
 class IngestExternalLeadAction
 {
@@ -124,8 +126,23 @@ class IngestExternalLeadAction
 
             $enrolledCount = 0;
             foreach ($workflows as $workflow) {
-                $this->enrollmentAction->execute($workflow, $contact);
-                $enrolledCount++;
+                // A workflow tied to one hosted form is for that form's submitters; an external lead didn't use it.
+                if (($workflow->trigger_config['form_id'] ?? null) !== null) {
+                    continue;
+                }
+
+                $alreadyActive = WorkflowEnrollment::query()
+                    ->where('workflow_id', $workflow->id)
+                    ->where('contact_id', $contact->id)
+                    ->where('status', WorkflowEnrollmentStatus::Active->value)
+                    ->exists();
+
+                $enrollment = $this->enrollmentAction->execute($workflow, $contact);
+
+                // Count only enrollments this lead actually started.
+                if ($enrollment !== null && ! $alreadyActive) {
+                    $enrolledCount++;
+                }
             }
 
             return [
