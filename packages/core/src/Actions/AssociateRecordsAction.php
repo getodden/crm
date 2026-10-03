@@ -11,6 +11,7 @@ use Odden\Core\Exceptions\CardinalityViolationException;
 use Odden\Core\Exceptions\InvalidAssociationException;
 use Odden\Core\Models\Association;
 use Odden\Core\Models\AssociationType;
+use Odden\Core\Support\TenantGuard;
 
 class AssociateRecordsAction
 {
@@ -26,6 +27,8 @@ class AssociateRecordsAction
         string|AssociationType $type = 'default',
         ?string $label = null
     ): Association {
+        app(TenantGuard::class)->assertSameTenant($parent, $child);
+
         $associationType = null;
         $typeName = 'default';
 

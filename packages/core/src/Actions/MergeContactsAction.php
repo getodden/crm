@@ -9,6 +9,7 @@ use Odden\Core\Enums\ActivityType;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\RecordMerger;
+use Odden\Core\Support\TenantGuard;
 
 class MergeContactsAction
 {
@@ -26,6 +27,8 @@ class MergeContactsAction
      */
     public function execute(Contact $primary, Contact $secondary, array $fieldOverrides = []): Contact
     {
+        app(TenantGuard::class)->assertSameTenant($primary, $secondary);
+
         return DB::transaction(function () use ($primary, $secondary, $fieldOverrides): Contact {
             // 1. Fill empty primary fields from secondary
             $fillableAttributes = ['first_name', 'last_name', 'phone', 'lifecycle_stage', 'lead_status', 'owner_id', 'team_id'];

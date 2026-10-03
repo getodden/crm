@@ -9,6 +9,7 @@ use Odden\Core\Enums\ActivityType;
 use Odden\Core\Events\CompaniesMerged;
 use Odden\Core\Models\Company;
 use Odden\Core\Support\RecordMerger;
+use Odden\Core\Support\TenantGuard;
 
 class MergeCompaniesAction
 {
@@ -27,6 +28,8 @@ class MergeCompaniesAction
      */
     public function execute(Company $primary, Company $secondary, array $fieldOverrides = []): Company
     {
+        app(TenantGuard::class)->assertSameTenant($primary, $secondary);
+
         return DB::transaction(function () use ($primary, $secondary, $fieldOverrides): Company {
             // 1. Fill empty primary fields from secondary
             $fillableAttributes = ['domain', 'phone', 'industry', 'account_tier', 'owner_id', 'team_id'];
