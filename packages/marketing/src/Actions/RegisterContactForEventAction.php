@@ -42,8 +42,9 @@ class RegisterContactForEventAction
                     'contact_id' => $contact->id,
                 ],
                 [
-                    'status' => 'registered',
-                    'registered_at' => now(),
+                    // Registering again must not undo attendance that was already recorded.
+                    'status' => $existing?->status === 'attended' ? 'attended' : 'registered',
+                    'registered_at' => $existing?->status === 'attended' ? $existing->registered_at : now(),
                     'utm_source' => $utm['utm_source'] ?? $existing?->utm_source,
                     'utm_medium' => $utm['utm_medium'] ?? $existing?->utm_medium,
                     'utm_campaign' => $utm['utm_campaign'] ?? $existing?->utm_campaign,

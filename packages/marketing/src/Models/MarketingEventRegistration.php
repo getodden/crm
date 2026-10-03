@@ -26,6 +26,9 @@ use Odden\Core\Models\Contact;
  */
 class MarketingEventRegistration extends Model
 {
+    /** @var list<string> The statuses a registration can have. */
+    public const STATUSES = ['registered', 'attended', 'no_show', 'cancelled'];
+
     /**
      * The attributes that are mass assignable.
      *

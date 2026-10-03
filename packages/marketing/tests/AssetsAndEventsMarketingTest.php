@@ -265,4 +265,66 @@ class AssetsAndEventsMarketingTest extends TestCase
         $this->assertTrue($webinarList->hasMember($contactB));
         $this->assertFalse($webinarList->hasMember($contactA));
     }
+
+    public function test_registration_requires_a_published_open_event_with_room(): void
+    {
+        $url = fn (MarketingEvent $event): string => route('odden.marketing.events.register', ['slug' => $event->slug]);
+        $payload = ['email' => 'guest@example.com'];
+
+        $unpublished = MarketingEvent::create(['title' => 'Hidden', 'slug' => 'hidden', 'event_type' => 'webinar', 'is_published' => false]);
+        $this->postJson($url($unpublished), $payload)->assertNotFound();
+
+        foreach (['draft', 'completed', 'cancelled'] as $status) {
+            $closed = MarketingEvent::create(['title' => "Event {$status}", 'slug' => "event-{$status}", 'event_type' => 'webinar', 'status' => $status]);
+            $this->postJson($url($closed), $payload)->assertStatus(409);
+        }
+
+        $live = MarketingEvent::create(['title' => 'Live', 'slug' => 'live-event', 'event_type' => 'webinar', 'status' => 'live']);
+        $this->postJson($url($live), $payload)->assertOk();
+
+        $small = MarketingEvent::create(['title' => 'Small', 'slug' => 'small-event', 'event_type' => 'webinar', 'capacity' => 1]);
+        $this->postJson($url($small), ['email' => 'first@example.com'])->assertOk();
+        $this->postJson($url($small), ['email' => 'second@example.com'])->assertStatus(409);
+
+        // Someone already registered can re-submit even when the event is full.
+        $this->postJson($url($small), ['email' => 'FIRST@example.com'])->assertOk();
+        $this->assertSame(1, $small->fresh()->registrations_count);
+    }
+
+    public function test_registration_matches_contacts_case_insensitively(): void
+    {
+        $existing = Contact::factory()->create(['email' => 'ana@example.com']);
+        $event = MarketingEvent::create(['title' => 'Briefing', 'slug' => 'briefing', 'event_type' => 'webinar']);
+
+        $this->postJson(route('odden.marketing.events.register', ['slug' => $event->slug]), ['email' => ' Ana@Example.COM '])->assertOk();
+
+        $this->assertSame(1, Contact::query()->whereRaw('LOWER(email) = ?', ['ana@example.com'])->count());
+        $this->assertDatabaseHas('odden_marketing_event_registrations', ['event_id' => $event->id, 'contact_id' => $existing->id]);
+    }
+
+    public function test_registering_again_keeps_an_attended_registration_attended(): void
+    {
+        $event = MarketingEvent::create(['title' => 'Briefing', 'slug' => 'briefing-attended', 'event_type' => 'webinar']);
+        $contact = Contact::factory()->create();
+
+        $registration = app(RegisterContactForEventAction::class)->execute($event, $contact);
+        app(UpdateAttendanceStatusAction::class)->execute($registration, 'attended');
+
+        $again = app(RegisterContactForEventAction::class)->execute($event->fresh(), $contact);
+
+        $this->assertSame('attended', $again->fresh()->status);
+        $this->assertSame(1, $event->fresh()->registrations_count);
+    }
+
+    public function test_attendance_webhook_validates_the_status(): void
+    {
+        $event = MarketingEvent::create(['title' => 'Briefing', 'slug' => 'briefing-webhook', 'event_type' => 'webinar']);
+        $contact = Contact::factory()->create(['email' => 'zed@example.com']);
+        app(RegisterContactForEventAction::class)->execute($event, $contact);
+
+        $url = route('odden.marketing.events.attendance-webhook', ['slug' => $event->slug]);
+
+        $this->postJson($url, ['email' => 'zed@example.com', 'status' => 'teleported'])->assertStatus(422);
+        $this->postJson($url, ['email' => 'ZED@example.com', 'status' => 'no_show'])->assertOk()->assertJsonPath('status', 'no_show');
+    }
 }

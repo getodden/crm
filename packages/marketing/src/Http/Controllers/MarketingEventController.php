@@ -7,7 +7,8 @@ namespace Odden\Marketing\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Odden\Core\Models\Contact;
+use Illuminate\Validation\Rule;
+use Odden\Core\Support\ContactLookup;
 use Odden\Marketing\Actions\RegisterContactForEventAction;
 use Odden\Marketing\Actions\UpdateAttendanceStatusAction;
 use Odden\Marketing\Models\MarketingEvent;
@@ -24,7 +25,7 @@ class MarketingEventController extends Controller
         RegisterContactForEventAction $registerAction
     ): JsonResponse {
         /** @var MarketingEvent $event */
-        $event = MarketingEvent::query()->where('slug', $slug)->firstOrFail();
+        $event = MarketingEvent::query()->where('slug', $slug)->where('is_published', true)->firstOrFail();
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
@@ -35,14 +36,26 @@ class MarketingEventController extends Controller
             'utm_campaign' => 'nullable|string|max:255',
         ]);
 
-        /** @var Contact $contact */
-        $contact = Contact::firstOrCreate(
-            ['email' => $validated['email']],
-            [
-                'first_name' => $validated['first_name'] ?? 'Attendee',
-                'last_name' => $validated['last_name'] ?? '',
-            ]
-        );
+        $contact = ContactLookup::findOrCreate($validated['email'], [
+            'first_name' => $validated['first_name'] ?? 'Attendee',
+            'last_name' => $validated['last_name'] ?? '',
+        ]);
+
+        // Someone who is already registered can re-submit; only new registrations need an open event with room.
+        $alreadyRegistered = MarketingEventRegistration::query()
+            ->where('event_id', $event->id)
+            ->where('contact_id', $contact->id)
+            ->exists();
+
+        if (! $alreadyRegistered) {
+            if (! $event->acceptsRegistrations()) {
+                return response()->json(['success' => false, 'message' => 'Registration for this event is closed.'], 409);
+            }
+
+            if ($event->isFull()) {
+                return response()->json(['success' => false, 'message' => 'This event is full.'], 409);
+            }
+        }
 
         if (! empty($validated['first_name']) && $contact->first_name === 'Attendee') {
             $contact->update([
@@ -92,8 +105,7 @@ class MarketingEventController extends Controller
             return response()->json(['error' => 'Email required'], 422);
         }
 
-        /** @var Contact|null $contact */
-        $contact = Contact::query()->where('email', $email)->first();
+        $contact = ContactLookup::findByEmail($email);
         if ($contact === null) {
             return response()->json(['error' => 'Contact not found'], 404);
         }
@@ -108,7 +120,10 @@ class MarketingEventController extends Controller
             return response()->json(['error' => 'Registration not found'], 404);
         }
 
-        $status = (string) $request->input('status', 'attended');
+        $validated = $request->validate([
+            'status' => ['nullable', 'string', Rule::in(MarketingEventRegistration::STATUSES)],
+        ]);
+        $status = $validated['status'] ?? 'attended';
         $updated = $attendanceAction->execute($registration, $status);
 
         return response()->json([

@@ -133,6 +133,14 @@ class MarketingEvent extends Model
     }
 
     /**
+     * Whether new registrations are accepted: the event is scheduled or live.
+     */
+    public function acceptsRegistrations(): bool
+    {
+        return in_array($this->status, ['scheduled', 'live'], true);
+    }
+
+    /**
      * Check if the event reached capacity.
      */
     public function isFull(): bool

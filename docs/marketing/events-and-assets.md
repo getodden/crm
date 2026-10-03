@@ -40,7 +40,7 @@ $event->slug; // "pipeline-masterclass"
 
 Helpers: `attendanceRate(): float` (attendees / registrations × 100, one decimal) and `isFull(): bool` (`capacity` set and reached). Relations: `registrations` and `contacts` (with `status`, `registered_at`, `attended_at` on the pivot).
 
-The registration endpoint doesn't check `status`, `is_published`, or `capacity`. If you need to close registration, check `isFull()` or the status in your own front end, or wrap the endpoint.
+The registration endpoint only accepts new registrations for events that are published (otherwise `404`), have a `status` of `scheduled` or `live` (`MarketingEvent::acceptsRegistrations()`) and aren't full (`isFull()`). A closed or full event returns `409` with `success: false` and a message. A contact who is already registered can re-submit, even when the event is full or closed.
 
 Registrations are `Odden\Marketing\Models\MarketingEventRegistration` rows: `event_id`, `contact_id` (unique together), `status` (`registered`, `attended`, `no_show`, `cancelled` by convention), `registered_at`, `attended_at`, and `utm_source`, `utm_medium`, `utm_campaign`.
 
@@ -78,7 +78,7 @@ curl -X POST https://your-app.test/api/marketing/events/pipeline-masterclass/reg
 }
 ```
 
-The contact is matched by the email exactly as sent (it isn't lowercased) and created if missing, with `first_name` defaulting to `Attendee`. A placeholder `Attendee` name is replaced when a later registration includes a first name. An unknown slug returns `404`.
+The contact is matched by email ignoring case and surrounding whitespace (new contacts are stored lowercased), and created if missing, with `first_name` defaulting to `Attendee`. A placeholder `Attendee` name is replaced when a later registration includes a first name. An unknown slug returns `404`.
 
 `Odden\Marketing\Actions\RegisterContactForEventAction` then creates or updates the registration. You can call it directly:
 
@@ -92,7 +92,7 @@ $registration = app(RegisterContactForEventAction::class)->execute(
 );
 ```
 
-On the first registration of a contact for an event it increments `registrations_count`, logs a `Registered for Event: {title}` task, and adds 10 points (`property_match` [scoring event](lead-scoring.md)). Registering again resets the registration to `registered` with a new `registered_at` and keeps earlier UTM values unless new ones are given, but doesn't score again.
+On the first registration of a contact for an event it increments `registrations_count`, logs a `Registered for Event: {title}` task, and adds 10 points (`property_match` [scoring event](lead-scoring.md)). Registering again resets the registration to `registered` with a new `registered_at` (an `attended` registration keeps its status and `registered_at`) and keeps earlier UTM values unless new ones are given, but doesn't score again.
 
 ### Attendance webhook
 
@@ -117,7 +117,7 @@ curl -X POST https://your-app.test/api/marketing/events/pipeline-masterclass/att
 }
 ```
 
-`status` defaults to `attended` and isn't validated; any string is stored. The contact is looked up by the exact email. Errors:
+`status` defaults to `attended` and must be one of `registered`, `attended`, `no_show` or `cancelled` (`MarketingEventRegistration::STATUSES`), otherwise the response is `422`. The contact is looked up by email, ignoring case and surrounding whitespace. Errors:
 
 | Status | Body |
 | --- | --- |
