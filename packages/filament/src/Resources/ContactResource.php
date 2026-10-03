@@ -300,9 +300,8 @@ class ContactResource extends Resource
                         $result = app(RouteLeadAction::class)->execute($record);
 
                         if ($result !== null) {
-                            $userModel = UserModel::className();
                             /** @var object{name: string}|null $user */
-                            $user = $userModel::find($result['assigned_user_id']);
+                            $user = UserModel::query()->find($result['assigned_user_id']);
                             $name = $user !== null ? $user->name : "User #{$result['assigned_user_id']}";
 
                             Notification::make()

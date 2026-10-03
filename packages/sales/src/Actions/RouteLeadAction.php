@@ -51,9 +51,8 @@ class RouteLeadAction
             if ($selectedUserId !== null) {
                 $target->update(['owner_id' => $selectedUserId]);
 
-                $userModel = UserModel::className();
                 /** @var object{name: string}|null $user */
-                $user = $userModel::find($selectedUserId);
+                $user = UserModel::query()->find($selectedUserId);
                 $userName = $user !== null ? $user->name : "User #{$selectedUserId}";
 
                 $target->logActivity(
