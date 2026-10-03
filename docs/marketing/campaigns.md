@@ -249,14 +249,14 @@ $campaign = Campaign::create([
 | `ab_winner_variant` | `null` | Set to `A` or `B` once evaluated |
 | `ab_test_evaluated_at` | `null` | When the winner was picked |
 
-On dispatch, the sample is rounded to an even number of at least two and split in half: the first half gets variant A and the second variant B. Everyone else is stored as a `Pending` recipient with no variant, and the campaign stays `Sending`.
+On dispatch, contacts are filtered with the same checks as a standard broadcast (suppression, topic, and [fatigue protection](#fatigue-protection) when it's on). The sample is then rounded to an even number of at least two and split in half: the first half gets variant A and the second variant B. Everyone else is stored as a `Pending` recipient with no variant, and the campaign stays `Sending`. With [local-time sending](#local-time-and-send-time-optimization) on, a sample recipient whose local time hasn't come is stored `Pending` with its variant and `scheduled_send_at`, and `marketing:dispatch-scheduled` sends it that variant when the time arrives.
 
 With 10 eligible contacts and a 40% sample, 2 get A, 2 get B, and 6 wait.
 
 `marketing:evaluate-ab-tests` looks at every `Sending` A/B campaign without a winner whose `sent_at` plus `ab_test_duration_hours` has passed. For each one it runs `EvaluateAbTestWinnerAction`, which:
 
-- compares the open or click rate of the two variants (B must be strictly higher to win, so a tie goes to A)
-- queues the winning variant to every pending recipient through [the same delivery](#delivering-the-messages), marking each `Sent` and logging a task on the contact (recipients who unsubscribed during the test are marked `Suppressed` instead)
+- compares the open or click rate of the two variants among the recipients already sent (B must be strictly higher to win; on a tie the control, A, is rolled out and the result has `tie` set to `true`)
+- queues the winning variant to every staged recipient (the pending ones without a variant) through [the same delivery](#delivering-the-messages), or, with local-time sending on, stores the winner on the recipient with its local `scheduled_send_at` until that time; each sent recipient is marked `Sent` and logging a task on the contact (recipients who unsubscribed during the test are marked `Suppressed` instead)
 - sets `ab_winner_variant`, `ab_test_evaluated_at`, and status `Sent`
 
 You can run the evaluation yourself at any time:
@@ -266,12 +266,12 @@ use Odden\Marketing\Actions\EvaluateAbTestWinnerAction;
 
 $result = app(EvaluateAbTestWinnerAction::class)->execute($campaign);
 
-// ['winner' => 'B', 'metric' => 'click_rate', 'variant_a_score' => 0.0, 'variant_b_score' => 50.0, 'remaining_sent' => 6]
+// ['winner' => 'B', 'metric' => 'click_rate', 'variant_a_score' => 0.0, 'variant_b_score' => 50.0, 'remaining_sent' => 6, 'tie' => false]
 ```
 
 Calling it on a campaign that already has a winner, or isn't an A/B test, changes nothing.
 
-In A/B mode, dispatch doesn't apply [fatigue protection](#fatigue-protection) or [local-time sending](#local-time-and-send-time-optimization).
+`marketing:evaluate-ab-tests` prints a warning instead of a win when the variants tied, and a tie is also written to the log. Before a winner exists, `marketing:dispatch-scheduled` only releases the test sample, never the staged recipients.
 
 ### Significance
 

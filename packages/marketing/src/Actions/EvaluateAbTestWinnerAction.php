@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
+use Illuminate\Support\Facades\Log;
 use Odden\Marketing\Enums\CampaignStatus;
 use Odden\Marketing\Enums\RecipientStatus;
 use Odden\Marketing\Models\Campaign;
@@ -14,7 +15,10 @@ class EvaluateAbTestWinnerAction
      * Evaluate A/B test results, pick the winning variant based on engagement,
      * and roll out the winning variant to all remaining staged recipients.
      *
-     * @return array{winner: string, metric: string, variant_a_score: float, variant_b_score: float, remaining_sent: int}
+     * `tie` is true when both variants scored the same; the control (variant A) is rolled out
+     * then, and callers should surface that rather than present it as a win.
+     *
+     * @return array{winner: string, metric: string, variant_a_score: float, variant_b_score: float, remaining_sent: int, tie: bool}
      */
     public function execute(Campaign $campaign): array
     {
@@ -25,11 +29,12 @@ class EvaluateAbTestWinnerAction
                 'variant_a_score' => 0.0,
                 'variant_b_score' => 0.0,
                 'remaining_sent' => 0,
+                'tie' => false,
             ];
         }
 
         // Metrics for Variant A
-        $sentA = $campaign->recipients()->where('variant', 'A')->count();
+        $sentA = $campaign->recipients()->where('variant', 'A')->whereNotNull('sent_at')->count();
         $opensA = $campaign->recipients()->where('variant', 'A')->whereNotNull('opened_at')->count();
         $clicksA = $campaign->recipients()->where('variant', 'A')->whereNotNull('clicked_at')->count();
 
@@ -37,7 +42,7 @@ class EvaluateAbTestWinnerAction
         $clickRateA = $sentA > 0 ? ($clicksA / $sentA) * 100 : 0.0;
 
         // Metrics for Variant B
-        $sentB = $campaign->recipients()->where('variant', 'B')->count();
+        $sentB = $campaign->recipients()->where('variant', 'B')->whereNotNull('sent_at')->count();
         $opensB = $campaign->recipients()->where('variant', 'B')->whereNotNull('opened_at')->count();
         $clicksB = $campaign->recipients()->where('variant', 'B')->whereNotNull('clicked_at')->count();
 
@@ -48,18 +53,36 @@ class EvaluateAbTestWinnerAction
         $scoreA = $isClickMetric ? $clickRateA : $openRateA;
         $scoreB = $isClickMetric ? $clickRateB : $openRateB;
 
+        $tie = abs($scoreA - $scoreB) < 0.0001;
         $winner = $scoreB > $scoreA ? 'B' : 'A';
 
-        // Roll out winner to remaining pending audience
+        if ($tie) {
+            Log::warning("A/B test for campaign #{$campaign->id} ended in a tie ({$scoreA}%); rolling out variant A.");
+        }
+
+        // Roll out the winner to the staged audience (recipients without a variant). Recipients
+        // that already hold a test variant are still waiting for their local send time.
         $pendingRecipients = $campaign->recipients()
             ->where('status', RecipientStatus::Pending->value)
+            ->whereNull('variant')
             ->with('contact')
             ->get();
 
         $delivery = app(DeliverCampaignMessageAction::class);
         $remainingSent = 0;
+        $useTimezoneSending = $campaign->send_in_recipient_timezone || $campaign->send_by_timezone || $campaign->use_sto;
 
         foreach ($pendingRecipients as $recipient) {
+            // Honor the recipient's local send time, sending the winner when it arrives.
+            if ($useTimezoneSending && $recipient->contact !== null) {
+                $targetTime = $recipient->scheduled_send_at ?? $campaign->calculateScheduledTimeForContact($recipient->contact);
+                if ($targetTime->isFuture() && now()->diffInMinutes($targetTime) > 5) {
+                    $recipient->update(['variant' => $winner, 'scheduled_send_at' => $targetTime]);
+
+                    continue;
+                }
+            }
+
             $outcome = $delivery->execute(
                 $campaign,
                 $recipient,
@@ -85,6 +108,7 @@ class EvaluateAbTestWinnerAction
             'variant_a_score' => round($scoreA, 2),
             'variant_b_score' => round($scoreB, 2),
             'remaining_sent' => $remainingSent,
+            'tie' => $tie,
         ];
     }
 }

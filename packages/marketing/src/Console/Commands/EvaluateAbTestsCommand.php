@@ -46,7 +46,11 @@ class EvaluateAbTestsCommand extends Command
 
             if ($matureAt === null || now()->isAfter($matureAt)) {
                 $result = $action->execute($campaign);
-                $this->info("Campaign #{$campaign->id} ('{$campaign->name}'): Variant {$result['winner']} won! Dispatched to {$result['remaining_sent']} remaining contacts.");
+                if ($result['tie']) {
+                    $this->warn("Campaign #{$campaign->id} ('{$campaign->name}'): the variants tied at {$result['variant_a_score']}%. Variant A (the control) was sent to {$result['remaining_sent']} remaining contacts.");
+                } else {
+                    $this->info("Campaign #{$campaign->id} ('{$campaign->name}'): Variant {$result['winner']} won! Dispatched to {$result['remaining_sent']} remaining contacts.");
+                }
                 $evaluated++;
             }
         }

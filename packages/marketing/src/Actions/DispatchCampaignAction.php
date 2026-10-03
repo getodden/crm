@@ -56,10 +56,13 @@ class DispatchCampaignAction
         $deliveredCount = 0;
         $suppressedCount = 0;
 
+        $useTimezoneSending = $campaign->send_in_recipient_timezone || $campaign->send_by_timezone || $campaign->use_sto;
+
         // A/B Split Testing Mode
         if ($campaign->is_ab_test) {
+            // Same safeguards as a standard broadcast: suppression, topic and fatigue protection.
             $eligible = $contacts
-                ->filter(fn (Contact $c): bool => $delivery->canReceive($campaign, (string) $c->email, $c, applyFatigue: false))
+                ->filter(fn (Contact $c): bool => $delivery->canReceive($campaign, (string) $c->email, $c))
                 ->values();
 
             $totalRecipients = $eligible->count();
@@ -78,6 +81,17 @@ class DispatchCampaignAction
 
             foreach (['A' => $variantAContacts, 'B' => $variantBContacts] as $variant => $variantContacts) {
                 foreach ($variantContacts as $contact) {
+                    // Honor the recipient's local send time: hold the test send, with its variant,
+                    // until marketing:dispatch-scheduled releases it.
+                    if ($useTimezoneSending) {
+                        $targetTime = $campaign->calculateScheduledTimeForContact($contact);
+                        if ($targetTime->isFuture() && now()->diffInMinutes($targetTime) > 5) {
+                            $this->recipientFor($campaign, $contact, ['variant' => (string) $variant, 'scheduled_send_at' => $targetTime]);
+
+                            continue;
+                        }
+                    }
+
                     if ($this->deliver($delivery, $campaign, $this->recipientFor($campaign, $contact), (string) $variant)) {
                         $deliveredCount++;
                     }
@@ -105,7 +119,6 @@ class DispatchCampaignAction
 
         // Standard Full Broadcast Mode
         $totalRecipients = $contacts->count();
-        $useTimezoneSending = $campaign->send_in_recipient_timezone || $campaign->send_by_timezone || $campaign->use_sto;
 
         foreach ($contacts as $contact) {
             if (! $delivery->canReceive($campaign, (string) $contact->email, $contact)) {

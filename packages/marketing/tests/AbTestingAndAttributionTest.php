@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Tests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Odden\Core\Models\Contact;
@@ -245,5 +246,103 @@ class AbTestingAndAttributionTest extends TestCase
         $this->assertSame(2, $attribution['deals_count']);
         $this->assertSame(25000.00, $attribution['pipeline_value']);
         $this->assertSame(125000.00, $attribution['won_revenue']);
+    }
+
+    public function test_ab_dispatch_applies_fatigue_protection(): void
+    {
+        config([
+            'odden-marketing.fatigue_protection.enabled' => true,
+            'odden-marketing.fatigue_protection.min_hours_between_sends' => 24,
+        ]);
+
+        $contacts = new Collection;
+        for ($i = 1; $i <= 4; $i++) {
+            $contacts->push(Contact::create(['first_name' => "Fatigue{$i}", 'email' => "fatigue{$i}@test.com"]));
+        }
+
+        // The first contact was mailed an hour ago, inside the minimum gap.
+        $contacts->first()->update(['last_marketing_email_sent_at' => now()->subHour()]);
+
+        $campaign = Campaign::create([
+            'name' => 'Fatigue test',
+            'subject' => 'A',
+            'variant_b_subject' => 'B',
+            'sender_name' => 'Odden',
+            'sender_email' => 'hello@odden.test',
+            'is_ab_test' => true,
+            'ab_test_sample_percentage' => 100,
+        ]);
+
+        $result = (new DispatchCampaignAction)->execute($campaign, $contacts);
+
+        $this->assertSame(3, $result['total_recipients']);
+        $this->assertSame(1, $result['suppressed_count']);
+        $this->assertNull($campaign->recipients()->where('email', 'fatigue1@test.com')->first());
+    }
+
+    public function test_ab_dispatch_holds_test_sends_for_the_recipients_local_send_time(): void
+    {
+        Carbon::setTestNow('2026-01-05 12:00:00');
+
+        $contacts = new Collection;
+        foreach (['tokyo1', 'tokyo2'] as $name) {
+            $contacts->push(Contact::create(['first_name' => $name, 'email' => "{$name}@test.com", 'timezone' => 'Asia/Tokyo']));
+        }
+
+        $campaign = Campaign::create([
+            'name' => 'Local time test',
+            'subject' => 'A',
+            'variant_b_subject' => 'B',
+            'sender_name' => 'Odden',
+            'sender_email' => 'hello@odden.test',
+            'is_ab_test' => true,
+            'ab_test_sample_percentage' => 100,
+            'send_in_recipient_timezone' => true,
+        ]);
+
+        $result = (new DispatchCampaignAction)->execute($campaign, $contacts);
+
+        $this->assertSame(0, $result['delivered_count'], 'Nothing is sent before the recipients\' local time');
+
+        $recipients = $campaign->recipients()->get();
+        $this->assertCount(2, $recipients);
+        $this->assertEqualsCanonicalizing(['A', 'B'], $recipients->pluck('variant')->all());
+        $this->assertTrue($recipients->every(fn (CampaignRecipient $r) => $r->status === RecipientStatus::Pending && $r->scheduled_send_at !== null));
+
+        // Once the local time has come, the sweep sends each recipient the variant it was assigned.
+        Carbon::setTestNow('2026-01-06 02:00:00');
+        $this->artisan('marketing:dispatch-scheduled')->assertSuccessful();
+
+        $recipients = $campaign->recipients()->get();
+        $this->assertTrue($recipients->every(fn (CampaignRecipient $r) => $r->status === RecipientStatus::Sent));
+        $this->assertEqualsCanonicalizing(['A', 'B'], $recipients->pluck('variant')->all());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_a_tied_ab_test_is_reported_as_a_tie(): void
+    {
+        $contacts = new Collection;
+        for ($i = 1; $i <= 4; $i++) {
+            $contacts->push(Contact::create(['first_name' => "Tie{$i}", 'email' => "tie{$i}@test.com"]));
+        }
+
+        $campaign = Campaign::create([
+            'name' => 'Tie test',
+            'subject' => 'A',
+            'variant_b_subject' => 'B',
+            'sender_name' => 'Odden',
+            'sender_email' => 'hello@odden.test',
+            'is_ab_test' => true,
+            'ab_test_sample_percentage' => 50,
+        ]);
+
+        (new DispatchCampaignAction)->execute($campaign, $contacts);
+
+        $result = (new EvaluateAbTestWinnerAction)->execute($campaign);
+
+        $this->assertTrue($result['tie']);
+        $this->assertSame('A', $result['winner']);
+        $this->assertSame(2, $result['remaining_sent']);
     }
 }

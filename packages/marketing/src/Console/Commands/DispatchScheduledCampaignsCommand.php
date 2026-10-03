@@ -75,10 +75,17 @@ class DispatchScheduledCampaignsCommand extends Command
         $timezoneDelivered = 0;
         foreach ($sendingCampaigns as $campaign) {
             /** @var Collection<int, CampaignRecipient> $pendingRecipients */
-            $pendingRecipients = $campaign->recipients()
+            $pendingQuery = $campaign->recipients()
                 ->where('status', RecipientStatus::Pending->value)
-                ->with('contact')
-                ->get();
+                ->with('contact');
+
+            // Before an A/B winner is chosen, only the test sample (recipients with a variant) is
+            // released; the staged rest waits for marketing:evaluate-ab-tests.
+            if ($campaign->is_ab_test && $campaign->ab_winner_variant === null) {
+                $pendingQuery->whereNotNull('variant');
+            }
+
+            $pendingRecipients = $pendingQuery->get();
 
             $batchDelivered = 0;
             $modeLabel = $campaign->use_sto ? 'Send Time Optimization' : 'Local Timezone';
