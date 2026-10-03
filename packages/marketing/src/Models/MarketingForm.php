@@ -119,6 +119,34 @@ class MarketingForm extends Model
     }
 
     /**
+     * Validation rules for a submission, built from the fields the visitor was shown.
+     *
+     * @param  array<int, array<string, mixed>>  $fields
+     * @return array<string, list<string>>
+     */
+    public function validationRulesFor(array $fields): array
+    {
+        $rules = [];
+
+        foreach ($fields as $field) {
+            $name = (string) ($field['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+
+            $fieldRules = [! empty($field['required']) ? 'required' : 'nullable'];
+
+            if (($field['type'] ?? '') === 'email') {
+                $fieldRules[] = 'email';
+            }
+
+            $rules[$name] = $fieldRules;
+        }
+
+        return $rules;
+    }
+
+    /**
      * Determine the schema of fields to render for a given visitor/contact.
      * If progressive profiling is enabled and the contact is recognized, known fields
      * are substituted with uncollected progressive qualification fields.

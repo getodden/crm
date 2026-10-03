@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Odden\Core\Models\Contact;
 use Odden\Marketing\Actions\ProcessFormSubmissionAction;
 use Odden\Marketing\Models\MarketingForm;
 use Odden\Marketing\Support\ContactToken;
@@ -55,37 +54,10 @@ class MarketingFormController extends Controller
 
         $verifiedContact = ContactToken::resolve($request->input('contact'), ContactToken::forForm($form->id));
 
-        $contact = $verifiedContact;
-        if ($contact === null && $request->filled('email')) {
-            /** @var Contact|null $contact */
-            $contact = Contact::query()->where('email', strtolower(trim((string) $request->input('email'))))->first();
-        }
-
-        $fields = $form->resolveFieldsForContact($contact);
-
-        // Validate required fields based on resolved fields
-        $rules = [];
-        foreach ($fields as $field) {
-            $name = (string) ($field['name'] ?? '');
-            if (empty($name)) {
-                continue;
-            }
-
-            $fieldRules = [];
-            if (! empty($field['required'])) {
-                $fieldRules[] = 'required';
-            } else {
-                $fieldRules[] = 'nullable';
-            }
-
-            if (($field['type'] ?? '') === 'email') {
-                $fieldRules[] = 'email';
-            }
-
-            $rules[$name] = $fieldRules;
-        }
-
-        $validated = $request->validate($rules);
+        // Validate against the fields the visitor was shown. Only a signed link identifies a
+        // returning contact (see show()), so an email typed into the form must not switch the
+        // rules to the progressive fields the visitor never saw.
+        $request->validate($form->validationRulesFor($form->resolveFieldsForContact($verifiedContact)));
 
         $submission = $action->execute(
             form: $form,

@@ -54,7 +54,7 @@ Each entry in `fields_schema` is an array with these keys:
 - `options`: for `select` fields. The hosted page and landing pages expect a list of strings. The embed script also accepts `['value' => ..., 'label' => ...]` objects.
 - `placeholder`: used by the embed script only.
 
-Validation is built from the fields: each field becomes `required` or `nullable`, and fields of type `email` also get the `email` rule. Nothing else is validated.
+Validation is built from the fields: each field becomes `required` or `nullable`, and fields of type `email` also get the `email` rule. Nothing else is validated. The rules come from the fields the visitor was shown: the base fields, or the resolved progressive fields when a valid signed contact link was sent.
 
 ### What happens on submission
 
@@ -252,7 +252,7 @@ ContactToken::resolve((string) $contact->id, $scope);                 // null
 
 The signature is an HMAC-SHA256 of the scope and contact id keyed with `app.key`, so a token for one form doesn't work on another. Tokens don't expire, and rotating `APP_KEY` invalidates all of them. `resolve()` returns `null` for anything malformed, tampered, or pointing to a deleted contact.
 
-A visitor without a token who types the email of an existing contact is matched to that contact by email (step 1 above) but sees the base fields, not the progressive ones. Validation, however, uses the fields resolved for that matched contact, so if any progressive field is `required`, a returning contact who submits the base form without a token gets a `422` for the progressive field. Keep progressive fields optional unless every returning contact arrives through a signed link.
+A visitor without a valid token sees the base fields, and is validated against the base fields, whatever email they type. Progressive fields (required or not) therefore never cause a `422` for someone who wasn't shown them.
 
 ## Landing pages
 
@@ -287,7 +287,7 @@ Other attributes: `subheadline`, `meta_title`, `meta_description`, `og_image_url
 
 Each view increments `views_count` and records a [page view](web-tracking.md#recording-visits-from-php) with the `utm_source`, `utm_medium` and `utm_campaign` query parameters, using the visitor's `odden_vid` cookie if there is one. The page also loads the [tracking script](web-tracking.md), whose pageview sets that cookie to the visitor's id (see [visitor tokens](web-tracking.md#visitor-tokens-and-cross-domain-tracking)), so the submission is stitched to the pages viewed before it.
 
-A submission is passed to `ProcessFormSubmissionAction` with the page's form (with the `odden_vid` cookie value as `visitor_token`), increments `submissions_count`, and redirects back with the success message in the `success` session key. Unlike hosted forms, landing page submissions aren't validated against the form's fields. A page without a form returns 404 on submit.
+A submission is passed to `ProcessFormSubmissionAction` with the page's form (with the `odden_vid` cookie value as `visitor_token`), increments `submissions_count`, and redirects back with the success message in the `success` session key. Like hosted forms, the submission is validated against the form's fields first (a failure redirects back with the error bag and records nothing, so `submissions_count` doesn't change). A page without a form returns 404 on submit.
 
 The page is rendered by `odden-marketing::landing-page`.
 

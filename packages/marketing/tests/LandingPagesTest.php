@@ -121,4 +121,24 @@ class LandingPagesTest extends TestCase
         $this->assertStringContainsString('<iframe', $snippet);
         $this->assertStringContainsString('/p/embed-test', $snippet);
     }
+
+    public function test_landing_page_submission_is_validated_against_the_form_fields(): void
+    {
+        $form = MarketingForm::create([
+            'title' => 'Validated Form',
+            'slug' => 'validated-form',
+            'fields_schema' => [
+                ['name' => 'first_name', 'label' => 'First Name', 'type' => 'text', 'required' => true],
+                ['name' => 'email', 'label' => 'Email', 'type' => 'email', 'required' => true],
+            ],
+        ]);
+
+        $page = LandingPage::create(['title' => 'Validated', 'slug' => 'validated', 'form_id' => $form->id, 'is_published' => true]);
+
+        $this->post('/p/validated/submit', [])->assertSessionHasErrors(['first_name', 'email']);
+        $this->post('/p/validated/submit', ['first_name' => 'Tim', 'email' => 'not-an-email'])->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('odden_marketing_form_submissions', 0);
+        $this->assertSame(0, $page->fresh()->submissions_count);
+    }
 }

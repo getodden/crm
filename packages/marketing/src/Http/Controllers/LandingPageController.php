@@ -67,6 +67,8 @@ class LandingPageController extends Controller
             abort(404, 'No form associated with this landing page.');
         }
 
+        $request->validate($form->validationRulesFor($form->resolveFieldsForContact(null)));
+
         $inputData = $request->except(['_token']);
         $rawVid = $request->cookie('odden_vid');
         if (is_string($rawVid)) {

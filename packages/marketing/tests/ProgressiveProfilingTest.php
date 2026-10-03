@@ -84,4 +84,28 @@ class ProgressiveProfilingTest extends TestCase
             'contact_id' => $contact->id,
         ]);
     }
+
+    public function test_returning_contact_without_a_signed_link_is_validated_against_the_fields_they_were_shown(): void
+    {
+        $form = MarketingForm::create([
+            'title' => 'Enterprise Demo Request',
+            'slug' => 'enterprise-demo-unsigned',
+            'fields_schema' => [
+                ['name' => 'first_name', 'label' => 'First Name', 'type' => 'text', 'required' => true],
+                ['name' => 'email', 'label' => 'Work Email', 'type' => 'email', 'required' => true],
+            ],
+            'progressive_profiling_enabled' => true,
+            'progressive_fields' => [
+                ['name' => 'budget', 'label' => 'Annual Budget', 'type' => 'text', 'required' => true],
+            ],
+        ]);
+
+        Contact::create(['first_name' => 'Sarah', 'last_name' => 'Connor', 'email' => 'sarah@skynet.test']);
+
+        // No signed link: the visitor was shown the base form, so the progressive budget is not required.
+        $this->post('/forms/enterprise-demo-unsigned', [
+            'first_name' => 'Sarah',
+            'email' => 'sarah@skynet.test',
+        ])->assertOk();
+    }
 }
