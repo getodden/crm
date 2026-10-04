@@ -28,6 +28,8 @@ use Odden\Filament\Resources\AdAudienceSyncResource\Pages\ListAdAudienceSyncs;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Marketing\Contracts\PublishesAdAudience;
 use Odden\Marketing\Models\AdAudienceSync;
+use Odden\Marketing\Support\AdAudienceFile;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
 class AdAudienceSyncResource extends Resource
@@ -136,6 +138,31 @@ class AdAudienceSyncResource extends Resource
                             ->body($result['message'] ?? "Generated SHA-256 privacy hashes for {$result['records_synced']} contacts on {$result['platform']}.")
                             ->success()
                             ->send();
+                    }),
+                Action::make('downloadFile')
+                    ->label('Download hashed file')
+                    ->authorize(OddenAuthorization::forRecord('update', self::class))
+                    ->icon(Heroicon::ArrowDownTray)
+                    ->modalHeading('Download the audience as a file')
+                    ->modalDescription('A CSV of hashed email addresses to upload by hand on the ad platform (no connection to it needed). Contacts who unsubscribed, bounced or are on the suppression list are left out, and so are duplicates. Only upload people you may use for advertising. LinkedIn needs at least 300 rows.')
+                    ->modalSubmitActionLabel('Download')
+                    ->form([
+                        Select::make('format')
+                            ->label('Prepare the file for')
+                            ->options(AdAudienceFile::options())
+                            ->default(fn (AdAudienceSync $record): string => AdAudienceFile::formatFor($record))
+                            ->required(),
+                    ])
+                    ->action(function (AdAudienceSync $record, array $data): ?StreamedResponse {
+                        $file = new AdAudienceFile($record, (string) $data['format']);
+
+                        if (! $file->hasContacts()) {
+                            Notification::make()->title('Nothing to download')->body('The source list has no contacts with an email address.')->warning()->send();
+
+                            return null;
+                        }
+
+                        return $file->stream();
                     }),
                 EditAction::make(),
                 DeleteAction::make(),

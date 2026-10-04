@@ -156,4 +156,4 @@ The edit page also has **Send Test** and **Duplicate** header actions.
 | `MarketingWorkflowResource` | **Visual Journey** modal and the **Workflow Execution Steps & Branching** relation manager. |
 | `MarketingSubscriptionResource` | **Restore / Resubscribe** for non-subscribed rows and **Suppress** for subscribed rows. |
 | `MarketingAssetResource` | **Copy URL** for the asset's download link. |
-| `AdAudienceSyncResource` | **Sync Now**, which runs the bound `Odden\Marketing\Contracts\PublishesAdAudience`. By default that is `SyncAdAudienceAction`, which only computes the SHA-256 hashes and records the count; it does not contact an ad platform. |
+| `AdAudienceSyncResource` | **Sync Now**, which runs the bound `Odden\Marketing\Contracts\PublishesAdAudience`. By default that is `SyncAdAudienceAction`, which only computes the SHA-256 hashes and records the count; it does not contact an ad platform. **Download hashed file** gives a CSV for Google, Meta or LinkedIn to upload by hand; see [Ad audiences](../marketing/ad-audiences.md). |

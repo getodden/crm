@@ -58,6 +58,7 @@
     - marketing/events-and-assets
     - marketing/inbound-webhooks
     - marketing/attribution
+    - marketing/ad-audiences
 
 - title: Filament admin
   pages:
