@@ -6,15 +6,13 @@ namespace Odden\Marketing\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Odden\Core\Contracts\DealGateway;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
-use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\CacheKey;
+use Odden\Core\Support\DealSnapshot;
 use Odden\Core\Support\UserModel;
-use Odden\Sales\Enums\DealStatus;
-use Odden\Sales\Models\Deal;
-use Odden\Sales\Models\Pipeline;
 
 class HandoffLeadToSalesAction
 {
@@ -22,7 +20,7 @@ class HandoffLeadToSalesAction
      * Instantly hand off a qualified marketing lead to the Sales team.
      * Assigns a sales owner, updates lifecycle stage to SQL, and auto-generates a pipeline Deal and urgent task.
      *
-     * @return array{contact: Contact, deal: ?Model, owner: ?Model, task_created: bool}
+     * @return array{contact: Contact, deal: ?DealSnapshot, owner: ?Model, task_created: bool}
      */
     public function execute(
         Contact $contact,
@@ -54,38 +52,17 @@ class HandoffLeadToSalesAction
         /** @var Model|null $owner */
         $owner = $contact->owner;
 
-        // 3. Create Pipeline Deal if Sales package is available
+        // 3. Create Pipeline Deal if a DealGateway is bound (Sales package installed)
         $deal = null;
-        if (class_exists(Pipeline::class) && class_exists(Deal::class)) {
-            $pipeline = $pipelineId !== null
-                ? Pipeline::query()->find($pipelineId)
-                : Pipeline::query()->first();
-
-            $stageId = $pipeline?->stages()->orderBy('sort_order', 'asc')->first()?->id;
-
-            if ($pipeline !== null && $stageId !== null) {
-                $finalDealName = $dealName ?? "MQL Deal: {$contact->full_name}";
-                $finalAmount = $amount ?? (float) config('odden-marketing.sales_handoff.default_deal_amount', 10000.00);
-
-                /** @var Deal $deal */
-                $deal = Deal::create([
-                    'pipeline_id' => $pipeline->id,
-                    'stage_id' => $stageId,
-                    'name' => $finalDealName,
-                    'amount' => $finalAmount,
-                    'status' => DealStatus::Open,
-                    'owner_id' => $contact->owner_id,
-                ]);
-
-                // Associate Deal with Contact and primary Company
-                $contact->associateWith($deal, 'primary');
-
-                /** @var Company|null $company */
-                $company = $contact->companies()->first();
-                if ($company !== null) {
-                    $company->associateWith($deal, 'primary');
-                }
-            }
+        if (app()->bound(DealGateway::class)) {
+            $deal = app(DealGateway::class)->createOpenDeal(
+                contact: $contact,
+                name: $dealName ?? "MQL Deal: {$contact->full_name}",
+                amount: $amount ?? (float) config('odden-marketing.sales_handoff.default_deal_amount', 10000.00),
+                pipelineId: $pipelineId,
+                ownerId: $contact->owner_id,
+                associateCompany: true,
+            );
         }
 
         // 4. Create Immediate Priority Sales Task

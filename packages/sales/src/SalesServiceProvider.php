@@ -6,6 +6,7 @@ namespace Odden\Sales;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Odden\Core\Contracts\DealGateway;
 use Odden\Core\Events\ContactsMerged;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
@@ -15,6 +16,7 @@ use Odden\Sales\Console\Commands\ProcessCadencesCommand;
 use Odden\Sales\Listeners\MoveMergedRecords;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesSequenceEnrollment;
+use Odden\Sales\Services\EloquentDealGateway;
 
 class SalesServiceProvider extends ServiceProvider
 {
@@ -27,6 +29,8 @@ class SalesServiceProvider extends ServiceProvider
             __DIR__.'/../config/odden-sales.php',
             'odden-sales'
         );
+
+        $this->app->bind(DealGateway::class, EloquentDealGateway::class);
 
         $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
             $registry->discover(__DIR__.'/Models', 'Odden\\Sales\\Models');

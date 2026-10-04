@@ -63,7 +63,7 @@ class CampaignTimingAndHandoffRegressionTest extends TestCase
         $result = app(HandoffLeadToSalesAction::class)->execute($contact, pipelineId: $pipeline->id);
 
         $this->assertNotNull($result['deal']);
-        $this->assertSame($first->id, $result['deal']->stage_id);
+        $this->assertSame($first->id, $result['deal']->stageId);
     }
 
     public function test_lead_handoff_rotates_within_each_tenants_users_with_separate_counters(): void
