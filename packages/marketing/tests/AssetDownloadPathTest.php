@@ -53,7 +53,7 @@ class AssetDownloadPathTest extends TestCase
 
     public function test_a_path_that_leaves_storage_app_is_never_served(): void
     {
-        foreach (['../outside-secret.txt', 'assets-test/../../outside-secret.txt', $this->outside, "assets-test/report.txt\0.png"] as $path) {
+        foreach (['../outside-secret.txt', 'assets-test/../../outside-secret.txt', $this->outside] as $path) {
             MarketingAsset::query()->delete();
             $asset = $this->asset($path);
 
@@ -61,6 +61,14 @@ class AssetDownloadPathTest extends TestCase
             $response = $this->get(route('odden.marketing.assets.download', ['slug' => 'report']));
             $this->assertFalse($response->baseResponse instanceof BinaryFileResponse, $path);
         }
+    }
+
+    public function test_a_path_with_a_nul_byte_is_refused(): void
+    {
+        // Checked on the model only: PostgreSQL cannot store a NUL, and its driver cuts the string at it.
+        $asset = new MarketingAsset(['name' => 'Report', 'slug' => 'report', 'file_path' => "assets-test/report.txt\0.png"]);
+
+        $this->assertNull($asset->downloadPath());
     }
 
     public function test_a_symlink_inside_storage_that_points_outside_is_refused(): void
