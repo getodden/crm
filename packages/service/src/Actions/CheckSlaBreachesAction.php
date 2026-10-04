@@ -24,6 +24,13 @@ class CheckSlaBreachesAction
         $responseBreachesCount = 0;
         $resolutionBreachesCount = 0;
 
+        // A ticket waiting on the customer is not late because of the agents, so its clock does not run.
+        $clockStopped = [TicketStatus::Resolved->value, TicketStatus::Closed->value, TicketStatus::WaitingOnCustomer->value];
+
+        // Tickets already escalated in this run: escalating recalculates their due dates, which could otherwise
+        // make the same ticket show up again below and be escalated a second time.
+        $handled = [];
+
         // 1. Check first response breaches (unresponded tickets past due date)
         /** @var Collection<int, Ticket> $unrespondedTickets */
         $unrespondedTickets = Ticket::query()
@@ -31,11 +38,16 @@ class CheckSlaBreachesAction
             ->where('is_sla_response_breached', false)
             ->whereNotNull('first_response_due_at')
             ->where('first_response_due_at', '<', $now)
-            ->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])
+            ->whereNotIn('status', $clockStopped)
             ->get();
 
         foreach ($unrespondedTickets as $ticket) {
-            $ticket->updateQuietly(['is_sla_response_breached' => true]);
+            // Claim the breach with a conditional update: of two overlapping runs only one sees it succeed.
+            if (! $this->claimBreach($ticket, 'is_sla_response_breached')) {
+                continue;
+            }
+
+            $handled[] = $ticket->id;
             $responseBreachesCount++;
 
             if ($ticket->owner !== null && method_exists($ticket->owner, 'notify')) {
@@ -52,11 +64,15 @@ class CheckSlaBreachesAction
             ->where('is_sla_resolution_breached', false)
             ->whereNotNull('resolution_due_at')
             ->where('resolution_due_at', '<', $now)
-            ->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])
+            ->whereNotIn('status', $clockStopped)
+            ->whereNotIn('id', $handled)
             ->get();
 
         foreach ($unresolvedTickets as $ticket) {
-            $ticket->updateQuietly(['is_sla_resolution_breached' => true]);
+            if (! $this->claimBreach($ticket, 'is_sla_resolution_breached')) {
+                continue;
+            }
+
             $resolutionBreachesCount++;
 
             if ($ticket->owner !== null && method_exists($ticket->owner, 'notify')) {
@@ -70,6 +86,14 @@ class CheckSlaBreachesAction
             'response_breaches' => $responseBreachesCount,
             'resolution_breaches' => $resolutionBreachesCount,
         ];
+    }
+
+    /**
+     * Set a breach flag only if it is still unset, and say whether this call was the one that set it.
+     */
+    protected function claimBreach(Ticket $ticket, string $flag): bool
+    {
+        return Ticket::query()->whereKey($ticket->getKey())->where($flag, false)->update([$flag => true]) === 1;
     }
 
     /**

@@ -154,6 +154,20 @@ class SupportPortalController extends Controller
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // A rating is for a finished ticket, given once: otherwise the link holder could rewrite it and add a
+        // service-recovery note and task for every submission.
+        if (! $ticket->status->isClosed()) {
+            return redirect()
+                ->route('odden.support.show', ['token' => $ticket->portal_token])
+                ->withErrors(['rating' => 'You can rate this ticket once it has been resolved.']);
+        }
+
+        if ($ticket->csat_rating !== null) {
+            return redirect()
+                ->route('odden.support.show', ['token' => $ticket->portal_token])
+                ->with('status', 'Thank you! You have already rated this ticket.');
+        }
+
         $rating = (int) $validated['rating'];
         $comment = isset($validated['comment']) && $validated['comment'] !== '' ? (string) $validated['comment'] : null;
 

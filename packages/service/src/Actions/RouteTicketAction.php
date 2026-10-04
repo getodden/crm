@@ -6,6 +6,7 @@ namespace Odden\Service\Actions;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Odden\Core\Support\UserModel;
 use Odden\Service\Enums\TicketStatus;
 use Odden\Service\Models\Ticket;
@@ -80,14 +81,19 @@ class RouteTicketAction
             return null;
         }
 
-        $nextIndex = ($rule->last_assigned_index + 1) % $count;
-        $selectedUserId = $pool[$nextIndex] ?? $pool[0];
+        // Read and advance the pointer under a row lock: two tickets routed at the same moment must not both
+        // read the same index and go to the same person.
+        return DB::transaction(function () use ($rule, $pool, $count): int {
+            $locked = TicketRoutingRule::query()->whereKey($rule->getKey())->lockForUpdate()->first() ?? $rule;
 
-        $rule->update([
-            'last_assigned_index' => $nextIndex,
-        ]);
+            $nextIndex = ($locked->last_assigned_index + 1) % $count;
+            $selectedUserId = $pool[$nextIndex] ?? $pool[0];
 
-        return (int) $selectedUserId;
+            $locked->update(['last_assigned_index' => $nextIndex]);
+            $rule->last_assigned_index = $nextIndex;
+
+            return (int) $selectedUserId;
+        });
     }
 
     /**

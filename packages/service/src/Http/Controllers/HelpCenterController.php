@@ -95,6 +95,13 @@ class HelpCenterController extends Controller
             'type' => ['required', 'in:helpful,not_helpful'],
         ])['type'];
 
+        // One vote per article per browser session: the page is public, so without this a script could set the score.
+        $voted = (array) $request->session()->get('odden_help_voted', []);
+        if (in_array($article->id, $voted, true)) {
+            return back()->with('feedback_submitted', 'Thank you! You have already given feedback on this article.');
+        }
+        $request->session()->put('odden_help_voted', [...$voted, $article->id]);
+
         if ($voteType === 'helpful') {
             $article->voteHelpful();
             $message = 'Thank you for your feedback!';
