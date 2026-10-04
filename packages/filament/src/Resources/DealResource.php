@@ -130,9 +130,7 @@ class DealResource extends Resource
                         Select::make('owner_id')
                             ->label('Deal Owner')
                             ->options(function (): array {
-                                $userModel = UserModel::className();
-
-                                return $userModel::query()->pluck('name', 'id')->toArray();
+                                return UserModel::query()->pluck('name', 'id')->toArray();
                             })
                             ->searchable()
                             ->nullable(),
@@ -316,9 +314,8 @@ class DealResource extends Resource
                         $result = app(RouteLeadAction::class)->execute($record);
 
                         if ($result !== null) {
-                            $userModel = UserModel::className();
                             /** @var object{name: string}|null $user */
-                            $user = $userModel::find($result['assigned_user_id']);
+                            $user = UserModel::query()->find($result['assigned_user_id']);
                             $name = $user !== null ? $user->name : "User #{$result['assigned_user_id']}";
 
                             Notification::make()

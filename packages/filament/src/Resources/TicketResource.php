@@ -260,9 +260,8 @@ class TicketResource extends Resource
                         $result = app(RouteTicketAction::class)->execute($record);
 
                         if ($result !== null) {
-                            $userModel = UserModel::className();
                             /** @var object{name: string}|null $user */
-                            $user = $userModel::find($result['assigned_user_id']);
+                            $user = UserModel::query()->find($result['assigned_user_id']);
                             $agentName = $user !== null ? $user->name : "Agent #{$result['assigned_user_id']}";
 
                             Notification::make()

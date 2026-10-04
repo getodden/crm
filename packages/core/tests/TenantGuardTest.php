@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Actions\MergeCompaniesAction;
 use Odden\Core\Actions\MergeContactsAction;
@@ -21,6 +22,11 @@ function inTenant(int|string|null $tenant): void
         public function id(): int|string|null
         {
             return $this->tenant;
+        }
+
+        public function scopeUsers(Builder $users): Builder
+        {
+            return $users;
         }
     });
     app()->forgetInstance(TenantGuard::class);

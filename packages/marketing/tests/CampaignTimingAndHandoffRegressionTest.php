@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Tests;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Models\Contact;
 use Odden\Marketing\Actions\HandoffLeadToSalesAction;
 use Odden\Marketing\Enums\CampaignStatus;
@@ -13,6 +16,7 @@ use Odden\Marketing\Enums\RecipientStatus;
 use Odden\Marketing\Models\Campaign;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\MarketingTemplate;
+use Odden\Marketing\Tests\Fixtures\User;
 use Odden\Sales\Models\Pipeline;
 
 /**
@@ -60,6 +64,51 @@ class CampaignTimingAndHandoffRegressionTest extends TestCase
 
         $this->assertNotNull($result['deal']);
         $this->assertSame($first->id, $result['deal']->stage_id);
+    }
+
+    public function test_lead_handoff_rotates_within_each_tenants_users_with_separate_counters(): void
+    {
+        $users = collect(range(1, 4))->map(fn (): User => User::factory()->create());
+
+        $inTenant = function (int $tenant, Collection $members): void {
+            app()->instance(TenantContext::class, new class($tenant, $members->pluck('id')->all()) implements TenantContext
+            {
+                /** @param list<int> $userIds */
+                public function __construct(private int $tenant, private array $userIds) {}
+
+                public function id(): int
+                {
+                    return $this->tenant;
+                }
+
+                public function scopeUsers(Builder $users): Builder
+                {
+                    return $users->whereIn('id', $this->userIds);
+                }
+            });
+        };
+
+        $owners = function (int $count): array {
+            return collect(range(1, $count))->map(function () {
+                $contact = Contact::create(['first_name' => 'Lead', 'email' => fake()->unique()->safeEmail()]);
+
+                return app(HandoffLeadToSalesAction::class)->execute($contact)['contact']->owner_id;
+            })->all();
+        };
+
+        $inTenant(1, $users->slice(0, 2)->values());
+        $firstRoundA = $owners(3);
+
+        $inTenant(2, $users->slice(2, 2)->values());
+        $roundB = $owners(2);
+
+        $inTenant(1, $users->slice(0, 2)->values());
+        $secondRoundA = $owners(1);
+
+        // Tenant A alternates between its own two users; tenant B's lead picks never advance A's counter.
+        $this->assertSame([$users[0]->id, $users[1]->id, $users[0]->id], $firstRoundA);
+        $this->assertSame([$users[2]->id, $users[3]->id], $roundB);
+        $this->assertSame([$users[1]->id], $secondRoundA);
     }
 
     private function recipient(Campaign $campaign, string $email, \DateTimeInterface $sendAt): CampaignRecipient
