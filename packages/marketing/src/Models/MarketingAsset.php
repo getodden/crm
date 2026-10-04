@@ -91,6 +91,27 @@ class MarketingAsset extends Model
     }
 
     /**
+     * The file to serve for this asset, or null when there is none to serve. The stored path is relative to
+     * storage/app and is resolved before use: a path that climbs out of storage/app (with "..", an absolute
+     * path, or a symlink that leads elsewhere) is refused, because anyone can request the download link.
+     */
+    public function downloadPath(): ?string
+    {
+        if (empty($this->file_path) || str_contains($this->file_path, "\0")) {
+            return null;
+        }
+
+        $root = realpath(storage_path('app'));
+        $path = $root === false ? false : realpath($root.DIRECTORY_SEPARATOR.$this->file_path);
+
+        if ($root === false || $path === false || ! str_starts_with($path, $root.DIRECTORY_SEPARATOR) || ! is_file($path)) {
+            return null;
+        }
+
+        return $path;
+    }
+
+    /**
      * Tracked download events.
      *
      * @return HasMany<MarketingAssetDownload, $this>

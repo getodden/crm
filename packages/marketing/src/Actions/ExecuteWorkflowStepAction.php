@@ -410,19 +410,23 @@ class ExecuteWorkflowStepAction
                             'timestamp' => now()->toIso8601String(),
                         ];
 
-                        $secret = (string) ($step->config['secret'] ?? config('app.key', 'odden-secret'));
+                        // Signed with the step's own secret, or the webhook secret that is configured for outbound
+                        // marketing webhooks. Never with the application key: it is not the receiver's to know, and on a
+                        // shared install it would be one key for every workspace. Without a secret the call is unsigned.
+                        $stepSecret = $step->config['secret'] ?? null;
+                        $secret = is_string($stepSecret) && $stepSecret !== '' ? $stepSecret : config('odden-marketing.webhooks.secret');
                         $jsonPayload = (string) json_encode($payload);
-                        $signature = hash_hmac('sha256', $jsonPayload, $secret);
+                        $signature = is_string($secret) && $secret !== '' ? hash_hmac('sha256', $jsonPayload, $secret) : null;
 
                         $customHeaders = isset($step->config['headers']) && is_array($step->config['headers'])
                             ? $step->config['headers']
                             : [];
 
-                        $headers = array_merge([
+                        $headers = array_merge(array_filter([
                             'X-Odden-Signature' => $signature,
                             'X-Odden-Workflow-ID' => (string) $workflow->id,
                             'User-Agent' => 'Odden-RevOps-Webhook/1.0',
-                        ], $customHeaders);
+                        ], fn (?string $value): bool => $value !== null), $customHeaders);
 
                         $response = Http::withHeaders($headers)
                             ->timeout(5)

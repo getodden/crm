@@ -24,12 +24,13 @@ use Odden\Marketing\Models\FormSubmission;
 class AttributionCalculator
 {
     /**
-     * Touches of the given contacts, oldest first.
+     * Touches of the given contacts, oldest first. With $until (a won deal's close time) a touch after it is
+     * left out: an email opened months after the deal was won did not help win it.
      *
      * @param  Collection<int, int>|list<int>  $contactIds
      * @return list<array{campaign_id: int, contact_id: int, at: CarbonInterface, type: string}>
      */
-    public function touchesFor(Collection|array $contactIds): array
+    public function touchesFor(Collection|array $contactIds, ?CarbonInterface $until = null): array
     {
         $contactIds = collect($contactIds)->filter()->unique()->values();
         if ($contactIds->isEmpty()) {
@@ -65,6 +66,10 @@ class AttributionCalculator
                     $touches[] = ['campaign_id' => (int) $campaignId, 'contact_id' => (int) $submission->contact_id, 'at' => $submission->created_at, 'type' => 'form'];
                 }
             });
+
+        if ($until !== null) {
+            $touches = array_values(array_filter($touches, fn (array $touch): bool => $touch['at']->lessThanOrEqualTo($until)));
+        }
 
         usort($touches, fn (array $a, array $b): int => $a['at'] <=> $b['at']);
 

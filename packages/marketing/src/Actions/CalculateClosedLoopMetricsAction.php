@@ -238,7 +238,7 @@ class CalculateClosedLoopMetricsAction
                     if ($model !== null) {
                         $attributedShare = 0.0;
                         foreach ($campDeals->where('status', DealStatus::Won) as $campDeal) {
-                            $touches = $calculator->touchesFor($this->contactIdsForDeal($campDeal, $associationsTable, $contactMorph, $dealMorph));
+                            $touches = $calculator->touchesFor($this->contactIdsForDeal($campDeal, $associationsTable, $contactMorph, $dealMorph), $campDeal->closed_at);
                             $attributedShare += (float) $campDeal->amount * $calculator->campaignCredit($touches, $model, $camp->id);
                         }
                         $entry['attributed_won_revenue'] = round($attributedShare, 2);
@@ -263,7 +263,7 @@ class CalculateClosedLoopMetricsAction
             $attributedPipeline = 0.0;
 
             foreach ($influencedDeals as $deal) {
-                if ($calculator->touchesFor($this->contactIdsForDeal($deal, $associationsTable, $contactMorph, $dealMorph)) === []) {
+                if ($calculator->touchesFor($this->contactIdsForDeal($deal, $associationsTable, $contactMorph, $dealMorph), $deal->status === DealStatus::Won ? $deal->closed_at : null) === []) {
                     continue;
                 }
 

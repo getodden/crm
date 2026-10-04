@@ -41,18 +41,18 @@ class StepsRelationManager extends RelationManager
 
                 KeyValue::make('config')
                     ->label('Step Configuration')
-                    ->helperText('Configuration parameters (e.g. hours: 48, template_id: 1, message: "Welcome text", field: "lead_status", value: "qualified").')
+                    ->helperText('Settings by action. Send email: template_id, subject, topic_id. Wait: delay_minutes (e.g. 2880 for two days). Condition: property, operator (>=, >, <=, <, !=, =), value. Webhook: url, method, secret. Any step can set next_step to jump to another step number.')
                     ->columnSpanFull(),
 
                 TextInput::make('next_step_on_true')
-                    ->label('Next Step # (or if condition is True)')
+                    ->label('Next step # if the condition is true')
                     ->numeric()
-                    ->helperText('Leave empty to automatically proceed to Step + 1'),
+                    ->helperText('Condition steps only. Leave empty to continue to the next step number.'),
 
                 TextInput::make('next_step_on_false')
-                    ->label('Next Step # if condition is False')
+                    ->label('Next step # if the condition is false')
                     ->numeric()
-                    ->helperText('Used exclusively for Condition evaluation steps'),
+                    ->helperText('Condition steps only. Leave empty to end the workflow. Going back to an earlier step needs a Wait step in between, or the workflow stops.'),
             ]);
     }
 

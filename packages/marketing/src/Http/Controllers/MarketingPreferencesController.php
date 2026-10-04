@@ -72,8 +72,14 @@ class MarketingPreferencesController extends Controller
             return redirect()->back()->with('success', 'You have been unsubscribed from all marketing communications.');
         }
 
+        // A form posts a list of topic slugs or ids; anything else (a string, nested arrays) is refused, not crashed on.
+        $validated = $request->validate([
+            'topics' => ['nullable', 'array'],
+            'topics.*' => ['string', 'max:255'],
+        ]);
+
         /** @var list<string> $selectedTopics */
-        $selectedTopics = $request->input('topics', []);
+        $selectedTopics = array_values($validated['topics'] ?? []);
 
         $allTopics = MarketingSubscriptionTopic::all();
         foreach ($allTopics as $t) {

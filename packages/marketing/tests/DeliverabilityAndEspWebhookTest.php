@@ -69,6 +69,44 @@ class DeliverabilityAndEspWebhookTest extends TestCase
         $this->assertTrue(MarketingSubscription::isSuppressed('bad-email@example.com'));
     }
 
+    public function test_a_redelivered_bounce_is_counted_and_scored_once(): void
+    {
+        $contact = Contact::create(['first_name' => 'Retry', 'email' => 'retry@example.com', 'lead_score' => 80]);
+        $campaign = Campaign::create([
+            'name' => 'Retry test',
+            'subject' => 'Hello',
+            'sender_name' => 'Odden',
+            'sender_email' => 'news@odden.test',
+            'status' => CampaignStatus::Sending,
+        ]);
+        CampaignRecipient::create([
+            'campaign_id' => $campaign->id,
+            'contact_id' => $contact->id,
+            'email' => $contact->email,
+            'tracking_token' => 'retry_tok',
+            'unsubscribe_token' => 'retry_unsub',
+            'status' => RecipientStatus::Sent,
+        ]);
+
+        $bounce = ['email' => 'retry@example.com', 'event' => 'bounce', 'status' => '5.1.1', 'odden_token' => 'retry_tok'];
+
+        // Providers deliver at least once, so the same event can arrive several times.
+        foreach (range(1, 3) as $ignored) {
+            $this->postJson('/marketing/webhooks/esp/sendgrid', $bounce)->assertOk();
+        }
+
+        $this->assertSame(1, $campaign->fresh()?->bounces_count);
+        $this->assertSame(30, $contact->fresh()?->lead_score, 'The -50 penalty is applied once');
+
+        // A complaint for the same address afterwards is a different outcome and is counted once as well.
+        foreach (range(1, 2) as $ignored) {
+            $this->postJson('/marketing/webhooks/esp/sendgrid', ['email' => 'retry@example.com', 'event' => 'spamreport', 'odden_token' => 'retry_tok'])->assertOk();
+        }
+
+        $this->assertSame(1, $campaign->fresh()?->unsubscribes_count);
+        $this->assertSame(1, $campaign->fresh()?->bounces_count);
+    }
+
     public function test_resend_spam_complaint_webhook_suppresses_email_and_marks_unsubscribed(): void
     {
         $contact = Contact::create([

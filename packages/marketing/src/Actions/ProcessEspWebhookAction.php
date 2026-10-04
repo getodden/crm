@@ -89,21 +89,25 @@ class ProcessEspWebhookAction
                     ? RecipientStatus::Bounced
                     : RecipientStatus::Unsubscribed;
 
-                $recipient->update(['status' => $recipientStatus]);
+                // Providers deliver webhooks at least once: a retry, or a complaint after the same bounce,
+                // must not count again or dock the lead score a second time.
+                if ($recipient->status !== $recipientStatus) {
+                    $recipient->update(['status' => $recipientStatus]);
 
-                if ($recipientStatus === RecipientStatus::Bounced) {
-                    $recipient->campaign->increment('bounces_count');
-                } elseif ($recipientStatus === RecipientStatus::Unsubscribed) {
-                    $recipient->campaign->increment('unsubscribes_count');
-                }
+                    if ($recipientStatus === RecipientStatus::Bounced) {
+                        $recipient->campaign->increment('bounces_count');
+                    } elseif ($recipientStatus === RecipientStatus::Unsubscribed) {
+                        $recipient->campaign->increment('unsubscribes_count');
+                    }
 
-                // Deduct lead scoring if spam complaint or hard bounce
-                if ($recipient->contact !== null) {
-                    app(ApplyLeadScoringEventAction::class)->execute(
-                        contact: $recipient->contact,
-                        eventType: LeadScoringEventType::Unsubscribed,
-                        description: "ESP Deliverability Event: {$eventType} reported by {$provider}",
-                    );
+                    // Deduct lead scoring if spam complaint or hard bounce
+                    if ($recipient->contact !== null) {
+                        app(ApplyLeadScoringEventAction::class)->execute(
+                            contact: $recipient->contact,
+                            eventType: LeadScoringEventType::Unsubscribed,
+                            description: "ESP Deliverability Event: {$eventType} reported by {$provider}",
+                        );
+                    }
                 }
             }
         } elseif ($eventType === 'delivered' && $recipient !== null && $recipient->status === RecipientStatus::Pending) {

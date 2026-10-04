@@ -95,6 +95,19 @@ class MarketingSubscriptionTopicTest extends TestCase
         $this->assertFalse(MarketingSubscriptionTopic::isSubscribed('sarah@cyberdyne.test', $topic2->id));
     }
 
+    public function test_preference_center_refuses_malformed_topics_instead_of_crashing(): void
+    {
+        Contact::create(['first_name' => 'Sam', 'last_name' => 'Doe', 'email' => 'sam@example.com', 'marketing_verification_token' => 'pref_tok_bad']);
+        $topic = MarketingSubscriptionTopic::create(['name' => 'Digest', 'slug' => 'digest', 'is_default' => true]);
+        MarketingSubscriptionTopic::setSubscription('sam@example.com', $topic->id, true);
+
+        // A string, or a nested array, used to throw a TypeError (a 500) from in_array().
+        $this->post('/marketing/preferences/pref_tok_bad', ['topics' => 'digest'])->assertSessionHasErrors('topics');
+        $this->post('/marketing/preferences/pref_tok_bad', ['topics' => [['x']]])->assertSessionHasErrors('topics.0');
+
+        $this->assertTrue(MarketingSubscriptionTopic::isSubscribed('sam@example.com', $topic->id), 'A refused request changes nothing');
+    }
+
     public function test_preference_center_returns_404_for_an_unknown_token(): void
     {
         $this->get('/marketing/preferences/not-a-real-token')->assertNotFound();
