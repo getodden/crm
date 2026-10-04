@@ -43,6 +43,29 @@ class ResourceActionAuthorizationTest extends TestCase
             ->assertTableActionVisible('ai_briefing', $contact);
     }
 
+    public function test_merge_is_not_offered_on_a_record_in_the_trash(): void
+    {
+        $live = Contact::factory()->create();
+        $trashed = Contact::factory()->create();
+        $trashed->delete();
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListContacts::class)
+            ->assertTableActionVisible('merge', $live)
+            ->filterTable('trashed', true)
+            ->assertTableActionHidden('merge', $trashed);
+
+        $liveCompany = Company::factory()->create();
+        $trashedCompany = Company::factory()->create();
+        $trashedCompany->delete();
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListCompanies::class)
+            ->assertTableActionVisible('merge', $liveCompany)
+            ->filterTable('trashed', true)
+            ->assertTableActionHidden('merge', $trashedCompany);
+    }
+
     public function test_contact_merge_cannot_delete_a_duplicate_the_policy_protects(): void
     {
         $this->denyAbilities([Contact::class], ['delete']);

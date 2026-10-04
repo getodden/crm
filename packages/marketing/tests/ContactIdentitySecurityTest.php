@@ -236,6 +236,36 @@ class ContactIdentitySecurityTest extends TestCase
         $this->assertNull($this->victim->getProperty('is_vip'));
     }
 
+    public function test_an_unverified_submission_cannot_record_sms_consent_or_a_company_for_an_existing_contact(): void
+    {
+        $this->post('/forms/demo-request', [
+            'first_name' => 'Mallory',
+            'email' => 'victoria@example.com',
+            'company' => 'Mallory Holdings',
+            'sms_consent' => '1',
+        ])->assertOk();
+
+        $this->victim->refresh();
+        $this->assertFalse((bool) $this->victim->sms_consent, 'Typing someone\'s address does not give consent for them');
+        $this->assertNull($this->victim->sms_consent_at);
+        $this->assertCount(0, $this->victim->companies, 'Nor does it link them to a company the sender chose');
+    }
+
+    public function test_a_new_contact_can_record_its_own_consent_and_company(): void
+    {
+        // Someone new: the sender's own details.
+        $this->post('/forms/demo-request', [
+            'first_name' => 'Nia',
+            'email' => 'nia@example.com',
+            'company' => 'Nia Ltd',
+            'sms_consent' => '1',
+        ])->assertOk();
+
+        $nia = Contact::query()->where('email', 'nia@example.com')->firstOrFail();
+        $this->assertTrue((bool) $nia->sms_consent);
+        $this->assertCount(1, $nia->companies);
+    }
+
     public function test_asset_downloads_are_attributed_only_with_a_valid_signature(): void
     {
         $asset = MarketingAsset::create([

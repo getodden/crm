@@ -26,6 +26,20 @@ class PropertyDefinitionResourceTest extends TestCase
         );
     }
 
+    public function test_a_duplicate_property_key_is_a_form_error_but_the_same_key_on_another_entity_is_fine(): void
+    {
+        $user = User::factory()->create();
+        $fields = ['entity_type' => 'contact', 'name' => 'annual_budget', 'label' => 'Annual budget', 'type' => PropertyType::Text->value];
+
+        Livewire::actingAs($user)->test(CreatePropertyDefinition::class)->fillForm($fields)->call('create')->assertHasNoFormErrors();
+
+        Livewire::actingAs($user)->test(CreatePropertyDefinition::class)->fillForm($fields)->call('create')->assertHasFormErrors(['name']);
+
+        Livewire::actingAs($user)->test(CreatePropertyDefinition::class)->fillForm(['entity_type' => 'company'] + $fields)->call('create')->assertHasNoFormErrors();
+
+        $this->assertSame(2, PropertyDefinition::query()->where('name', 'annual_budget')->count());
+    }
+
     public function test_a_deal_property_definition_can_be_created(): void
     {
         $user = User::factory()->create();

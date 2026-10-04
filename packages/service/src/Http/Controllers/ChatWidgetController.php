@@ -52,8 +52,10 @@ class ChatWidgetController extends Controller
             'lifecycle_stage' => 'customer',
         ]);
 
+        // The email address was never verified: anyone can type someone else's. So an existing contact is not changed by
+        // this form, and nothing stored about them (their name, their company) is shown back to the visitor.
         $company = null;
-        if (! empty($validated['company'])) {
+        if ($contact->wasRecentlyCreated && ! empty($validated['company'])) {
             /** @var Company $company */
             $company = Company::query()->firstOrCreate(
                 ['name' => trim($validated['company'])],
@@ -66,7 +68,7 @@ class ChatWidgetController extends Controller
 
         // Seeds the customer's opening message from the description.
         $ticket = $createAction->execute(
-            subject: "Live Chat inquiry from {$contact->full_name}",
+            subject: 'Live Chat inquiry from '.trim($validated['name']),
             description: $validated['message'],
             priority: TicketPriority::Medium,
             source: TicketSource::Chat,
@@ -77,7 +79,7 @@ class ChatWidgetController extends Controller
 
         // Automated welcoming response from support team
         $ticket->addMessage(
-            body: "Hi {$contact->first_name}! 👋 Thanks for reaching out to support. A member of our team has received your message and will reply here momentarily.",
+            body: "Hi {$firstName}! 👋 Thanks for reaching out to support. A member of our team has received your message and will reply here momentarily.",
             senderType: MessageSenderType::System,
         );
 
@@ -177,7 +179,8 @@ class ChatWidgetController extends Controller
             ->map(fn (TicketMessage $m): array => [
                 'id' => $m->id,
                 'sender_type' => $m->sender_type->value,
-                'sender_name' => $m->senderName(),
+                // The visitor sees their own messages as "You": the stored contact's name is not theirs to read.
+                'sender_name' => $m->sender_type === MessageSenderType::Customer ? 'You' : $m->senderName(),
                 'body' => $m->body,
                 'is_customer' => $m->sender_type === MessageSenderType::Customer,
                 'created_at' => $m->created_at?->diffForHumans() ?? 'just now',

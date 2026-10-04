@@ -16,12 +16,14 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\PropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\CreatePropertyDefinition;
@@ -72,7 +74,9 @@ class PropertyDefinitionResource extends Resource
                             ->helperText('Lowercase machine name used in database/API.')
                             ->required()
                             ->regex('/^[a-z0-9_]+$/')
-                            ->maxLength(100),
+                            ->maxLength(100)
+                            // The key is unique per entity type; without this a duplicate was a database error (a 500).
+                            ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where('entity_type', $get('entity_type'))),
                         TextInput::make('label')
                             ->label('Display Label')
                             ->placeholder('e.g. Annual Budget')

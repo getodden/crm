@@ -12,9 +12,9 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Odden\Core\Enums\LifecycleStage;
-use Odden\Core\Models\Contact;
-use Odden\Sales\Models\Deal;
+use Odden\Filament\Support\AttachesThroughAssociations;
 
 class DealContactsRelationManager extends RelationManager
 {
@@ -59,6 +59,7 @@ class DealContactsRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
+                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => AttachesThroughAssociations::pickerQuery($query))
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
@@ -75,12 +76,8 @@ class DealContactsRelationManager extends RelationManager
                             ->default('primary')
                             ->required(),
                     ])
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['parent_type'] = Deal::class;
-                        $data['child_type'] = Contact::class;
-
-                        return $data;
-                    }),
+                    // Linked through AssociateRecordsAction (tenant guard, type and cardinality rules, events), not a raw pivot insert.
+                    ->action(fn (AttachAction $action, array $data, Table $table) => AttachesThroughAssociations::attach($action, $this->getOwnerRecord(), $table, $data, ownerIsParent: true)),
             ])
             ->recordActions([
                 DetachAction::make(),

@@ -128,4 +128,46 @@ class ChatWidgetTest extends TestCase
         $this->assertStringContainsString('javascript', (string) $response->headers->get('Content-Type'));
         $this->assertStringContainsString('OddenChatWidgetLoaded', $response->streamedContent());
     }
+
+    public function test_starting_a_chat_with_an_existing_address_reveals_and_changes_nothing_about_that_contact(): void
+    {
+        $victim = Contact::create(['first_name' => 'Victoria', 'last_name' => 'Hale', 'email' => 'victoria@example.com']);
+
+        $response = $this->postJson(route('odden.service.chat.start'), [
+            'name' => 'Mallory Fox',
+            'email' => 'Victoria@Example.com',
+            'message' => 'Hello?',
+            'company' => 'Mallory Holdings',
+        ]);
+
+        $response->assertStatus(201);
+        $body = (string) $response->getContent();
+        $this->assertStringNotContainsString('Victoria', $body);
+        $this->assertStringNotContainsString('Hale', $body);
+        $this->assertStringContainsString('Hi Mallory!', $body, 'The greeting uses what the visitor typed');
+
+        $names = collect($response->json('messages'))->where('is_customer', true)->pluck('sender_name')->unique()->all();
+        $this->assertSame(['You'], $names);
+
+        $ticket = Ticket::query()->where('ticket_number', $response->json('ticket_number'))->firstOrFail();
+        $this->assertSame('Live Chat inquiry from Mallory Fox', $ticket->subject);
+        $this->assertCount(0, $victim->fresh()->companies, 'Their company was not changed from the chat');
+        $this->assertNull(Company::query()->where('name', 'Mallory Holdings')->first());
+
+        // The ticket page the visitor can open does not show the stored name either.
+        $this->get(route('odden.support.show', ['token' => $ticket->portal_token]))->assertOk()->assertDontSee('Victoria')->assertSee('You');
+    }
+
+    public function test_a_new_visitor_can_still_give_a_company(): void
+    {
+        $this->postJson(route('odden.service.chat.start'), [
+            'name' => 'Nia Park',
+            'email' => 'nia@example.com',
+            'message' => 'Hi',
+            'company' => 'Nia Ltd',
+        ])->assertStatus(201);
+
+        $nia = Contact::query()->where('email', 'nia@example.com')->firstOrFail();
+        $this->assertCount(1, $nia->companies);
+    }
 }
