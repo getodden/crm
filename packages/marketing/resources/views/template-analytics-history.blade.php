@@ -21,7 +21,7 @@
     
     $openRate = $totalDelivered > 0 ? round(($totalOpens / $totalDelivered) * 100, 1) : 0.0;
     $clickRate = $totalDelivered > 0 ? round(($totalClicks / $totalDelivered) * 100, 1) : 0.0;
-    $revisions = $record ? $record->revisions()->with('user')->latest()->take(8)->get() : collect();
+    $revisions = $record ? $record->revisions()->with('creator')->latest()->take(8)->get() : collect();
 @endphp
 
 <div class="space-y-6">
@@ -122,8 +122,8 @@
                                 </span>
                                 <span class="text-slate-400">
                                     {{ $rev->created_at ? $rev->created_at->diffForHumans() : 'Recently' }}
-                                    @if ($rev->user)
-                                        by {{ $rev->user->name ?? $rev->user->email }}
+                                    @if ($rev->creator)
+                                        by {{ $rev->creator->name ?? $rev->creator->email }}
                                     @endif
                                     @if (! empty($rev->change_summary))
                                         &bull; <span class="text-slate-600 dark:text-slate-300 italic">{{ $rev->change_summary }}</span>
