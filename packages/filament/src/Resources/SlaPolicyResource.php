@@ -77,11 +77,13 @@ class SlaPolicyResource extends Resource
                             ->label('Daily Start Time')
                             ->placeholder('09:00')
                             ->default('09:00')
+                            ->regex('/^([01]?\d|2[0-3]):[0-5]\d$/')
                             ->required(),
                         TextInput::make('business_hours_end')
                             ->label('Daily End Time')
                             ->placeholder('17:00')
                             ->default('17:00')
+                            ->regex('/^([01]?\d|2[0-3]):[0-5]\d$/')
                             ->required(),
                         Select::make('timezone')
                             ->label('Operating Timezone')
@@ -109,6 +111,8 @@ class SlaPolicyResource extends Resource
                                 7 => 'Sunday',
                             ])
                             ->default([1, 2, 3, 4, 5])
+                            ->required()
+                            ->minItems(1)
                             ->columns(4)
                             ->columnSpanFull(),
                         TagsInput::make('holidays')
