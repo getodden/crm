@@ -33,6 +33,7 @@ The module has an email side and a lead side.
 - [Events and gated assets](events-and-assets.md)
 - [Inbound webhooks and events API](inbound-webhooks.md)
 - [Attribution](attribution.md)
+- [Ad audiences](ad-audiences.md)
 
 ## Models
 
