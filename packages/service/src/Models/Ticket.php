@@ -42,6 +42,7 @@ use Odden\Service\Enums\TicketStatus;
  * @property CarbonInterface|null $resolution_due_at
  * @property CarbonInterface|null $resolved_at
  * @property CarbonInterface|null $closed_at
+ * @property CarbonInterface|null $sla_paused_at
  * @property bool $is_sla_response_breached
  * @property bool $is_sla_resolution_breached
  * @property int|null $csat_rating
@@ -89,6 +90,7 @@ class Ticket extends Model
         'resolution_due_at',
         'resolved_at',
         'closed_at',
+        'sla_paused_at',
         'is_sla_response_breached',
         'is_sla_resolution_breached',
         'csat_rating',
@@ -142,6 +144,7 @@ class Ticket extends Model
             'resolution_due_at' => 'datetime',
             'resolved_at' => 'datetime',
             'closed_at' => 'datetime',
+            'sla_paused_at' => 'datetime',
             'merged_at' => 'datetime',
             'is_sla_response_breached' => 'boolean',
             'is_sla_resolution_breached' => 'boolean',
@@ -158,7 +161,13 @@ class Ticket extends Model
         static::creating(function (self $ticket): void {
             if (empty($ticket->ticket_number)) {
                 $prefix = (string) config('odden-service.defaults.prefix', 'TICK');
-                $ticket->ticket_number = $prefix.'-'.now()->format('Y').'-'.strtoupper(Str::random(5));
+
+                // Five random characters can repeat; the number is unique, so look for a free one.
+                do {
+                    $number = $prefix.'-'.now()->format('Y').'-'.strtoupper(Str::random(5));
+                } while (static::query()->withTrashed()->where('ticket_number', $number)->exists());
+
+                $ticket->ticket_number = $number;
             }
 
             if (empty($ticket->portal_token)) {
@@ -182,7 +191,57 @@ class Ticket extends Model
             if ($ticket->isDirty('priority') && ! $ticket->isDirty(['first_response_due_at', 'resolution_due_at'])) {
                 $ticket->recalculateSlaDueDates();
             }
+
+            // Waiting on the customer pauses the resolution clock (see slaPauseChanges()).
+            $from = $ticket->getOriginal('status');
+            if ($ticket->isDirty('status') && $from instanceof TicketStatus) {
+                $ticket->forceFill($ticket->slaPauseChanges($from, $ticket->status, $ticket->isDirty('resolution_due_at')));
+            }
         });
+    }
+
+    /**
+     * The attribute changes that go with a status change for the SLA clock. While a ticket is waiting on the
+     * customer the resolution clock is paused: moving into that status records when it started, and moving out
+     * of it pushes the resolution due date out by the time spent waiting.
+     *
+     * @return array<string, mixed>
+     */
+    public function slaPauseChanges(TicketStatus $from, TicketStatus $to, bool $dueDateEdited = false): array
+    {
+        if ($to === TicketStatus::WaitingOnCustomer && $from !== TicketStatus::WaitingOnCustomer) {
+            return ['sla_paused_at' => now()];
+        }
+
+        if ($from !== TicketStatus::WaitingOnCustomer || $to === TicketStatus::WaitingOnCustomer || $this->sla_paused_at === null) {
+            return [];
+        }
+
+        $changes = ['sla_paused_at' => null];
+
+        if (! $to->isClosed() && ! $dueDateEdited && $this->resolution_due_at !== null && $this->resolved_at === null) {
+            $changes['resolution_due_at'] = $this->resolution_due_at->copy()->addSeconds(max(0, (int) $this->sla_paused_at->diffInSeconds(now())));
+        }
+
+        return $changes;
+    }
+
+    /**
+     * A reopened ticket starts a new resolution clock from now, so the old due date (already past) does not
+     * flag it as breached the moment the customer replies.
+     *
+     * @return array<string, mixed>
+     */
+    protected function restartedResolutionClock(): array
+    {
+        $changes = ['sla_paused_at' => null, 'is_sla_resolution_breached' => false];
+        $policy = $this->sla_policy_id !== null ? ($this->slaPolicy ?? SlaPolicy::find($this->sla_policy_id)) : null;
+
+        if ($policy instanceof SlaPolicy) {
+            $changes['resolution_due_at'] = $policy->calculateDueTime(now(), $policy->getResolutionMinutesFor($this->priority));
+        }
+
+        return $changes;
     }
 
     /**
@@ -320,6 +379,7 @@ class Ticket extends Model
 
             if (! $this->status->isClosed()) {
                 $updates['status'] = TicketStatus::WaitingOnCustomer;
+                $updates += $this->slaPauseChanges($this->status, TicketStatus::WaitingOnCustomer);
             }
 
             $this->updateQuietly($updates);
@@ -334,12 +394,12 @@ class Ticket extends Model
                         'status' => TicketStatus::WaitingOnAgent,
                         'resolved_at' => null,
                         'closed_at' => null,
-                    ]);
+                    ] + $this->restartedResolutionClock());
                 }
             } elseif ($this->status !== TicketStatus::WaitingOnAgent) {
                 $this->updateQuietly([
                     'status' => TicketStatus::WaitingOnAgent,
-                ]);
+                ] + $this->slaPauseChanges($this->status, TicketStatus::WaitingOnAgent));
                 $this->status = TicketStatus::WaitingOnAgent;
             }
         }

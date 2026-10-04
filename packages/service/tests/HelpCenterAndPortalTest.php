@@ -81,6 +81,32 @@ class HelpCenterAndPortalTest extends TestCase
         $this->assertSame(1, $article->helpful_count);
     }
 
+    public function test_an_article_takes_one_vote_per_session_and_another_session_can_vote(): void
+    {
+        $article = KnowledgeArticle::create([
+            'title' => 'Votes',
+            'slug' => 'votes',
+            'category' => 'API',
+            'body' => 'Body.',
+            'is_published' => true,
+            'helpful_count' => 0,
+            'not_helpful_count' => 0,
+        ]);
+
+        $this->post("/help/{$article->slug}/vote", ['type' => 'helpful']);
+        $this->post("/help/{$article->slug}/vote", ['type' => 'helpful']);
+        $this->post("/help/{$article->slug}/vote", ['type' => 'not_helpful'])->assertSessionHas('feedback_submitted');
+
+        $article->refresh();
+        $this->assertSame(1, $article->helpful_count);
+        $this->assertSame(0, $article->not_helpful_count, 'A second vote of either kind is ignored');
+
+        $this->flushSession();
+        $this->post("/help/{$article->slug}/vote", ['type' => 'helpful']);
+
+        $this->assertSame(2, $article->fresh()?->helpful_count, 'A different visitor can still vote');
+    }
+
     public function test_customer_can_submit_ticket_from_public_portal(): void
     {
         $response = $this->get('/support');

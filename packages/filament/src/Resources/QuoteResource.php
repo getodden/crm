@@ -25,6 +25,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
@@ -267,6 +268,14 @@ class QuoteResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * A signed quote is read-only: the signature covers its items, discount and tax.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        return ! ($record instanceof Quote && $record->status === QuoteStatus::Accepted) && parent::canEdit($record);
     }
 
     public static function getPages(): array
