@@ -7,6 +7,7 @@ namespace Odden\Marketing\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Odden\Marketing\Actions\SubmitNpsResponseAction;
 use Odden\Marketing\Models\MarketingEvent;
 use Odden\Marketing\Models\MarketingEventRegistration;
 use Odden\Marketing\Models\NpsResponse;
@@ -35,12 +36,14 @@ class AmpFormController extends Controller
         if (! empty($token)) {
             $nps = NpsResponse::query()->where('token', $token)->first();
             if ($nps !== null) {
-                $nps->score = $score;
-                if ($feedback !== null) {
-                    $nps->feedback = $feedback;
+                // The same path as the email links, so the category, the contact's properties and the lead
+                // score are set. A rating already given is kept (a retry or a second tab is not a new answer);
+                // comments can still be added to it.
+                if ($nps->responded_at === null) {
+                    app(SubmitNpsResponseAction::class)->execute($nps, $score, $feedback);
+                } elseif ($feedback !== null) {
+                    $nps->update(['feedback' => $feedback]);
                 }
-                $nps->responded_at = now();
-                $nps->save();
             }
         }
 

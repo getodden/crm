@@ -63,17 +63,20 @@ class NpsSurvey extends Model
     }
 
     /**
-     * Calculate Net Promoter Score (-100 to +100).
+     * Calculate Net Promoter Score (-100 to +100) from the people who answered. Recipients who were sent the
+     * survey but never responded are not part of the score.
      */
     public function calculateNpsScore(): int
     {
-        $total = $this->responses()->count();
+        $answered = $this->responses()->whereNotNull('responded_at');
+
+        $total = (clone $answered)->count();
         if ($total === 0) {
             return 0;
         }
 
-        $promoters = $this->responses()->where('category', 'promoter')->count();
-        $detractors = $this->responses()->where('category', 'detractor')->count();
+        $promoters = (clone $answered)->where('category', 'promoter')->count();
+        $detractors = (clone $answered)->where('category', 'detractor')->count();
 
         $promoterPct = ($promoters / $total) * 100;
         $detractorPct = ($detractors / $total) * 100;

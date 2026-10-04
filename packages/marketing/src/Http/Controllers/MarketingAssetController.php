@@ -38,8 +38,10 @@ class MarketingAssetController extends Controller
             return redirect()->away($asset->external_url);
         }
 
-        if (! empty($asset->file_path) && file_exists(storage_path('app/'.$asset->file_path))) {
-            return response()->download(storage_path('app/'.$asset->file_path));
+        $file = $asset->downloadPath();
+
+        if ($file !== null) {
+            return response()->download($file);
         }
 
         return redirect()->back()->with('success', "Download started for {$asset->name}");

@@ -91,7 +91,7 @@ class GetCampaignAttributionAction
 
                 // This campaign's share of the deal: its touches among every touch of the deal's contacts.
                 $dealContactIds = $deal->getAssociated(Contact::class)->pluck('id');
-                $credit = $calculator->campaignCredit($calculator->touchesFor($dealContactIds), $model, $campaign->id);
+                $credit = $calculator->campaignCredit($calculator->touchesFor($dealContactIds, $deal->status === DealStatus::Won ? $deal->closed_at : null), $model, $campaign->id);
 
                 if ($deal->status === DealStatus::Won) {
                     $rawWonRevenue += $amount;

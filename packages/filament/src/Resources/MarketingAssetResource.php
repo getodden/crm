@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources;
 
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -82,7 +83,16 @@ class MarketingAssetResource extends Resource
                             ->placeholder('https://drive.google.com/...'),
                         TextInput::make('file_path')
                             ->label('Local Storage File Path')
-                            ->placeholder('assets/reports/2026-report.pdf'),
+                            ->placeholder('assets/reports/2026-report.pdf')
+                            ->helperText('Relative to storage/app. Paths that leave that folder are refused.')
+                            ->maxLength(255)
+                            ->rules([
+                                fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                    if (is_string($value) && $value !== '' && (str_contains($value, '..') || str_starts_with($value, '/') || str_starts_with($value, '\\') || str_contains($value, "\0"))) {
+                                        $fail('The file path must be inside storage/app (no "..", and not an absolute path).');
+                                    }
+                                },
+                            ]),
                         Toggle::make('is_gated')
                             ->label('Gated Content (Requires form submission / email)')
                             ->default(true),

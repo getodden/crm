@@ -149,6 +149,29 @@ class MultiChannelWorkflowsAndAttributionTest extends TestCase
         $this->assertStringContainsString('Webhook POST to https://hooks.slack.com', $log->action_taken);
     }
 
+    public function test_workflow_webhook_step_is_signed_with_its_own_secret_and_never_the_app_key(): void
+    {
+        Http::fake(['https://hooks.example.test/*' => Http::response(['ok' => true], 200)]);
+        config(['app.key' => 'base64:platform-key-that-must-not-sign', 'odden-marketing.webhooks.secret' => null]);
+
+        $workflow = MarketingWorkflow::create(['name' => 'Signed webhook', 'trigger_type' => WorkflowTriggerType::Manual, 'is_active' => true]);
+        $workflow->steps()->create(['step_number' => 1, 'name' => 'Own secret', 'type' => WorkflowStepType::Webhook, 'config' => ['url' => 'https://hooks.example.test/own', 'secret' => 'whsec_step']]);
+        $workflow->steps()->create(['step_number' => 2, 'name' => 'No secret', 'type' => WorkflowStepType::Webhook, 'config' => ['url' => 'https://hooks.example.test/none']]);
+
+        app(EnrollContactInWorkflowAction::class)->execute($workflow, Contact::create(['first_name' => 'Ada', 'email' => 'ada@example.com']));
+
+        Http::assertSent(function ($request): bool {
+            if ($request->url() !== 'https://hooks.example.test/own') {
+                return false;
+            }
+
+            return $request->header('X-Odden-Signature')[0] === hash_hmac('sha256', (string) json_encode($request->data()), 'whsec_step');
+        });
+
+        // With no secret the call goes out unsigned: nothing is derived from the application key.
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://hooks.example.test/none' && ! $request->hasHeader('X-Odden-Signature'));
+    }
+
     public function test_attribution_models_compute_weighted_pipeline_and_revenue(): void
     {
         $contact = Contact::create([

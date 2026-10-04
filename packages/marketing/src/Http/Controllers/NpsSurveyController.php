@@ -24,7 +24,12 @@ class NpsSurveyController extends Controller
         /** @var NpsResponse $response */
         $response = NpsResponse::query()->where('token', $token)->firstOrFail();
 
-        $action->execute($response, $score);
+        // The first click is the answer. Mail scanners and link prefetchers open every link in a message,
+        // so a later GET must not overwrite a rating (the page lets the person add comments instead).
+        if ($response->responded_at === null) {
+            $action->execute($response, $score);
+        }
+
         $survey = $response->survey;
 
         return view('odden-marketing::nps-feedback', [
