@@ -19,6 +19,9 @@
     } else {
         $html = '<div style="padding: 40px; text-align: center; color: #64748b; font-family: sans-serif;"><p style="font-size: 16px; font-weight: bold;">No Slots Added Yet</p><p style="font-size: 13px;">Add blocks in the "Visual Slot Designer" tab or apply a layout preset to preview your email here.</p></div>';
     }
+
+    $frameLight = \Odden\Marketing\Support\EmailPreviewFrame::document((string) $html);
+    $frameDark = \Odden\Marketing\Support\EmailPreviewFrame::document((string) $html, dark: true);
 @endphp
 
 <div x-data="{ mode: 'desktop', themeMode: 'light' }" class="flex flex-col gap-4 w-full">
@@ -71,9 +74,9 @@
                         </div>
                     @endif
                 </div>
-                <div class="p-6 overflow-y-auto max-h-[600px] bg-white text-slate-900">
-                    {!! $html !!}
-                </div>
+                <iframe sandbox referrerpolicy="no-referrer" title="Email preview" srcdoc="{{ $frameLight }}"
+                    x-bind:srcdoc="themeMode === 'dark' ? {{ \Illuminate\Support\Js::from($frameDark) }} : {{ \Illuminate\Support\Js::from($frameLight) }}"
+                    class="block w-full h-[600px] border-0 bg-white"></iframe>
             </div>
         </template>
 
@@ -97,9 +100,9 @@
                     </div>
 
                     {{-- Scrollable Email Body --}}
-                    <div class="p-3 overflow-y-auto max-h-[500px] text-xs text-slate-900 bg-white">
-                        {!! $html !!}
-                    </div>
+                    <iframe sandbox referrerpolicy="no-referrer" title="Email preview" srcdoc="{{ $frameLight }}"
+                        x-bind:srcdoc="themeMode === 'dark' ? {{ \Illuminate\Support\Js::from($frameDark) }} : {{ \Illuminate\Support\Js::from($frameLight) }}"
+                        class="block w-full h-[500px] border-0 bg-white"></iframe>
                 </div>
 
                 {{-- Home Indicator Bar --}}

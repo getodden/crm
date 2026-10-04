@@ -1,26 +1,8 @@
+@php
+    $frameLight = \Odden\Marketing\Support\EmailPreviewFrame::document((string) $renderedHtml);
+    $frameDark = \Odden\Marketing\Support\EmailPreviewFrame::document((string) $renderedHtml, dark: true);
+@endphp
 <div x-data="{ mode: 'desktop', colorScheme: 'light' }" class="flex flex-col gap-4">
-    <style>
-        .odden-dark-preview {
-            background-color: #0f172a !important;
-            color: #f8fafc !important;
-        }
-        .odden-dark-preview table {
-            border-color: #334155 !important;
-        }
-        .odden-dark-preview td[style*="background-color: #ffffff"],
-        .odden-dark-preview td[style*="background-color:#ffffff"],
-        .odden-dark-preview td[style*="background-color: #FFFFFF"] {
-            background-color: #1e293b !important;
-            color: #f8fafc !important;
-            border-color: #334155 !important;
-        }
-        .odden-dark-preview p,
-        .odden-dark-preview h1,
-        .odden-dark-preview h2,
-        .odden-dark-preview h3 {
-            color: #f8fafc !important;
-        }
-    </style>
 
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700 gap-2">
         <div class="text-xs text-slate-500">
@@ -92,9 +74,9 @@
                         </div>
                     @endif
                 </div>
-                <div :class="{ 'odden-dark-preview': colorScheme === 'dark' }" class="p-6 overflow-y-auto max-h-[550px] bg-white text-slate-900 transition-colors">
-                    {!! $renderedHtml !!}
-                </div>
+                <iframe sandbox referrerpolicy="no-referrer" title="Email preview" srcdoc="{{ $frameLight }}"
+                    x-bind:srcdoc="colorScheme === 'dark' ? {{ \Illuminate\Support\Js::from($frameDark) }} : {{ \Illuminate\Support\Js::from($frameLight) }}"
+                    class="block w-full h-[550px] border-0 bg-white"></iframe>
             </div>
         </template>
 
@@ -118,9 +100,9 @@
                     </div>
 
                     {{-- Scrollable Email Body --}}
-                    <div :class="{ 'odden-dark-preview': colorScheme === 'dark' }" class="p-4 overflow-y-auto max-h-[460px] text-xs text-slate-900 bg-white transition-colors">
-                        {!! $renderedHtml !!}
-                    </div>
+                    <iframe sandbox referrerpolicy="no-referrer" title="Email preview" srcdoc="{{ $frameLight }}"
+                        x-bind:srcdoc="colorScheme === 'dark' ? {{ \Illuminate\Support\Js::from($frameDark) }} : {{ \Illuminate\Support\Js::from($frameLight) }}"
+                        class="block w-full h-[460px] border-0 bg-white"></iframe>
                 </div>
 
                 {{-- Home Indicator Bar --}}

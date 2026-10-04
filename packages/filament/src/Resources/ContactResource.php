@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\MergeContactsAction;
 use Odden\Core\Actions\SummarizeTimelineAction;
+use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Contact;
@@ -111,7 +112,9 @@ class ContactResource extends Resource
                             ->required(),
                         Select::make('owner_id')
                             ->label('Contact Owner')
-                            ->relationship('owner', 'name')
+                            // A relationship select queries the user model directly; keep it to the users this
+                            // installation offers (a multi-tenant host narrows UserModel::query() to the active tenant).
+                            ->relationship('owner', 'name', modifyQueryUsing: fn (Builder $query): Builder => app(TenantContext::class)->scopeUsers($query))
                             ->searchable()
                             ->preload(),
                     ])
