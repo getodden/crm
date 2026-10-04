@@ -13,8 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Odden\Core\Enums\LifecycleStage;
-use Odden\Core\Models\Company;
-use Odden\Core\Models\Contact;
+use Odden\Filament\Support\AttachesThroughAssociations;
 
 class ContactsRelationManager extends RelationManager
 {
@@ -71,12 +70,8 @@ class ContactsRelationManager extends RelationManager
                             ->default('primary')
                             ->required(),
                     ])
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['child_type'] = Company::class;
-                        $data['parent_type'] = Contact::class;
-
-                        return $data;
-                    }),
+                    // Linked through AssociateRecordsAction (tenant guard, type and cardinality rules, events), not a raw pivot insert.
+                    ->action(fn (AttachAction $action, array $data, Table $table) => AttachesThroughAssociations::attach($action, $this->getOwnerRecord(), $table, $data, ownerIsParent: false)),
             ])
             ->recordActions([
                 DetachAction::make(),

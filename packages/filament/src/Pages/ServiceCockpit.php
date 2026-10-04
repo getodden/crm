@@ -12,6 +12,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Locked;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Pages\Concerns\AuthorizesPageAccess;
 use Odden\Filament\Resources\TicketResource;
@@ -53,6 +54,7 @@ class ServiceCockpit extends Page
 
     public bool $showReplyModal = false;
 
+    #[Locked]
     public ?int $replyTicketId = null;
 
     public string $replyBody = '';
@@ -313,7 +315,7 @@ class ServiceCockpit extends Page
         /** @var CannedResponse|null $canned */
         $canned = $this->cannedResponsesQuery()->find($id);
         if ($canned !== null) {
-            $ticket = $this->replyTicketId !== null ? Ticket::query()->with(['contact', 'company'])->find($this->replyTicketId) : null;
+            $ticket = $this->replyTicketId !== null ? OddenAuthorization::query(TicketResource::class, Ticket::class)->with(['contact', 'company'])->find($this->replyTicketId) : null;
             $content = $canned->render($ticket, auth()->user());
 
             $this->replyBody = empty($this->replyBody)

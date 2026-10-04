@@ -337,6 +337,8 @@ class ContactResource extends Resource
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('warning')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
+                    // A record in the trash is not the one to keep: merging into it would hide both.
+                    ->hidden(fn (Contact $record): bool => $record->trashed())
                     ->modalHeading('Merge Duplicate Contact')
                     ->modalDescription('Merge another duplicate contact into this record. All activities, deals, tickets, and associations will be reparented and preserved.')
                     ->form([

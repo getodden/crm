@@ -75,7 +75,7 @@
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
                     <span class="block text-slate-400 mb-0.5 font-medium">Submitted By</span>
-                    <span class="font-bold text-slate-800">{{ $ticket->contact?->full_name ?? 'Customer' }}</span>
+                    <span class="font-bold text-slate-800">You</span>
                 </div>
                 <div>
                     <span class="block text-slate-400 mb-0.5 font-medium">Assigned Specialist</span>
@@ -107,13 +107,13 @@
                 @endphp
                 <div class="flex gap-4 {{ $isCustomer ? '' : 'flex-row-reverse' }}">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 {{ $isCustomer ? 'bg-indigo-600' : 'bg-emerald-600' }}">
-                        {{ substr($message->senderName(), 0, 1) }}
+                        {{ substr($isCustomer ? 'You' : $message->senderName(), 0, 1) }}
                     </div>
 
                     <div class="flex-1 max-w-2xl bg-white rounded-2xl border {{ $isCustomer ? 'border-indigo-100 shadow-sm' : 'border-emerald-100 shadow-sm' }} p-6">
                         <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                             <span class="font-bold text-sm text-slate-900">
-                                {{ $message->senderName() }}
+                                {{ $isCustomer ? 'You' : $message->senderName() }}
                                 <span class="text-xs font-normal text-slate-400 ml-2">({{ $isCustomer ? 'Customer' : 'Support Specialist' }})</span>
                             </span>
                             <span class="text-xs text-slate-400">{{ $message->created_at?->diffForHumans() }}</span>

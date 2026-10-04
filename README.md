@@ -112,11 +112,17 @@ Odden relies on scheduled workers to enforce SLAs, process drip workflows, progr
 
 | Command | Frequency | Description |
 | :--- | :--- | :--- |
-| `php artisan odden:service-check-sla` | Every minute | Evaluates open tickets against SLA targets and dispatches breach alerts. |
-| `php artisan odden:marketing-process-workflows` | Every minute | Progresses contacts through due drip workflow steps and delays. |
-| `php artisan odden:sales-process-cadences` | Every 5 mins | Dispatches scheduled sequence emails, phone call reminders, and tasks. |
-| `php artisan odden:marketing-decay-scores` | Daily | Applies inactivity decay to dormant lead scores based on decay rules. |
-| `php artisan odden:marketing-check-fatigue` | Hourly | Inspects recipient send frequency to prevent campaign email fatigue. |
+| `php artisan service:check-sla` | Every 5 minutes | Evaluates open tickets against SLA targets and dispatches breach alerts. |
+| `php artisan service:run-automations` | Hourly | Ticket lifecycle maintenance: closes inactive tickets and archives resolved ones. |
+| `php artisan marketing:dispatch-scheduled` | Every minute | Sends scheduled campaigns and the local-time and send-time-optimization waves. |
+| `php artisan marketing:process-workflows` | Every 5 minutes | Progresses contacts through due drip workflow steps and delays. |
+| `php artisan marketing:evaluate-ab-tests` | Hourly | Picks the winner of A/B tests that have run long enough and rolls it out. |
+| `php artisan marketing:decay-lead-scores` | Daily | Applies inactivity decay to dormant lead scores. |
+| `php artisan marketing:sunset-subscribers` | Daily | Applies sunset protection to subscribers who have been disengaged for a long time, to protect sender reputation. |
+| `php artisan sales:process-cadences` | Every 15 minutes | Dispatches scheduled sequence emails, phone call reminders, and tasks. |
+| `php artisan sales:expire-quotes` | Daily | Expires quotes past their expiry date. |
+
+The exact schedule, with overlap protection, is in [Installation](docs/installation.md#schedule-the-commands).
 
 Add the standard Laravel scheduler to your server crontab:
 ```bash

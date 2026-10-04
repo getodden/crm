@@ -6,6 +6,7 @@ namespace Odden\Filament\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Pages\ServiceCockpit;
@@ -63,6 +64,20 @@ class ServiceCockpitTest extends TestCase
         $ticket->refresh();
         $this->assertSame($user->id, $ticket->owner_id);
         $this->assertSame(TicketStatus::Open, $ticket->status);
+    }
+
+    public function test_the_ticket_being_replied_to_cannot_be_changed_from_the_browser(): void
+    {
+        $user = User::factory()->create();
+        $ticket = Ticket::create(['subject' => 'Mine', 'status' => TicketStatus::Open, 'priority' => TicketPriority::High, 'owner_id' => $user->id]);
+        $other = Ticket::create(['subject' => 'Someone else\'s', 'status' => TicketStatus::Open, 'priority' => TicketPriority::High]);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::actingAs($user)
+            ->test(ServiceCockpit::class)
+            ->call('openReplyModal', $ticket->id)
+            ->set('replyTicketId', $other->id);
     }
 
     public function test_support_agent_can_quick_reply_to_ticket(): void

@@ -12,8 +12,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Odden\Core\Models\Company;
-use Odden\Sales\Models\Deal;
+use Odden\Filament\Support\AttachesThroughAssociations;
 
 class DealCompaniesRelationManager extends RelationManager
 {
@@ -72,12 +71,8 @@ class DealCompaniesRelationManager extends RelationManager
                             ->default('primary')
                             ->required(),
                     ])
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['parent_type'] = Deal::class;
-                        $data['child_type'] = Company::class;
-
-                        return $data;
-                    }),
+                    // Linked through AssociateRecordsAction (tenant guard, type and cardinality rules, events), not a raw pivot insert.
+                    ->action(fn (AttachAction $action, array $data, Table $table) => AttachesThroughAssociations::attach($action, $this->getOwnerRecord(), $table, $data, ownerIsParent: true)),
             ])
             ->recordActions([
                 DetachAction::make(),

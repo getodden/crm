@@ -208,6 +208,8 @@ class CompanyResource extends Resource
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('warning')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
+                    // A record in the trash is not the one to keep: merging into it would hide both.
+                    ->hidden(fn (Company $record): bool => $record->trashed())
                     ->modalHeading('Merge Duplicate Company')
                     ->modalDescription('Merge another duplicate company into this record. All contacts, activities, and tickets will be reparented and preserved.')
                     ->form([

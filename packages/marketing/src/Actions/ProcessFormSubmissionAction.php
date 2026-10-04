@@ -39,6 +39,7 @@ class ProcessFormSubmissionAction
         unset($data['contact_id'], $data['contact']);
 
         $isVerified = $contact !== null;
+        $isNewContact = false;
 
         if ($contact === null && ! empty($email)) {
             /** @var Contact|null $contact */
@@ -53,6 +54,7 @@ class ProcessFormSubmissionAction
                     'lead_status' => LeadStatus::New,
                     'lifecycle_stage' => LifecycleStage::Lead,
                 ]);
+                $isNewContact = true;
             } else {
                 $updates = [];
                 if (empty($contact->first_name) && ! empty($firstName)) {
@@ -69,8 +71,13 @@ class ProcessFormSubmissionAction
                 }
             }
 
+            // An address typed into a public form is unverified. For a contact that already exists it can neither record
+            // their consent to texts (a legal claim made on their behalf) nor link them to a company of the sender's
+            // choosing. A new contact is the sender's own. (A contact identified by a signed link never gets here.)
+            $mayRecordClaims = $isNewContact;
+
             // Handle SMS Consent if opted in
-            if (! empty($data['sms_consent'])) {
+            if (! empty($data['sms_consent']) && $mayRecordClaims) {
                 $contact->update([
                     'sms_consent' => true,
                     'sms_consent_at' => now(),
@@ -85,7 +92,7 @@ class ProcessFormSubmissionAction
             }
 
             // Link company if provided, or perform Lead-to-Account domain auto-match
-            if (! empty($companyName)) {
+            if (! empty($companyName) && $mayRecordClaims) {
                 /** @var Company|null $company */
                 $company = Company::query()->where('name', $companyName)->first();
                 if ($company === null) {
