@@ -32,7 +32,7 @@ use Odden\Marketing\Actions\AuditCampaignDeliverabilityAction;
 use Odden\Marketing\Actions\DispatchCampaignAction;
 use Odden\Marketing\Actions\EvaluateAbTestWinnerAction;
 use Odden\Marketing\Actions\SendCampaignProofAction;
-use Odden\Marketing\Actions\SuggestSubjectLinesAction;
+use Odden\Marketing\Contracts\SuggestsSubjectLines;
 use Odden\Marketing\Enums\CampaignStatus;
 use Odden\Marketing\Exceptions\CampaignHasNoAudienceException;
 use Odden\Marketing\Models\Campaign;
@@ -361,7 +361,7 @@ class CampaignResource extends Resource
                             ->options(function (callable $get, Campaign $record): array {
                                 $topic = (string) ($get('topic') ?: ($record->subject ?: $record->name));
                                 $tone = (string) ($get('tone') ?: 'engaging');
-                                $ai = app(SuggestSubjectLinesAction::class)->execute($topic, $tone);
+                                $ai = app(SuggestsSubjectLines::class)->execute($topic, $tone);
 
                                 return collect($ai['suggestions'])->mapWithKeys(fn (string $s): array => [$s => $s])->all();
                             })
@@ -372,7 +372,7 @@ class CampaignResource extends Resource
                             ->default(function (callable $get, Campaign $record): string {
                                 $topic = (string) ($get('topic') ?: ($record->subject ?: $record->name));
                                 $tone = (string) ($get('tone') ?: 'engaging');
-                                $ai = app(SuggestSubjectLinesAction::class)->execute($topic, $tone);
+                                $ai = app(SuggestsSubjectLines::class)->execute($topic, $tone);
 
                                 return $ai['variant_b'];
                             }),
@@ -380,7 +380,7 @@ class CampaignResource extends Resource
                             ->label('Inbox Preview Text')
                             ->default(function (callable $get, Campaign $record): string {
                                 $topic = (string) ($get('topic') ?: ($record->subject ?: $record->name));
-                                $ai = app(SuggestSubjectLinesAction::class)->execute($topic, 'engaging');
+                                $ai = app(SuggestsSubjectLines::class)->execute($topic, 'engaging');
 
                                 return $ai['preview_text'];
                             }),

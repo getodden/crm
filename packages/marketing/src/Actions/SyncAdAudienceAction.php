@@ -6,9 +6,10 @@ namespace Odden\Marketing\Actions;
 
 use Illuminate\Database\Eloquent\Collection;
 use Odden\Core\Models\Contact;
+use Odden\Marketing\Contracts\PublishesAdAudience;
 use Odden\Marketing\Models\AdAudienceSync;
 
-class SyncAdAudienceAction
+class SyncAdAudienceAction implements PublishesAdAudience
 {
     /**
      * Compute SHA-256 privacy hashes for CRM list members and sync with Google, LinkedIn, or Meta Ads.
@@ -17,9 +18,10 @@ class SyncAdAudienceAction
      *     platform: string,
      *     records_synced: int,
      *     audience_id: string|null,
+     *     message?: string,
      *     hashed_emails: list<string>,
      *     hashed_domains: list<string>
-     * }
+     * }  The PublishesAdAudience shape; this implementation never sets "message", and always returns the hashes.
      */
     public function execute(AdAudienceSync $sync): array
     {

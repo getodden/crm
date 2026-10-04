@@ -26,7 +26,7 @@ use Odden\Filament\Resources\AdAudienceSyncResource\Pages\CreateAdAudienceSync;
 use Odden\Filament\Resources\AdAudienceSyncResource\Pages\EditAdAudienceSync;
 use Odden\Filament\Resources\AdAudienceSyncResource\Pages\ListAdAudienceSyncs;
 use Odden\Filament\Support\OddenAuthorization;
-use Odden\Marketing\Actions\SyncAdAudienceAction;
+use Odden\Marketing\Contracts\PublishesAdAudience;
 use Odden\Marketing\Models\AdAudienceSync;
 use UnitEnum;
 
@@ -129,11 +129,11 @@ class AdAudienceSyncResource extends Resource
                     ->icon(Heroicon::ArrowPath)
                     ->color('success')
                     ->action(function (AdAudienceSync $record): void {
-                        $result = app(SyncAdAudienceAction::class)->execute($record);
+                        $result = app(PublishesAdAudience::class)->execute($record);
 
                         Notification::make()
                             ->title('Ad Audience Synchronized')
-                            ->body("Generated SHA-256 privacy hashes for {$result['records_synced']} contacts on {$result['platform']}.")
+                            ->body($result['message'] ?? "Generated SHA-256 privacy hashes for {$result['records_synced']} contacts on {$result['platform']}.")
                             ->success()
                             ->send();
                     }),

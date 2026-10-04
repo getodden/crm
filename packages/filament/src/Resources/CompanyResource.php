@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\CalculateCustomerHealthScoreAction;
 use Odden\Core\Actions\MergeCompaniesAction;
-use Odden\Core\Actions\SummarizeTimelineAction;
+use Odden\Core\Contracts\SummarizesTimeline;
 use Odden\Core\Enums\CustomerHealthStatus;
 use Odden\Core\Models\Company;
 use Odden\Filament\Resources\CompanyResource\Pages\CreateCompany;
@@ -201,7 +201,7 @@ class CompanyResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->modalContent(fn (Company $record) => view('odden-filament::components.ai-briefing-modal', [
-                        'briefing' => app(SummarizeTimelineAction::class)->execute($record),
+                        'briefing' => app(SummarizesTimeline::class)->execute($record),
                     ])),
                 Action::make('merge')
                     ->label('Merge')

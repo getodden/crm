@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Odden\Marketing\Actions;
 
-class SuggestSubjectLinesAction
+use Odden\Marketing\Contracts\SuggestsSubjectLines;
+
+class SuggestSubjectLinesAction implements SuggestsSubjectLines
 {
     /**
      * Suggest subject lines and a Variant B candidate from fixed phrase templates for the tone.

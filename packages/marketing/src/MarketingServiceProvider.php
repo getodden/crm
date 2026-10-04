@@ -17,11 +17,15 @@ use Odden\Core\Models\ListMembership;
 use Odden\Core\Support\ModelRegistry;
 use Odden\MailBuilder\MergeTags\MergeTagRegistry;
 use Odden\Marketing\Actions\EnrollContactInWorkflowAction;
+use Odden\Marketing\Actions\SuggestSubjectLinesAction;
+use Odden\Marketing\Actions\SyncAdAudienceAction;
 use Odden\Marketing\Console\Commands\DecayLeadScoresCommand;
 use Odden\Marketing\Console\Commands\DispatchScheduledCampaignsCommand;
 use Odden\Marketing\Console\Commands\EvaluateAbTestsCommand;
 use Odden\Marketing\Console\Commands\ProcessWorkflowsCommand;
 use Odden\Marketing\Console\Commands\SunsetInactiveSubscribersCommand;
+use Odden\Marketing\Contracts\PublishesAdAudience;
+use Odden\Marketing\Contracts\SuggestsSubjectLines;
 use Odden\Marketing\Listeners\MoveMergedRecords;
 use Odden\Marketing\Models\CampaignRecipient;
 use Odden\Marketing\Models\CustomBehavioralEvent;
@@ -44,6 +48,11 @@ class MarketingServiceProvider extends ServiceProvider
             __DIR__.'/../config/odden-marketing.php',
             'odden-marketing'
         );
+
+        // The built-in behaviour behind these contracts is rule-based or hash-only; an application or add-on can rebind
+        // any of them to another implementation that returns the same shape.
+        $this->app->bindIf(SuggestsSubjectLines::class, SuggestSubjectLinesAction::class);
+        $this->app->bindIf(PublishesAdAudience::class, SyncAdAudienceAction::class);
 
         $this->callAfterResolving(ModelRegistry::class, function (ModelRegistry $registry): void {
             $registry->discover(__DIR__.'/Models', 'Odden\\Marketing\\Models');
