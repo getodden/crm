@@ -30,7 +30,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\MergeContactsAction;
-use Odden\Core\Actions\SummarizeTimelineAction;
+use Odden\Core\Contracts\SummarizesTimeline;
 use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
@@ -330,7 +330,7 @@ class ContactResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->modalContent(fn (Contact $record) => view('odden-filament::components.ai-briefing-modal', [
-                        'briefing' => app(SummarizeTimelineAction::class)->execute($record),
+                        'briefing' => app(SummarizesTimeline::class)->execute($record),
                     ])),
                 Action::make('merge')
                     ->label('Merge')

@@ -30,7 +30,7 @@ Row actions:
 | --- | --- |
 | **Playbook** | Pick an active sales playbook, answer its questions, and record the answers with `Odden\Sales\Actions\ExecuteSalesPlaybookAction`. Requires `getodden/crm-sales`. |
 | **Auto-Route** | Runs `Odden\Sales\Actions\RouteLeadAction` to assign an owner using the active lead routing rules. Requires `getodden/crm-sales`. |
-| **AI Briefing** | Shows a summary from `Odden\Core\Actions\SummarizeTimelineAction` in a modal. |
+| **AI Briefing** | Shows the briefing from the bound `Odden\Core\Contracts\SummarizesTimeline` (by default the rule-based `SummarizeTimelineAction`) in a modal. |
 | **Merge** | Merges a selected duplicate into this contact with `Odden\Core\Actions\MergeContactsAction`: its activities, associations, deals and tickets move to this contact, custom properties are merged, and the duplicate is soft-deleted. |
 
 Relation managers: Companies (attach/detach), Associated Deals (sales), Sales Sequences & Cadences (sales; enroll, advance step, unenroll), Marketing Campaigns & Email Touchpoints (marketing), Lead Capture & Form Submissions (marketing), Lead Score & Decay History (marketing; includes an **Adjust Score** action), Activities (create, edit, delete, complete), and Property History / Audit Trail.
@@ -140,7 +140,7 @@ Row actions:
 | **Spam Audit** | Runs `AuditCampaignDeliverabilityAction` and shows the result. |
 | **Send Now** | Shown for draft and scheduled campaigns. Runs `DispatchCampaignAction` immediately, during the request, against all targeted recipients. |
 | **Pick Winner & Deploy** | Shown for A/B campaigns that are sending and have no winner yet. Runs `EvaluateAbTestWinnerAction`, which also sends the winning variant to the remaining audience. |
-| **AI Copy Assistant** | Suggests subject lines with `SuggestSubjectLinesAction` (template-based, no AI model) and saves the one you pick to the campaign. |
+| **AI Copy Assistant** | Suggests subject lines with the bound `Odden\Marketing\Contracts\SuggestsSubjectLines` (by default the template-based `SuggestSubjectLinesAction`, no AI model) and saves the one you pick to the campaign. |
 | **Send Test** | Sends a proof to the addresses you enter with `SendCampaignProofAction`, optionally using a contact's data for merge tags. The proof is queued like other marketing mail (see [Sending mail](../marketing/index.md#sending-mail)), so a queue worker must be running for it to arrive. |
 | **Duplicate** | Creates a draft copy named "Copy of …" with the delivery counters reset. |
 
@@ -156,4 +156,4 @@ The edit page also has **Send Test** and **Duplicate** header actions.
 | `MarketingWorkflowResource` | **Visual Journey** modal and the **Workflow Execution Steps & Branching** relation manager. |
 | `MarketingSubscriptionResource` | **Restore / Resubscribe** for non-subscribed rows and **Suppress** for subscribed rows. |
 | `MarketingAssetResource` | **Copy URL** for the asset's download link. |
-| `AdAudienceSyncResource` | **Sync Now**, which runs `SyncAdAudienceAction`. |
+| `AdAudienceSyncResource` | **Sync Now**, which runs the bound `Odden\Marketing\Contracts\PublishesAdAudience`. By default that is `SyncAdAudienceAction`, which only computes the SHA-256 hashes and records the count; it does not contact an ad platform. |

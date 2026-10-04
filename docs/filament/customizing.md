@@ -152,6 +152,30 @@ return $panel
 
 Add the sales, service and marketing classes the same way. [How modules are detected](configuration.md#how-modules-are-detected) lists what the plugin registers for each module. When you register them yourself, the `class_exists()` checks are up to you.
 
+## Swapping a built-in behaviour
+
+Three actions the panel uses are behind contracts, so an application (or an add-on package) can replace what they do without touching the panel. Bind the contract in a service provider; the panel asks the container for it. The built-in implementation stays the default until you do.
+
+| Contract | Used by | Built-in implementation |
+| --- | --- | --- |
+| `Odden\Core\Contracts\SummarizesTimeline` | **AI Briefing** on contacts and companies | `SummarizeTimelineAction`: rule-based, no external call. |
+| `Odden\Marketing\Contracts\SuggestsSubjectLines` | **AI Copy Assistant** on campaigns, and the subject-line helper on templates | `SuggestSubjectLinesAction`: fixed phrase templates, no AI model. |
+| `Odden\Marketing\Contracts\PublishesAdAudience` | **Sync Now** on an ad audience sync | `SyncAdAudienceAction`: computes SHA-256 hashes and records the count; does not contact an ad platform. |
+
+```php
+use Odden\Core\Contracts\SummarizesTimeline;
+
+// In a service provider's register() method.
+$this->app->bind(SummarizesTimeline::class, App\Support\MyTimelineSummarizer::class);
+```
+
+A replacement has to return the shape the contract documents; the panel reads those keys. Two of the contracts leave room:
+
+- `PublishesAdAudience` may return a `message`, which **Sync Now** shows instead of its default wording (for example "Uploaded 1,204 members to Meta."). `hashed_emails` and `hashed_domains` are optional, since an implementation that uploads has no reason to hand every hash back.
+- Nothing requires a replacement to extend the built-in class. Implement the interface.
+
+The default is registered with `bindIf`, so your binding wins whatever order the providers load in.
+
 ## Overriding views
 
 The plugin's custom pages and modals render Blade views from the `odden-filament` namespace:

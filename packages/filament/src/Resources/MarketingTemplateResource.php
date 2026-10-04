@@ -35,7 +35,7 @@ use Odden\MailBuilder\Filament\Components\EmailSlotBuilder;
 use Odden\MailBuilder\MailBuilder;
 use Odden\MailBuilder\Presets\PresetRegistry;
 use Odden\Marketing\Actions\EvaluateTemplateAbTestsAction;
-use Odden\Marketing\Actions\SuggestSubjectLinesAction;
+use Odden\Marketing\Contracts\SuggestsSubjectLines;
 use Odden\Marketing\Models\MarketingSavedBlock;
 use Odden\Marketing\Models\MarketingTemplate;
 use Odden\Marketing\Services\EmailBlockRenderer;
@@ -255,7 +255,7 @@ class MarketingTemplateResource extends Resource
                                                     ->placeholder('e.g. VP of Sales or Product Leaders'),
                                             ])
                                             ->action(function (array $data, $set): void {
-                                                $action = app(SuggestSubjectLinesAction::class);
+                                                $action = app(SuggestsSubjectLines::class);
                                                 $result = $action->execute(
                                                     topic: (string) $data['topic'],
                                                     tone: (string) $data['tone'],

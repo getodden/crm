@@ -119,10 +119,12 @@ The rollup is one level deep. Activities on records associated with the associat
 
 `SummarizeTimelineAction::execute(Contact|Company $subject): array` builds a rule-based briefing from the record's 15 most recent direct activities, its health or lead score, and its deals and tickets. It calls no external API.
 
-```php
-use Odden\Core\Actions\SummarizeTimelineAction;
+Ask the container for the `Odden\Core\Contracts\SummarizesTimeline` contract, not the class: `SummarizeTimelineAction` is its default implementation, and an application can [bind another one](../filament/customizing.md#swapping-a-built-in-behaviour) that returns the same shape.
 
-$briefing = app(SummarizeTimelineAction::class)->execute($company);
+```php
+use Odden\Core\Contracts\SummarizesTimeline;
+
+$briefing = app(SummarizesTimeline::class)->execute($company);
 ```
 
 It returns:
