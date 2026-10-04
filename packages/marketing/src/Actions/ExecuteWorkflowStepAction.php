@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Marketing\Actions;
 
 use Illuminate\Support\Facades\Http;
+use Odden\Core\Contracts\DealGateway;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Support\UserModel;
 use Odden\Marketing\Enums\WorkflowEnrollmentStatus;
@@ -17,9 +18,6 @@ use Odden\Marketing\Models\WorkflowLog;
 use Odden\Marketing\Models\WorkflowStep;
 use Odden\Marketing\Support\ContactPreferences;
 use Odden\Marketing\Support\MarketingMailer;
-use Odden\Sales\Enums\DealStatus;
-use Odden\Sales\Models\Deal;
-use Odden\Sales\Models\Pipeline;
 
 class ExecuteWorkflowStepAction
 {
@@ -284,27 +282,15 @@ class ExecuteWorkflowStepAction
                 $pipelineId = $step->config['pipeline_id'] ?? null;
                 $stageId = $step->config['stage_id'] ?? null;
 
-                if ($pipelineId === null && class_exists('Odden\\Sales\\Models\\Pipeline')) {
-                    /** @var Pipeline|null $defaultPipeline */
-                    $defaultPipeline = Pipeline::query()->first();
-                    $pipelineId = $defaultPipeline?->id;
-                    $stageId = $defaultPipeline?->stages()->first()?->id;
-                }
-
-                $deal = null;
-                if ($pipelineId !== null && $stageId !== null && class_exists('Odden\\Sales\\Models\\Deal')) {
-                    /** @var Deal $deal */
-                    $deal = Deal::create([
-                        'pipeline_id' => (int) $pipelineId,
-                        'stage_id' => (int) $stageId,
-                        'name' => $dealName,
-                        'amount' => $amount,
-                        'status' => DealStatus::Open,
-                        'owner_id' => $contact->owner_id,
-                    ]);
-
-                    $contact->associateWith($deal, 'primary');
-                }
+                $deal = app()->bound(DealGateway::class)
+                    ? app(DealGateway::class)->createOpenDeal(
+                        contact: $contact,
+                        name: $dealName,
+                        amount: $amount,
+                        pipelineId: $pipelineId !== null ? (int) $pipelineId : null,
+                        stageId: $stageId !== null ? (int) $stageId : null,
+                    )
+                    : null;
 
                 WorkflowLog::create([
                     'enrollment_id' => $enrollment->id,
