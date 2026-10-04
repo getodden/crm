@@ -154,12 +154,13 @@ Add the sales, service and marketing classes the same way. [How modules are dete
 
 ## Swapping a built-in behaviour
 
-Three actions the panel uses are behind contracts, so an application (or an add-on package) can replace what they do without touching the panel. Bind the contract in a service provider; the panel asks the container for it. The built-in implementation stays the default until you do.
+Four actions the panel uses are behind contracts, so an application (or an add-on package) can replace what they do without touching the panel. Bind the contract in a service provider; the panel asks the container for it. The built-in implementation stays the default until you do.
 
 | Contract | Used by | Built-in implementation |
 | --- | --- | --- |
 | `Odden\Core\Contracts\SummarizesTimeline` | **AI Briefing** on contacts and companies | `SummarizeTimelineAction`: rule-based, no external call. |
 | `Odden\Marketing\Contracts\SuggestsSubjectLines` | **AI Copy Assistant** on campaigns, and the subject-line helper on templates | `SuggestSubjectLinesAction`: fixed phrase templates, no AI model. |
+| `Odden\Service\Contracts\DraftsTicketReply` | **Draft a reply** in a ticket's reply box | `DraftTicketReplyAction`: the best matching canned response plus matching help articles, no AI model. |
 | `Odden\Marketing\Contracts\PublishesAdAudience` | **Sync Now** on an ad audience sync | `SyncAdAudienceAction`: computes SHA-256 hashes and records the count; does not contact an ad platform. |
 
 ```php
@@ -169,7 +170,9 @@ use Odden\Core\Contracts\SummarizesTimeline;
 $this->app->bind(SummarizesTimeline::class, App\Support\MyTimelineSummarizer::class);
 ```
 
-A replacement has to return the shape the contract documents; the panel reads those keys. Two of the contracts leave room:
+A replacement has to return the shape the contract documents; the panel reads those keys. Some of the contracts leave room:
+
+- `DraftsTicketReply` only fills the reply box. The agent reads it, edits it and posts it; nothing is sent from the contract.
 
 - `PublishesAdAudience` may return a `message`, which **Sync Now** shows instead of its default wording (for example "Uploaded 1,204 members to Meta."). `hashed_emails` and `hashed_domains` are optional, since an implementation that uploads has no reason to hand every hash back.
 - Nothing requires a replacement to extend the built-in class. Implement the interface.

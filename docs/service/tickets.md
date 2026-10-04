@@ -161,6 +161,12 @@ A public `Customer` message on a ticket that was [merged](routing.md#merging-tic
 
 To record a customer message from your own code, pass `senderType: MessageSenderType::Customer` and `contact:`.
 
+### Drafting a reply
+
+In the panel, **Draft a reply** above the reply box fills it with a starting point for the agent to edit. `DraftTicketReplyAction::execute(Ticket $ticket, ?Model $agent = null)` greets the contact by first name, uses the canned response that best matches the subject and the customer's latest message (only ones the agent may use, with its `{{ tags }}` filled in), links up to two matching published help articles, and signs off with the agent's name. With no match it writes a general acknowledgement. It returns `body`, `sources` (what it drew from) and a `rationale`. It never posts anything and calls no outside service.
+
+The panel asks the container for `Odden\Service\Contracts\DraftsTicketReply`, so an add-on can [bind a different drafter](../filament/customizing.md#swapping-a-built-in-behaviour) that returns the same shape.
+
 ### Ticket::addMessage()
 
 Both the action and the public endpoints call `Ticket::addMessage()`, which you can also call directly when you don't want the timeline note or email:
