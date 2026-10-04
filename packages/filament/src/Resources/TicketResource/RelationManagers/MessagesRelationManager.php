@@ -8,8 +8,12 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +21,7 @@ use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\TicketResource;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Service\Actions\ReplyTicketAction;
+use Odden\Service\Contracts\DraftsTicketReply;
 use Odden\Service\Enums\MessageSenderType;
 use Odden\Service\Models\CannedResponse;
 use Odden\Service\Models\Ticket;
@@ -103,7 +108,28 @@ class MessagesRelationManager extends RelationManager
                             ->label('Reply / Note Content')
                             ->placeholder('Type your customer response or internal team note...')
                             ->rows(5)
-                            ->required(),
+                            ->required()
+                            ->hintAction(
+                                Action::make('draftReply')
+                                    ->label('Draft a reply')
+                                    ->icon(Heroicon::Sparkles)
+                                    ->requiresConfirmation(fn (Get $get): bool => filled($get('body')))
+                                    ->modalHeading('Replace what you have written?')
+                                    ->modalDescription('The draft will replace the text in the reply box.')
+                                    ->action(function (Set $set): void {
+                                        /** @var Ticket $ticket */
+                                        $ticket = $this->getOwnerRecord();
+                                        $draft = app(DraftsTicketReply::class)->execute($ticket, auth()->user());
+
+                                        $set('body', $draft['body']);
+
+                                        Notification::make()
+                                            ->title('Draft ready: check it before you send')
+                                            ->body($draft['rationale'])
+                                            ->info()
+                                            ->send();
+                                    })
+                            ),
                         Toggle::make('is_internal_note')
                             ->label('Make this a Private Internal Note (Customer will not see this)')
                             ->default(false),

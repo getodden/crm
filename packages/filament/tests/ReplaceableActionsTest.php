@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Tests;
 
+use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Odden\Core\Contracts\SummarizesTimeline;
@@ -15,12 +17,19 @@ use Odden\Filament\Resources\AdAudienceSyncResource\Pages\ListAdAudienceSyncs;
 use Odden\Filament\Resources\CampaignResource\Pages\ListCampaigns;
 use Odden\Filament\Resources\CompanyResource\Pages\ListCompanies;
 use Odden\Filament\Resources\ContactResource\Pages\ListContacts;
+use Odden\Filament\Resources\TicketResource\Pages\EditTicket;
+use Odden\Filament\Resources\TicketResource\RelationManagers\MessagesRelationManager;
 use Odden\Filament\Tests\Fixtures\User;
 use Odden\Marketing\Contracts\PublishesAdAudience;
 use Odden\Marketing\Contracts\SuggestsSubjectLines;
 use Odden\Marketing\Enums\CampaignStatus;
 use Odden\Marketing\Models\AdAudienceSync;
 use Odden\Marketing\Models\Campaign;
+use Odden\Service\Contracts\DraftsTicketReply;
+use Odden\Service\Enums\TicketPriority;
+use Odden\Service\Enums\TicketSource;
+use Odden\Service\Enums\TicketStatus;
+use Odden\Service\Models\Ticket;
 
 /**
  * The panel asks the container for the briefing, the subject-line writer and the audience publisher, so an application or
@@ -114,5 +123,26 @@ class ReplaceableActionsTest extends TestCase
             ->test(ListAdAudienceSyncs::class)
             ->callTableAction('syncNow', $sync)
             ->assertNotified(Notification::make()->title('Ad Audience Synchronized')->body('Generated SHA-256 privacy hashes for 0 contacts on linkedin.')->success());
+    }
+
+    public function test_the_reply_box_is_filled_by_whatever_reply_drafter_is_bound(): void
+    {
+        $this->app->bind(DraftsTicketReply::class, fn () => new class implements DraftsTicketReply
+        {
+            public function execute(Ticket $ticket, ?Model $agent = null): array
+            {
+                return ['body' => "DRAFT FOR {$ticket->subject}", 'sources' => [], 'rationale' => 'Written by the replacement'];
+            }
+        });
+        $ticket = Ticket::create(['ticket_number' => 'TICK-2026-DRAFT', 'subject' => 'Cannot log in', 'status' => TicketStatus::New, 'priority' => TicketPriority::Medium, 'source' => TicketSource::Api]);
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(MessagesRelationManager::class, ['ownerRecord' => $ticket, 'pageClass' => EditTicket::class])
+            ->mountAction(TestAction::make('addMessage')->table())
+            ->callAction(TestAction::make('draftReply')->schemaComponent('body', schema: 'mountedActionSchema0'))
+            ->assertSchemaStateSet(['body' => 'DRAFT FOR Cannot log in'])
+            ->assertNotified();
+
+        $this->assertSame(0, $ticket->messages()->count(), 'A draft is never posted by itself');
     }
 }
