@@ -7,6 +7,7 @@ namespace Odden\Filament\Support;
 use Filament\Actions\AttachAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Odden\Core\Actions\AssociateRecordsAction;
@@ -21,6 +22,23 @@ use Odden\Core\Exceptions\InvalidAssociationException;
  */
 final class AttachesThroughAssociations
 {
+    /**
+     * The attach form's record picker, without the DISTINCT Filament puts on it.
+     *
+     * Filament selects `DISTINCT table.*` so a record linked twice shows once, but PostgreSQL cannot compare json
+     * columns (these tables have a `properties` column), so the picker failed there. Grouping on the primary key
+     * does the same job on PostgreSQL, MySQL and SQLite.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function pickerQuery(Builder $query): Builder
+    {
+        $query->getQuery()->distinct = false;
+
+        return $query->groupBy($query->getModel()->getQualifiedKeyName());
+    }
+
     /**
      * @param  array<string, mixed>  $data  The attach form's state: "recordId" (one id or several) and an optional "type".
      * @param  bool  $ownerIsParent  Whether the record the manager is on is the association's parent (else its child).

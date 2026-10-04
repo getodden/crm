@@ -12,6 +12,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Odden\Filament\Support\AttachesThroughAssociations;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
@@ -72,6 +73,7 @@ class DealsRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
+                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => AttachesThroughAssociations::pickerQuery($query))
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
