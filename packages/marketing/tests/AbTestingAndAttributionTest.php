@@ -320,6 +320,47 @@ class AbTestingAndAttributionTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_the_winner_rollout_leaves_the_campaign_sending_until_local_send_times_have_passed(): void
+    {
+        Carbon::setTestNow('2026-01-05 12:00:00');
+
+        $contacts = new Collection;
+        foreach (['t1', 't2', 't3', 't4'] as $name) {
+            $contacts->push(Contact::create(['first_name' => $name, 'email' => "{$name}@test.com", 'timezone' => 'Asia/Tokyo']));
+        }
+
+        $campaign = Campaign::create([
+            'name' => 'Local time rollout',
+            'subject' => 'A',
+            'variant_b_subject' => 'B',
+            'sender_name' => 'Odden',
+            'sender_email' => 'hello@odden.test',
+            'is_ab_test' => true,
+            'ab_test_sample_percentage' => 50,
+            'send_in_recipient_timezone' => true,
+        ]);
+
+        (new DispatchCampaignAction)->execute($campaign, $contacts);
+
+        (new EvaluateAbTestWinnerAction)->execute($campaign);
+
+        $campaign->refresh();
+        $this->assertNotNull($campaign->ab_winner_variant);
+        $this->assertSame(CampaignStatus::Sending, $campaign->status, 'Recipients are still waiting for their local time');
+        $this->assertSame(4, $campaign->recipients()->where('status', RecipientStatus::Pending->value)->count());
+        $this->assertSame(0, $campaign->recipients()->whereNull('variant')->count(), 'Every held recipient has a variant');
+
+        // The local send time arrives: the sweep sends everyone and then closes the campaign.
+        Carbon::setTestNow('2026-01-06 02:00:00');
+        $this->artisan('marketing:dispatch-scheduled')->assertSuccessful();
+
+        $campaign->refresh();
+        $this->assertSame(0, $campaign->recipients()->where('status', RecipientStatus::Pending->value)->count());
+        $this->assertSame(CampaignStatus::Sent, $campaign->status);
+
+        Carbon::setTestNow();
+    }
+
     public function test_a_tied_ab_test_is_reported_as_a_tie(): void
     {
         $contacts = new Collection;

@@ -95,10 +95,14 @@ class EvaluateAbTestWinnerAction
             }
         }
 
+        // Recipients held for their local send time are still pending: the campaign stays Sending so the
+        // scheduled sweep sends them the winner, and that sweep marks it Sent once none are left.
+        $hasPending = $campaign->recipients()->where('status', RecipientStatus::Pending->value)->exists();
+
         $campaign->update([
             'ab_winner_variant' => $winner,
             'ab_test_evaluated_at' => now(),
-            'status' => CampaignStatus::Sent,
+            'status' => $hasPending ? CampaignStatus::Sending : CampaignStatus::Sent,
             'delivered_count' => $campaign->recipients()->whereNotNull('sent_at')->count(),
         ]);
 

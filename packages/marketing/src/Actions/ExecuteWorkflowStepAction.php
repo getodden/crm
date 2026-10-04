@@ -21,6 +21,14 @@ use Odden\Marketing\Support\MarketingMailer;
 
 class ExecuteWorkflowStepAction
 {
+    /** The most steps one call will run back to back before it stops the enrollment. */
+    private const int MAX_CHAIN_STEPS = 100;
+
+    /** @var array<int, true> Step ids already run in the current chain of back-to-back steps. */
+    private array $chainVisited = [];
+
+    private int $chainDepth = 0;
+
     /**
      * Execute the current step for an enrolled contact.
      *
@@ -29,6 +37,23 @@ class ExecuteWorkflowStepAction
      * returns without doing anything. Only a due enrollment (next_run_at set) can be claimed.
      */
     public function execute(WorkflowEnrollment $enrollment): void
+    {
+        // Steps that follow each other without a wait run in one call, so remember which ones have run in this
+        // chain: reaching one a second time means the steps loop with no Delay in between.
+        if ($this->chainDepth === 0) {
+            $this->chainVisited = $enrollment->current_step_id !== null ? [(int) $enrollment->current_step_id => true] : [];
+        }
+
+        $this->chainDepth++;
+
+        try {
+            $this->runStep($enrollment);
+        } finally {
+            $this->chainDepth--;
+        }
+    }
+
+    protected function runStep(WorkflowEnrollment $enrollment): void
     {
         if ($enrollment->status !== WorkflowEnrollmentStatus::Active) {
             return;
@@ -456,13 +481,43 @@ class ExecuteWorkflowStepAction
             'next_run_at' => now(),
         ]);
 
-        // Continue running next step immediately if it's not a delay
+        // A Delay step ends the chain (it schedules the next run), so only other steps can loop.
         if ($nextStep->type !== WorkflowStepType::Delay) {
-            $this->execute($enrollment->fresh() ?? $enrollment);
-        } else {
-            // Execute delay timer
-            $this->execute($enrollment->fresh() ?? $enrollment);
+            if (isset($this->chainVisited[$nextStep->id]) || count($this->chainVisited) >= self::MAX_CHAIN_STEPS) {
+                $this->exitLoopingEnrollment($enrollment, $nextStep);
+
+                return;
+            }
+
+            $this->chainVisited[$nextStep->id] = true;
         }
+
+        $this->execute($enrollment->fresh() ?? $enrollment);
+    }
+
+    /**
+     * Stop an enrollment whose steps loop back on themselves without a Delay, and say why in its log.
+     */
+    protected function exitLoopingEnrollment(WorkflowEnrollment $enrollment, WorkflowStep $step): void
+    {
+        $exited = WorkflowEnrollment::query()
+            ->whereKey($enrollment->getKey())
+            ->where('status', WorkflowEnrollmentStatus::Active->value)
+            ->update(['status' => WorkflowEnrollmentStatus::Exited->value, 'next_run_at' => null]) === 1;
+
+        if (! $exited) {
+            return;
+        }
+
+        WorkflowLog::create([
+            'enrollment_id' => $enrollment->id,
+            'step_id' => $step->id,
+            'contact_id' => $enrollment->contact_id,
+            'action_taken' => "Stopped: step {$step->step_number} would run again with no wait in between. Add a Delay step to the loop.",
+            'status' => 'failed',
+            'details' => ['step_number' => $step->step_number],
+            'created_at' => now(),
+        ]);
     }
 
     /**

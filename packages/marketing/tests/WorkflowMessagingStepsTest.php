@@ -125,6 +125,46 @@ class WorkflowMessagingStepsTest extends TestCase
         $this->assertSame(WorkflowEnrollmentStatus::Completed, $enrollment->fresh()?->status);
     }
 
+    public function test_steps_that_loop_with_no_delay_stop_after_one_pass_instead_of_recursing(): void
+    {
+        Mail::fake();
+
+        $contact = Contact::create(['first_name' => 'Ada', 'email' => 'ada@example.com', 'lead_score' => 0]);
+        $workflow = MarketingWorkflow::create(['name' => 'Loop', 'trigger_type' => WorkflowTriggerType::Manual, 'is_active' => true]);
+        $workflow->steps()->create(['step_number' => 1, 'name' => 'Nudge', 'type' => WorkflowStepType::SendEmail, 'config' => ['body' => '<p>Hi</p>', 'subject' => 'Nudge']]);
+        $workflow->steps()->create(['step_number' => 2, 'name' => 'Score?', 'type' => WorkflowStepType::Condition, 'config' => ['property' => 'lead_score', 'operator' => '>=', 'value' => 1000], 'next_step_on_true' => 3, 'next_step_on_false' => 1]);
+
+        $enrollment = app(EnrollContactInWorkflowAction::class)->execute($workflow, $contact);
+
+        $this->assertNotNull($enrollment);
+        Mail::assertQueuedCount(1);
+        $this->assertSame(WorkflowEnrollmentStatus::Exited, $enrollment->fresh()?->status);
+        $this->assertNull($enrollment->fresh()?->next_run_at);
+        $this->assertTrue(WorkflowLog::query()->where('enrollment_id', $enrollment->id)->where('status', 'failed')->where('action_taken', 'like', 'Stopped:%')->exists());
+    }
+
+    public function test_a_loop_with_a_delay_in_it_keeps_running_on_schedule(): void
+    {
+        Mail::fake();
+
+        $contact = Contact::create(['first_name' => 'Ada', 'email' => 'ada@example.com', 'lead_score' => 0]);
+        $workflow = MarketingWorkflow::create(['name' => 'Reminder loop', 'trigger_type' => WorkflowTriggerType::Manual, 'is_active' => true]);
+        $workflow->steps()->create(['step_number' => 1, 'name' => 'Nudge', 'type' => WorkflowStepType::SendEmail, 'config' => ['body' => '<p>Hi</p>', 'subject' => 'Nudge']]);
+        $workflow->steps()->create(['step_number' => 2, 'name' => 'Wait', 'type' => WorkflowStepType::Delay, 'config' => ['delay_minutes' => 60]]);
+        $workflow->steps()->create(['step_number' => 3, 'name' => 'Score?', 'type' => WorkflowStepType::Condition, 'config' => ['property' => 'lead_score', 'operator' => '>=', 'value' => 1000], 'next_step_on_true' => 4, 'next_step_on_false' => 1]);
+
+        $enrollment = app(EnrollContactInWorkflowAction::class)->execute($workflow, $contact);
+        $this->assertNotNull($enrollment);
+        Mail::assertQueuedCount(1);
+
+        $this->travel(61)->minutes();
+        app(ProcessDueWorkflowsAction::class)->execute();
+
+        Mail::assertQueuedCount(2);
+        $this->assertSame(WorkflowEnrollmentStatus::Active, $enrollment->fresh()?->status);
+        $this->assertNotNull($enrollment->fresh()?->next_run_at);
+    }
+
     public function test_send_email_step_skips_unsubscribed_and_suppressed_contacts(): void
     {
         Mail::fake();

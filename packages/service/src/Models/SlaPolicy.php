@@ -37,6 +37,9 @@ use Odden\Service\Enums\TicketPriority;
  */
 class SlaPolicy extends Model
 {
+    /** The most days calculateDueTime will step through before it gives up and counts plain minutes. */
+    private const int MAX_SCHEDULE_DAYS = 800;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -144,15 +147,19 @@ class SlaPolicy extends Model
         $current = Carbon::parse($from)->setTimezone($tz);
         $remainingMinutes = $minutes;
 
-        /** @var list<int> $businessDays */
-        $businessDays = $this->business_days ?? [1, 2, 3, 4, 5];
-        /** @var list<string> $holidays */
-        $holidays = $this->holidays ?? [];
+        $businessDays = $this->normalizedBusinessDays();
+        $holidays = array_values(array_filter((array) ($this->holidays ?? []), is_string(...)));
 
-        [$startHour, $startMinute] = array_map('intval', explode(':', $this->business_hours_start ?: '09:00'));
-        [$endHour, $endMinute] = array_map('intval', explode(':', $this->business_hours_end ?: '17:00'));
+        [[$startHour, $startMinute], [$endHour, $endMinute]] = $this->normalizedBusinessHours();
+
+        // Holidays that cover every upcoming day, or any other bad schedule, must not hang ticket creation.
+        $iterations = 0;
 
         while ($remainingMinutes > 0) {
+            if (++$iterations > self::MAX_SCHEDULE_DAYS) {
+                return $from->copy()->addMinutes($minutes);
+            }
+
             $isBusinessDay = in_array($current->dayOfWeekIso, $businessDays, true);
             $isHoliday = in_array($current->format('Y-m-d'), $holidays, true);
 
@@ -192,6 +199,52 @@ class SlaPolicy extends Model
         }
 
         return $current->setTimezone(config('app.timezone', 'UTC'));
+    }
+
+    /**
+     * The days (ISO 1-7) the clock runs, as integers: form state arrives as strings, and an empty or invalid
+     * list falls back to Monday to Friday so a due date can always be reached.
+     *
+     * @return list<int>
+     */
+    private function normalizedBusinessDays(): array
+    {
+        $days = array_values(array_unique(array_filter(
+            array_map('intval', (array) ($this->business_days ?? [])),
+            fn (int $day): bool => $day >= 1 && $day <= 7,
+        )));
+
+        return $days === [] ? [1, 2, 3, 4, 5] : $days;
+    }
+
+    /**
+     * The daily start and end as [hour, minute] pairs. A value that is not HH:MM, or an end that is not after the
+     * start (including overnight hours, which are not supported), falls back to 09:00 to 17:00.
+     *
+     * @return array{array{int, int}, array{int, int}}
+     */
+    private function normalizedBusinessHours(): array
+    {
+        $start = self::parseClock($this->business_hours_start);
+        $end = self::parseClock($this->business_hours_end);
+
+        if ($start === null || $end === null || ($end[0] * 60 + $end[1]) <= ($start[0] * 60 + $start[1])) {
+            return [[9, 0], [17, 0]];
+        }
+
+        return [$start, $end];
+    }
+
+    /**
+     * @return array{int, int}|null
+     */
+    private static function parseClock(?string $value): ?array
+    {
+        if ($value === null || preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', trim($value), $m) !== 1) {
+            return null;
+        }
+
+        return (int) $m[1] <= 23 && (int) $m[2] <= 59 ? [(int) $m[1], (int) $m[2]] : null;
     }
 
     /**
