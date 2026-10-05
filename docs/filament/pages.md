@@ -50,45 +50,9 @@ These actions write data:
 - **Quick touches**, the **call log** modal and the **meeting log** modal each create an activity on the contact. The call log can also create a follow-up task.
 - **Start** on guided actions acts on the first item in the queue. It advances a sequence step, opens the call modal for the contact (nothing is logged until you save the call), or redirects, depending on the item.
 
-## Service pages
+## Add-on pages
 
-Registered when `getodden/crm-service` is installed.
-
-### Support Cockpit
-
-`ServiceCockpit`, at `/admin/service-cockpit`. It is labelled **Support Cockpit** and is the first item in the **Service** group. Its title is "Support Agent Workspace".
-
-This is an agent workspace. It shows open, unassigned, my-active and SLA-at-risk counts, plus the average CSAT. Its tabs are `triage`, `my_tickets`, `sla_watch` and `all`, with search, priority and source filters.
-
-These actions write data:
-
-- **Claim** sets the ticket's owner to the current user and moves `new` tickets to `open`.
-- **Quick reply** adds an agent message or internal note with `ReplyTicketAction` and can set the status to `open`, `waiting_on_customer` or `resolved`. You can insert canned responses and suggested knowledge-base articles (from `DeflectTicketAction`).
-- **Quick resolve** runs `ResolveTicketAction` with an optional note.
-
-Both use the same actions as the ticket resource, so a public reply emails the customer `TicketRepliedNotification` and a resolve emails `TicketResolvedCsatNotification` (when the ticket's contact has an email address), and both are logged on the contact's timeline. Internal notes send nothing. Setting a reply's status to `resolved` runs the resolve action too.
-
-### Service Analytics
-
-`ServiceAnalytics`, at `/admin/service-analytics` in the **Service** group.
-
-A read-only report of ticket volume, resolution rate, first response time, mean time to resolution, SLA compliance and breaches, CSAT distribution, channel and priority breakdowns, and per-agent performance. Date ranges are `7_days`, `30_days` (the default), `this_month` and `all_time`.
-
-## Marketing pages
-
-Registered when `getodden/crm-marketing` is installed. All are in the **Marketing** group.
-
-| Page | URL | What it does |
-| --- | --- | --- |
-| `MarketingCockpit` (Marketing Cockpit) | `/admin/marketing-cockpit` | Campaign, delivery, open/click, lead and workflow totals, recent campaigns, active forms and submissions, closed-loop metrics (`CalculateClosedLoopMetricsAction`) and a conversion funnel (`AnalyzeConversionFunnelAction`). It can send a campaign immediately with `DispatchCampaignAction`. |
-| `AbmCockpit` (ABM Cockpit) | `/admin/abm-cockpit` | Target accounts by tier, with intent scores and buying-committee counts. **Recalculate** runs `CalculateCompanyIntentScoreAction` for one company, or for every company that has an `account_tier` or an intent surge. |
-| `MarketingAttribution` (Attribution & ROI) | `/admin/marketing-attribution` | Campaign ROI, attributed pipeline and won revenue, leads and blended cost per lead, under a selectable attribution model: `first_touch` (default), `last_touch`, `linear`, `u_shaped`, `w_shaped` or `time_decay`. |
-| `CampaignBenchmarking` (Campaign Benchmarking) | `/admin/campaign-benchmarking` | Side-by-side comparison of selected campaigns against averages. It starts with the four most recently sent campaigns. |
-| `MarketingCalendar` (Campaign Calendar) | `/admin/marketing-calendar` | A month view of campaign sends, with previous, next and current month navigation. |
-| `UtmLinkBuilder` (UTM Link Builder) | `/admin/utm-link-builder` | Builds a tracked URL from a base URL (it defaults to `url('/')`, or to a landing page or campaign you select) and UTM source, medium, campaign, term and content. Nothing is saved. |
-| `SenderDomainHealth` (Domain Health (SPF/DKIM)) | `/admin/sender-domain-health` | Checks SPF, DKIM, DMARC and MX for a domain with `DomainHealthCheckService`. The domain defaults to the domain of `odden-marketing.defaults.sender_email`, and the DKIM selector defaults to `odden`. |
-
-> `SenderDomainHealth` makes live DNS lookups (`dns_get_record()`) each time it renders.
+Odden Marketing and Odden Service add their own cockpits and pages through [`Odden\Filament\Support\Modules`](modules.md); they are documented with the add-on.
 
 ## Pipeline forecast widget
 

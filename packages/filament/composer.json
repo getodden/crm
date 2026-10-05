@@ -35,9 +35,7 @@
         "pestphp/pest-plugin-laravel": "^3.0 || ^4.0 || ^5.0"
     },
     "suggest": {
-        "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit",
-        "getodden/crm-service": "Adds Tickets, SLAs, Knowledge Articles, and the Service Cockpit",
-        "getodden/crm-marketing": "Adds Campaigns, Workflows, Forms, and the Marketing Cockpit"
+        "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit"
     },
     "repositories": [
         {

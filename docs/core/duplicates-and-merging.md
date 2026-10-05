@@ -112,7 +112,7 @@ $company = app(MergeCompaniesAction::class)->execute($acme, $acmeInc);
 
 ## What each module moves
 
-Core moves only its own data. Sales, Service, and Marketing each register a synchronous listener for `ContactsMerged` and `CompaniesMerged`, so when a module is installed its data moves inside the same transaction. Table names come from each module's `tables` config.
+Core moves only its own data. Sales, and the paid Service and Marketing add-ons, each register a synchronous listener for `ContactsMerged` and `CompaniesMerged`, so when a module is installed its data moves inside the same transaction. Table names come from each module's `tables` config.
 
 | Module | On a contact merge | On a company merge |
 | :--- | :--- | :--- |
@@ -126,7 +126,7 @@ Where both records have a row that can only exist once, the modules keep one:
 - **Marketing campaign recipients** (unique per campaign and contact). The recipient that unsubscribed is kept, otherwise the most engaged one (clicked, then opened, then sent). It takes the earliest sent, opened, and clicked times of the two. If the other row was sent, it's detached from the contact (`contact_id` set to `null`) so the unsubscribe and tracking links in that email keep working; if it wasn't sent, its ESP events are pointed at the kept row and it's deleted.
 - **Marketing event registrations** (unique per event and contact). The attended registration is kept, then one that isn't cancelled, then the earliest. Missing UTM fields are filled from the other, and the event's `registrations_count` and `attendees_count` are corrected.
 - **Marketing workflow enrollments.** If both contacts are active in the same workflow, the earlier enrollment stays active and the other is set to `exited`, so steps aren't sent twice.
-- **Marketing subscriptions and topic preferences.** These are keyed by email, so the secondary's rows stay with its address. If the secondary unsubscribed, globally or from a topic, the primary's address is unsubscribed too. A merge never resubscribes anyone. See [Subscriptions and compliance](../marketing/subscriptions-and-compliance.md#merging-contacts).
+- **Marketing subscriptions and topic preferences.** These are keyed by email, so the secondary's rows stay with its address. If the secondary unsubscribed, globally or from a topic, the primary's address is unsubscribed too. A merge never resubscribes anyone.
 
 ## Moving your own data on merge
 

@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, sales, service, marketing, filament]
+        package: [core, sales, filament]
         php: ['8.3', '8.5']
         laravel: ['12.*', '13.*']
         dependencies: [lowest, highest]
@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, sales, service, marketing, filament]
+        package: [core, sales, filament]
 
     services:
       postgres:
@@ -142,7 +142,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, sales, service, marketing, filament]
+        package: [core, sales, filament]
 
     services:
       mysql:

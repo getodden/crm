@@ -37,26 +37,12 @@ class PackageIndependenceArchitectureTest extends TestCase
         }
     }
 
-    public function test_service_package_has_no_dependencies_on_sales_or_marketing_or_filament(): void
+    public function test_filament_package_does_not_depend_on_the_paid_add_ons(): void
     {
-        $serviceFiles = $this->getPhpFiles(base_path('packages/service/src'));
-
-        foreach ($serviceFiles as $file) {
-            $contents = file_get_contents($file);
-            $this->assertStringNotContainsString('use Odden\\Sales', $contents, "Service file [{$file}] must not depend on Sales");
-            $this->assertStringNotContainsString('use Odden\\Marketing', $contents, "Service file [{$file}] must not depend on Marketing");
-            $this->assertStringNotContainsString('use Odden\\Filament', $contents, "Service file [{$file}] must not depend on Filament");
-        }
-    }
-
-    public function test_marketing_package_has_no_dependencies_on_service_or_filament(): void
-    {
-        $marketingFiles = $this->getPhpFiles(base_path('packages/marketing/src'));
-
-        foreach ($marketingFiles as $file) {
-            $contents = file_get_contents($file);
-            $this->assertStringNotContainsString('use Odden\\Service', $contents, "Marketing file [{$file}] must not depend on Service");
-            $this->assertStringNotContainsString('use Odden\\Filament', $contents, "Marketing file [{$file}] must not depend on Filament");
+        // Marketing and Service are separate, paid packages. Their screens plug in through Odden\Filament\Support\Modules,
+        // so nothing in the open admin package may import them.
+        foreach ($this->getPhpFiles(base_path('packages/filament/src')) as $file) {
+            $this->assertDoesNotMatchRegularExpression('/^use Odden\\\\(Marketing|Service)\\\\/m', (string) file_get_contents($file), "Filament file [{$file}] must not import the paid add-ons");
         }
     }
 

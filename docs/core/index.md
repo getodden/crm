@@ -66,7 +66,7 @@ Events are only dispatched by actions. Creating a model with `Contact::create()`
 
 ## How the other modules build on Core
 
-The Sales, Marketing, and Service packages don't extend Core's models. They:
+The Sales package and the paid Marketing and Service add-ons don't extend Core's models. They:
 
 - reference `Contact`, `Company`, `Activity`, and the enums directly, and add their own relations at boot with `resolveRelationUsing()`. For example, Sales adds `deals` to `Contact` and `Company`, and Service adds `tickets`.
 - resolve the host app's user model through `Odden\Core\Support\UserModel` for owners, assignees, and authors.

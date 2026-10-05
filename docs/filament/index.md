@@ -17,8 +17,7 @@ Each additional module adds its own resources and pages:
 | Package | Adds |
 | --- | --- |
 | [`getodden/crm-sales`](../sales/index.md) | Deals (with a pipeline board), pipelines, quotes, quotas, sales email templates, cadences, playbooks, meeting links, lead routing rules, and the Sales Cockpit. |
-| [`getodden/crm-service`](../service/index.md) | Tickets (with a ticket board), SLA policies, knowledge articles, canned responses, ticket routing rules, the Support Cockpit and Service Analytics. |
-| [`getodden/crm-marketing`](../marketing/index.md) | Campaigns, email templates, lead capture forms, landing pages, workflows, lead scoring rules, the suppression list, NPS surveys, assets, events, ad audience syncs, and seven marketing pages (cockpits, attribution, calendar, UTM builder, domain health). |
+| Odden Marketing and Odden Service (paid add-ons) | Their screens (campaigns, tickets, cockpits and more), added to the panel by the add-on itself through [`Modules`](modules.md) |
 
 Contact, company and deal forms also show the [custom properties](../core/custom-properties.md) you define for them.
 
@@ -31,7 +30,7 @@ See [Resources](resources.md) and [Cockpits, pages and widgets](pages.md) for th
 - Filament 5.9 or later (`filament/filament: ^5.9`)
 - `getodden/crm-core`, installed and migrated (see [Installation](../installation.md))
 
-The sales, service and marketing modules are optional.
+The Sales module is optional, and so are the paid Marketing and Service add-ons.
 
 ## Install the package
 
@@ -116,7 +115,7 @@ On Laravel 12, use `Illuminate\Foundation\Http\Middleware\VerifyCsrfToken` inste
 
 The plugin's ID is `odden`, so `$panel->hasPlugin('odden')` and `$panel->getPlugin('odden')` work as usual.
 
-Sign in at `/admin` and you will find the Odden resources under the **CRM**, **Sales**, **Service**, **Marketing**, **Executive** and **Settings** navigation groups. Contacts, for example, are at `/admin/contacts`.
+Sign in at `/admin` and you will find the Odden resources under the **CRM**, **Sales**, **Executive** and **Settings** navigation groups, plus **Service** and **Marketing** when those paid add-ons are installed. Contacts, for example, are at `/admin/contacts`.
 
 ### User model
 

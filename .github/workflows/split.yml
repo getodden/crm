@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, sales, service, marketing, filament]
+        package: [core, sales, filament]
 
     steps:
       - name: Checkout full history

@@ -31,35 +31,6 @@
     - sales/meeting-links
     - sales/configuration
 
-- title: Service
-  pages:
-    - service/index
-    - service/tickets
-    - service/sla-policies
-    - service/routing
-    - service/inbound-email
-    - service/customer-portal
-    - service/chat-widget
-    - service/knowledge-base
-    - service/configuration
-
-- title: Marketing
-  pages:
-    - marketing/index
-    - marketing/campaigns
-    - marketing/email-templates
-    - marketing/subscriptions-and-compliance
-    - marketing/deliverability
-    - marketing/transactional-email
-    - marketing/forms-and-landing-pages
-    - marketing/web-tracking
-    - marketing/lead-scoring
-    - marketing/workflows
-    - marketing/events-and-assets
-    - marketing/inbound-webhooks
-    - marketing/attribution
-    - marketing/ad-audiences
-
 - title: Filament admin
   pages:
     - filament/index
@@ -68,6 +39,7 @@
     - filament/pages
     - filament/custom-properties
     - filament/authorization
+    - filament/modules
     - filament/customizing
 
 - title: Related packages

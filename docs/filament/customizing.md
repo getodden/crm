@@ -18,7 +18,7 @@ return $panel
     // ...
     ->plugins([
         OddenPlugin::make()
-            ->disableModules('marketing')
+            ->disableModules('marketing') // a paid add-on: leaves out its screens
             ->except(LeadRoutingRuleResource::class, DataQuality::class)
             ->replace(ContactResource::class, AppContactResource::class),
     ]);
@@ -26,7 +26,7 @@ return $panel
 
 | Method | Effect |
 | --- | --- |
-| `disableModules(string ...$modules)` | Leaves out every resource and page of `sales`, `service` or `marketing`. Any other name throws `InvalidArgumentException`. Core's resources and pages are always registered. |
+| `disableModules(string ...$modules)` | Leaves out every resource and page of `sales`, or of the paid `service` and `marketing` add-ons. Any other name throws `InvalidArgumentException`. Core's resources and pages are always registered. |
 | `except(string ...$classes)` | Leaves out specific resources or pages. |
 | `replace(string $original, string $replacement)` | Registers your class in place of an Odden resource or page. |
 
@@ -150,18 +150,15 @@ return $panel
     ]);
 ```
 
-Add the sales, service and marketing classes the same way. [How modules are detected](configuration.md#how-modules-are-detected) lists what the plugin registers for each module. When you register them yourself, the `class_exists()` checks are up to you.
+Add the sales classes the same way. [How modules are detected](configuration.md#how-modules-are-detected) lists what the plugin registers for each module. When you register them yourself, the `class_exists()` checks are up to you. A paid add-on's classes are in its own namespace; see [Add-on modules](modules.md).
 
 ## Swapping a built-in behaviour
 
-Four actions the panel uses are behind contracts, so an application (or an add-on package) can replace what they do without touching the panel. Bind the contract in a service provider; the panel asks the container for it. The built-in implementation stays the default until you do.
+The actions the panel uses are behind contracts, so an application (or an add-on package) can replace what they do without touching the panel. Bind the contract in a service provider; the panel asks the container for it. The built-in implementation stays the default until you do.
 
 | Contract | Used by | Built-in implementation |
 | --- | --- | --- |
 | `Odden\Core\Contracts\SummarizesTimeline` | **AI Briefing** on contacts and companies | `SummarizeTimelineAction`: rule-based, no external call. |
-| `Odden\Marketing\Contracts\SuggestsSubjectLines` | **AI Copy Assistant** on campaigns, and the subject-line helper on templates | `SuggestSubjectLinesAction`: fixed phrase templates, no AI model. |
-| `Odden\Service\Contracts\DraftsTicketReply` | **Draft a reply** in a ticket's reply box | `DraftTicketReplyAction`: the best matching canned response plus matching help articles, no AI model. |
-| `Odden\Marketing\Contracts\PublishesAdAudience` | **Sync Now** on an ad audience sync | `SyncAdAudienceAction`: computes SHA-256 hashes and records the count; does not contact an ad platform. |
 
 ```php
 use Odden\Core\Contracts\SummarizesTimeline;
@@ -177,6 +174,8 @@ A replacement has to return the shape the contract documents; the panel reads th
 - `PublishesAdAudience` may return a `message`, which **Sync Now** shows instead of its default wording (for example "Uploaded 1,204 members to Meta."). `hashed_emails` and `hashed_domains` are optional, since an implementation that uploads has no reason to hand every hash back.
 - Nothing requires a replacement to extend the built-in class. Implement the interface.
 
+The paid Marketing and Service add-ons add contracts of their own (subject lines, ticket reply drafts, ad audience sync); each is documented with the add-on.
+
 The default is registered with `bindIf`, so your binding wins whatever order the providers load in.
 
 ## Overriding views
@@ -189,16 +188,6 @@ The plugin's custom pages and modals render Blade views from the `odden-filament
 | `odden-filament::pages.data-quality` | `DataQuality` |
 | `odden-filament::pages.sales-cockpit` | `SalesCockpit` |
 | `odden-filament::pages.deal-kanban` | `DealResource` board page |
-| `odden-filament::pages.service-cockpit` | `ServiceCockpit` |
-| `odden-filament::pages.service-analytics` | `ServiceAnalytics` |
-| `odden-filament::pages.ticket-kanban` | `TicketResource` board page |
-| `odden-filament::pages.marketing-cockpit` | `MarketingCockpit` |
-| `odden-filament::pages.abm-cockpit` | `AbmCockpit` |
-| `odden-filament::pages.marketing-attribution` | `MarketingAttribution` |
-| `odden-filament::pages.campaign-benchmarking` | `CampaignBenchmarking` |
-| `odden-filament::pages.marketing-calendar` | `MarketingCalendar` |
-| `odden-filament::pages.utm-link-builder` | `UtmLinkBuilder` |
-| `odden-filament::pages.sender-domain-health` | `SenderDomainHealth` |
 | `odden-filament::components.ai-briefing-modal` | **AI Briefing** action on contacts and companies |
 
 The package doesn't register any publishable files, so `vendor:publish` has nothing to copy. Laravel still checks your app's `resources/views/vendor/odden-filament` directory first, so you can override a view by copying it there under the same relative path:
@@ -211,13 +200,13 @@ cp vendor/getodden/crm-filament/resources/views/pages/sales-cockpit.blade.php \
 
 Laravel only picks up the override directory if it exists when the application boots. The views call public properties and methods on the page classes (for example `$this->guidedActions` or `wire:click="advanceEnrollment(...)"`), so check your copy whenever you upgrade the package.
 
-Some actions also render views from the module packages, such as `odden-marketing::template-preview`. Override it in `resources/views/vendor/odden-marketing` in the same way. The deal health score modal is `odden-filament::deals.health-score-modal`, so override it in `resources/views/vendor/odden-filament/deals`.
+The paid add-ons ship their own views under their own namespaces (`odden-marketing-filament`, `odden-service-filament`), documented with each add-on. The deal health score modal is `odden-filament::deals.health-score-modal`, so override it in `resources/views/vendor/odden-filament/deals`.
 
 ## Styling the custom pages
 
-Most of the custom pages (the cockpits, Executive Overview, Data Quality, Service Analytics and the two boards) carry most of their styling in a `<style>` block inside the view, with only a few Tailwind utility classes.
+Most of the custom pages (the Sales Cockpit, Executive Overview, Data Quality and the boards) carry most of their styling in a `<style>` block inside the view, with only a few Tailwind utility classes.
 
-The Campaign Calendar, Campaign Benchmarking, Attribution & ROI, UTM Link Builder and Domain Health pages are styled almost entirely with Tailwind utility classes. Filament's default stylesheet only contains the classes Filament itself uses, so for all of these pages to look as intended, create a custom Filament theme and add the package's views to its sources. Filament's theme command creates `resources/css/filament/{panel-id}/theme.css` and walks you through registering it:
+Some pages added by the paid add-ons are styled with Tailwind utility classes; see each add-on's documentation if you build a custom Filament theme.
 
 ```bash
 php artisan make:filament-theme
