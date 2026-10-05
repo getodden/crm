@@ -8,23 +8,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
-use Odden\Core\Models\CrmList;
-use Odden\Filament\Resources\CampaignResource\Pages\ListCampaigns;
 use Odden\Filament\Resources\CompanyResource\Pages\ListCompanies;
 use Odden\Filament\Resources\ContactResource\Pages\ListContacts;
 use Odden\Filament\Resources\DealResource\Pages\ViewDeal;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\ListSalesSequences;
-use Odden\Filament\Resources\TicketResource\Pages\ListTickets;
 use Odden\Filament\Support\OddenPackages;
 use Odden\Filament\Tests\Fixtures\User;
-use Odden\Marketing\Enums\CampaignStatus;
-use Odden\Marketing\Models\Campaign;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\SalesSequence;
-use Odden\Service\Enums\TicketStatus;
-use Odden\Service\Models\Ticket;
 
 class ResourceActionAuthorizationTest extends TestCase
 {
@@ -113,80 +106,7 @@ class ResourceActionAuthorizationTest extends TestCase
         Livewire::actingAs(User::factory()->create())
             ->test(ListCompanies::class)
             ->assertTableActionHidden('merge', $company)
-            ->assertTableActionHidden('recalculateHealth', $company)
-            ->assertTableActionHidden('recalculateIntent', $company);
-    }
-
-    public function test_ticket_actions_are_hidden_when_policy_denies_update(): void
-    {
-        $this->denyAbilities([Ticket::class], ['update']);
-        $ticket = Ticket::create(['subject' => 'Broken', 'status' => TicketStatus::Open]);
-
-        Livewire::actingAs(User::factory()->create())
-            ->test(ListTickets::class)
-            ->assertTableActionHidden('resolveTicket', $ticket)
-            ->assertTableActionHidden('mergeTicket', $ticket)
-            ->assertTableActionHidden('routeTicket', $ticket);
-    }
-
-    public function test_campaign_send_actions_are_hidden_when_policy_denies_update(): void
-    {
-        $this->denyAbilities([Campaign::class], ['update']);
-        $campaign = Campaign::create([
-            'name' => 'Launch',
-            'subject' => 'Live now',
-            'sender_name' => 'Odden',
-            'sender_email' => 'news@odden.test',
-            'status' => CampaignStatus::Draft,
-        ]);
-
-        Livewire::actingAs(User::factory()->create())
-            ->test(ListCampaigns::class)
-            ->assertTableActionHidden('send', $campaign)
-            ->assertTableActionHidden('sendTestEmail', $campaign)
-            ->assertTableActionHidden('aiSubjectAssistant', $campaign);
-    }
-
-    public function test_send_now_does_not_run_when_mounted_directly_and_policy_denies_update(): void
-    {
-        $user = User::factory()->create();
-        $denied = $this->draftCampaign('Denied');
-
-        $this->denyAbilities([Campaign::class], ['update']);
-
-        Livewire::actingAs($user)
-            ->test(ListCampaigns::class)
-            ->call('mountAction', 'send', [], ['table' => true, 'recordKey' => (string) $denied->getKey()])
-            ->call('callMountedAction');
-
-        $this->assertSame(CampaignStatus::Draft, $denied->fresh()?->status);
-    }
-
-    public function test_send_now_runs_when_mounted_directly_without_a_policy(): void
-    {
-        $campaign = $this->draftCampaign('Allowed');
-
-        Livewire::actingAs(User::factory()->create())
-            ->test(ListCampaigns::class)
-            ->call('mountAction', 'send', [], ['table' => true, 'recordKey' => (string) $campaign->getKey()])
-            ->call('callMountedAction');
-
-        $this->assertSame(CampaignStatus::Sent, $campaign->fresh()?->status);
-    }
-
-    private function draftCampaign(string $name): Campaign
-    {
-        $list = CrmList::create(['name' => "{$name} audience", 'type' => 'static']);
-        $list->addMember(Contact::create(['first_name' => 'Ada', 'email' => strtolower($name).'@example.com']));
-
-        return Campaign::create([
-            'name' => $name,
-            'subject' => 'Live now',
-            'sender_name' => 'Odden',
-            'sender_email' => 'news@odden.test',
-            'list_id' => $list->id,
-            'status' => CampaignStatus::Draft,
-        ]);
+            ->assertTableActionHidden('recalculateHealth', $company);
     }
 
     public function test_mark_won_and_lost_are_hidden_when_policy_denies_update(): void
@@ -220,18 +140,12 @@ class ResourceActionAuthorizationTest extends TestCase
     public function test_custom_actions_are_visible_without_a_policy(): void
     {
         $contact = Contact::factory()->create();
-        $ticket = Ticket::create(['subject' => 'Broken', 'status' => TicketStatus::Open]);
 
         Livewire::actingAs(User::factory()->create())
             ->test(ListContacts::class)
             ->assertTableActionVisible('merge', $contact)
             ->assertTableActionVisible('run_playbook', $contact)
             ->assertTableActionVisible('route_lead', $contact);
-
-        Livewire::actingAs(User::factory()->create())
-            ->test(ListTickets::class)
-            ->assertTableActionVisible('resolveTicket', $ticket)
-            ->assertTableActionVisible('mergeTicket', $ticket);
 
         Livewire::actingAs(User::factory()->create())
             ->test(ListSalesSequences::class)

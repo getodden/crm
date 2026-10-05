@@ -125,16 +125,10 @@ Each custom page requires `viewAny` on every resource whose data it shows. If an
 
 | Page | Requires `viewAny` on |
 | --- | --- |
-| Executive Overview | `ContactResource`, `CompanyResource`, `DealResource`, `SalesQuotaResource`, `CampaignResource`, `TicketResource` |
+| Executive Overview | `ContactResource`, `CompanyResource`, `DealResource`, `SalesQuotaResource`, and each paid add-on's main resource (`CampaignResource`, `TicketResource`) when it is installed |
 | Data Quality | `ContactResource`, `CompanyResource` |
 | Sales Cockpit | `ContactResource`, `DealResource`, `QuoteResource`, `SalesSequenceResource` |
-| Support Cockpit, Service Analytics | `TicketResource` |
-| Marketing Cockpit | `CampaignResource`, `MarketingFormResource`, `MarketingWorkflowResource`, `ContactResource` |
-| ABM Cockpit | `CompanyResource` |
-| Attribution & ROI, Campaign Benchmarking, Campaign Calendar, Domain Health (SPF/DKIM) | `CampaignResource` |
-| UTM Link Builder | `CampaignResource`, `LandingPageResource` |
 | Pipeline Board (`/admin/deals/board`) | `DealResource` |
-| Tickets Board (`/admin/tickets/board`) | `TicketResource` |
 
 The page classes implement this with the `Odden\Filament\Pages\Concerns\AuthorizesPageAccess` trait, which overrides `canAccess()`.
 
@@ -146,16 +140,11 @@ The Livewire methods that change data authorize the record they change:
 | --- | --- | --- |
 | Data Quality | `mergeContacts()`, `mergeCompanies()` | `update` on the primary record and `delete` on the duplicate, which the merge soft-deletes |
 | Pipeline Board | `moveDeal()` | `update` on the deal |
-| Tickets Board | `moveTicket()` | `update` on the ticket |
-| Support Cockpit | `claimTicket()`, `claimAndOpen()`, `openReplyModal()`, `sendQuickReply()`, `openResolveModal()`, `quickResolveTicket()` | `update` on the ticket |
 | Sales Cockpit | `logQuickTouch()`, `openCallModal()`, `saveCallLog()`, `openMeetingModal()`, `saveMeetingLog()` | `update` on the contact; a meeting without a contact needs `create` on `Activity` |
 | Sales Cockpit | `advanceEnrollment()` | `update` on the contact and on the `SalesSequenceEnrollment` |
 | Sales Cockpit | `completeActivity()` | `update` on the `Activity` |
-| ABM Cockpit | `recalculateCompany()` | `update` on the company |
-| ABM Cockpit | `recalculateAll()` | `update` on every target account it would recalculate; if any is denied, nothing is recalculated |
-| Marketing Cockpit | `sendCampaignNow()` | `update` on the campaign |
 
-A denied check returns a 403, and an ID outside the resource's query returns a 404. In the Support Cockpit, **Claim** assigns the ticket to the signed-in user, and canned responses are limited to shared ones and the user's own (the ticket's **Add Reply / Note** action applies the same limit).
+A denied check returns a 403, and an ID outside the resource's query returns a 404. The paid add-ons (Marketing and Service) check the same abilities for the screens they add; their pages and actions are listed with each add-on.
 
 ## Resource actions
 
@@ -166,7 +155,7 @@ The custom row and header actions on the resources use Filament's `->authorize()
 | Contacts | **Playbook**, **Auto-Route** | `update` on the contact. Hidden when `getodden/crm-sales` isn't installed. |
 | Contacts, Companies | **Merge** | `update` on the record; `delete` on the selected duplicate (403 if denied) |
 | Contacts, Companies | **AI Briefing** | `view` on the record |
-| Companies | **Recalculate Health**, **Recalculate Intent** | `update` on the company |
+| Companies | **Recalculate Health** | `update` on the company |
 | Contact relation managers | **Enroll in Cadence**, **Adjust Score** | `update` on the contact |
 | Contact relation managers | **Advance Step**, **Unenroll** | `update` on the contact and on the enrollment |
 | Activities relation manager | **Complete** | `update` on the activity |
@@ -175,20 +164,11 @@ The custom row and header actions on the resources use Filament's `->authorize()
 | Deal Quotes relation manager | **Generate from Products** | `update` on the deal |
 | Sales Sequences | **Enroll Contact** | `update` on the sequence and on the selected contact |
 | Sales Sequences | **Process Due Cadences** | `update` on every active sequence, because it processes all of them |
-| Tickets | **Resolve**, **Auto-Route** | `update` on the ticket |
-| Tickets | **Merge** | `update` on the ticket and on the destination ticket |
-| Ticket Messages relation manager | **Add Reply / Note** | `update` on the ticket |
-| Campaigns | **Send Now**, **Pick Winner & Deploy**, **AI Copy Assistant**, **Send Test** (also on the edit page) | `update` on the campaign |
-| Campaigns | **Preview**, **Spam Audit** | `view` on the campaign |
-| Campaigns | **Duplicate** | `view` on the campaign and `create` for campaigns (`create` only on the edit page) |
-| Marketing Templates | **Send Test** (also on the edit page), **Apply Layout Preset**, **Evaluate A/B** | `update` on the template |
 | CRM Lists | **Sync** (table) and **Sync Members** (view page) | `update` on the list |
-| Marketing Subscriptions | **Restore / Resubscribe**, **Suppress** | `update` on the subscription |
-| Ad Audience Syncs | **Sync Now** | `update` on the sync |
 
 ## What isn't covered
 
-- **Data visibility on cockpits and dashboards.** Policies decide who can open a page, not which records it shows. Once a user can open a cockpit or dashboard, its counts, charts and lists cover all records. For example, the Sales Cockpit lets any user who can open it switch to another rep's view. The Support Cockpit, the board columns and the lookups by ID are limited to the resource's `getEloquentQuery()`, but `view` isn't checked per record.
-- **Read-only and link actions**, such as **Portal**, the marketing template **Preview**, **Revisions**, **Export HTML**, **Export MJML** and **Download ZIP**, **Embed Code**, **Embed Snippet**, **Copy URL**, **Visual Journey** and the deal health analysis. They are available to anyone who can open the page they're on.
+- **Data visibility on cockpits and dashboards.** Policies decide who can open a page, not which records it shows. Once a user can open a cockpit or dashboard, its counts, charts and lists cover all records. For example, the Sales Cockpit lets any user who can open it switch to another rep's view. The board columns and the lookups by ID are limited to the resource's `getEloquentQuery()`, but `view` isn't checked per record.
+- **Read-only and link actions**, such as the deal health analysis and the read-only previews and exports the paid add-ons add. They are available to anyone who can open the page they're on.
 
 If some panel users must not see everything, don't give them access to a panel that has `OddenPlugin` registered. Either limit who can access the panel with `canAccessPanel()`, or build a separate panel from only the resources you want, with your own subclasses. See [Customizing and extending](customizing.md).

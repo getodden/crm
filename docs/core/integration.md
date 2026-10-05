@@ -63,7 +63,7 @@ Route::group(RouteGroup::attributes('acme-crm.routes.webhooks'), function (): vo
 });
 ```
 
-The Marketing, Sales, and Service packages build their routes this way from `odden-marketing.routes.*`, `odden-sales.routes.web`, and `odden-service.routes.*`.
+The Sales package and the paid Marketing and Service add-ons build their routes this way from `odden-marketing.routes.*`, `odden-sales.routes.web`, and `odden-service.routes.*`.
 
 ## API token middleware
 

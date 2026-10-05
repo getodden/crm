@@ -11,11 +11,11 @@ Odden is an open-source CRM for Laravel, delivered as Composer packages. Instead
 | :--- | :--- |
 | [`getodden/crm-core`](core/index.md) | Contacts, companies, custom properties, associations, activities, lists, and the shared plumbing every module uses |
 | [`getodden/crm-sales`](sales/index.md) | Pipelines, deals, products, quotes, sequences, forecasting, and booking links |
-| [`getodden/crm-service`](service/index.md) | Tickets, SLAs, routing, a knowledge base, a customer portal, and a chat widget |
-| [`getodden/crm-marketing`](marketing/index.md) | Email campaigns, forms, landing pages, web tracking, lead scoring, workflows, and attribution |
 | [`getodden/crm-filament`](filament/index.md) | A Filament admin for every module you have installed |
 
-Every module requires Core, and Composer installs it for you. The modules don't depend on each other, so you can install Sales without Marketing, or Service on its own.
+Every module requires Core, and Composer installs it for you.
+
+**Odden Marketing** (campaigns, forms, landing pages, lead scoring, workflows, attribution) and **Odden Service** (tickets, SLAs, a knowledge base, a customer portal) are paid add-ons, licensed separately and not part of these open packages. They build on Core, plug into the Filament admin, and you can buy either or both: see [odden.io/pricing](https://odden.io/pricing).
 
 ## Two ways to use Odden
 

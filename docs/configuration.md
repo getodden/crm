@@ -3,11 +3,11 @@ title: Configuration
 description: Settings shared by every Odden module, including the user model, public routes, API tokens, and rate limits.
 ---
 
-Each package has its own config file (`odden-core`, `odden-sales`, `odden-service`, `odden-marketing`), published with `php artisan vendor:publish --tag=odden-<package>-config`. This page covers the settings that work the same way across all of them. Module-specific options are documented in each module's section.
+Each package has its own config file (`odden-core`, `odden-sales`), published with `php artisan vendor:publish --tag=odden-<package>-config`. This page covers the settings that work the same way across all of them. Module-specific options are documented in each module's section.
 
 ## The user model
 
-Odden links records to people on your team: deal owners, ticket assignees, activity authors. It uses your application's user model for this, resolved in this order:
+Odden links records to people on your team: deal owners, activity authors, and, with the paid add-ons, ticket assignees. It uses your application's user model for this, resolved in this order:
 
 1. `odden-core.user_model`, set with the `ODDEN_USER_MODEL` environment variable
 2. Your default auth provider's model (`auth.providers.users.model`)
@@ -20,24 +20,17 @@ The model only needs to be an Eloquent model. Where Odden shows a person's name,
 
 ## Public routes
 
-Sales, Service, and Marketing register routes for the things your customers use directly: quote acceptance and booking pages, the support portal and help center, hosted forms, landing pages, and tracking links. Each module has a `routes` block you can adjust:
+Sales registers routes for the things your customers use directly, such as quote acceptance and booking pages. The paid Marketing and Service add-ons do the same for hosted forms, landing pages, tracking links, the support portal and the help center, in the same way. Each module has a `routes` block you can adjust:
 
 ```php
-// config/odden-marketing.php
+// config/odden-sales.php
 'routes' => [
-    'enabled' => (bool) env('ODDEN_MARKETING_ROUTES_ENABLED', true),
+    'enabled' => (bool) env('ODDEN_SALES_ROUTES_ENABLED', true),
 
-    // Pages people visit: forms, landing pages, tracking and unsubscribe links.
+    // Pages people visit: quote acceptance and booking pages.
     'web' => [
-        'domain' => env('ODDEN_MARKETING_DOMAIN'),
-        'prefix' => env('ODDEN_MARKETING_PREFIX', ''),
-        'middleware' => ['web'],
-    ],
-
-    // Endpoints called by scripts and other servers.
-    'api' => [
-        'domain' => env('ODDEN_MARKETING_DOMAIN'),
-        'prefix' => env('ODDEN_MARKETING_API_PREFIX', 'api/marketing'),
+        'domain' => env('ODDEN_SALES_DOMAIN'),
+        'prefix' => env('ODDEN_SALES_PREFIX', ''),
         'middleware' => ['web'],
     ],
 ],
@@ -46,38 +39,36 @@ Sales, Service, and Marketing register routes for the things your customers use 
 | Module | Environment variables | Default `web` prefix | Default `api` prefix |
 | :--- | :--- | :--- | :--- |
 | Sales | `ODDEN_SALES_ROUTES_ENABLED`, `ODDEN_SALES_DOMAIN`, `ODDEN_SALES_PREFIX` | none | (no API group) |
-| Service | `ODDEN_SERVICE_ROUTES_ENABLED`, `ODDEN_SERVICE_DOMAIN`, `ODDEN_SERVICE_PREFIX`, `ODDEN_SERVICE_API_PREFIX` | none | `api/service` |
-| Marketing | `ODDEN_MARKETING_ROUTES_ENABLED`, `ODDEN_MARKETING_DOMAIN`, `ODDEN_MARKETING_PREFIX`, `ODDEN_MARKETING_API_PREFIX` | none | `api/marketing` |
+| Marketing and Service (paid add-ons) | `ODDEN_<MODULE>_ROUTES_ENABLED`, `ODDEN_<MODULE>_DOMAIN`, `ODDEN_<MODULE>_PREFIX`, `ODDEN_<MODULE>_API_PREFIX` | none | `api/<module>` |
 
 - Set `enabled` to `false` to register none of a module's routes, for example if you build your own pages on top of its actions.
-- Use `domain` to serve a module's pages from a subdomain, such as `help.example.com` for Service.
+- Use `domain` to serve a module's pages from a subdomain, such as `help.example.com`.
 - Use `prefix` to move them under a path, such as `crm`, if they clash with your own routes.
 
-Route names stay the same whatever the prefix or domain (for example `odden.marketing.forms.show`), so generate links with `route()` rather than hard-coding paths.
+Route names stay the same whatever the prefix or domain (for example `odden.quotes.show`), so generate links with `route()` rather than hard-coding paths.
 
 Endpoints that other sites or servers post to, such as embedded forms, the chat widget, tracking, and webhooks, are exempt from CSRF verification. Everything else uses the middleware you configure.
 
 ## API tokens
 
-Server-to-server endpoints, such as inbound email webhooks, deliverability webhooks, lead ingestion, and the transactional email API, are protected by a shared token per module:
+Server-to-server endpoints that a module adds (for example the inbound webhooks and sending APIs of the paid Marketing and Service add-ons) are protected by a shared token per module, set in an environment variable named in that module's documentation:
 
 ```env
-ODDEN_MARKETING_API_TOKEN=a-long-random-string
-ODDEN_SERVICE_API_TOKEN=another-long-random-string
+ODDEN_MODULE_API_TOKEN=a-long-random-string
 ```
 
 These endpoints fail closed: until a token is configured they respond with `403`. A request with a missing or wrong token gets `401`. The token can be sent in any of these ways, so you can use whichever the calling service supports:
 
 ```bash
 # Bearer token
-curl -X POST https://example.com/api/marketing/templates/welcome/send \
-  -H "Authorization: Bearer $ODDEN_MARKETING_API_TOKEN" -H "Accept: application/json" ...
+curl -X POST https://example.com/api/module/endpoint \
+  -H "Authorization: Bearer $ODDEN_MODULE_API_TOKEN" -H "Accept: application/json" ...
 
 # Custom header
-curl ... -H "X-Odden-Token: $ODDEN_MARKETING_API_TOKEN"
+curl ... -H "X-Odden-Token: $ODDEN_MODULE_API_TOKEN"
 
 # Query string, for providers that only accept a webhook URL
-https://example.com/api/marketing/webhooks/deliverability?token=...
+https://example.com/api/module/webhook?token=...
 ```
 
 Prefer a header: query strings can end up in access logs. Each module's pages say which of its endpoints need the token.

@@ -16,10 +16,6 @@ use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
 use Odden\Sales\Models\SalesQuota;
-use Odden\Service\Enums\TicketPriority;
-use Odden\Service\Enums\TicketSource;
-use Odden\Service\Enums\TicketStatus;
-use Odden\Service\Models\Ticket;
 
 class ExecutiveOverviewTest extends TestCase
 {
@@ -95,14 +91,6 @@ class ExecutiveOverviewTest extends TestCase
             'currency' => 'USD',
         ]);
 
-        Ticket::create([
-            'subject' => 'System Outage Alert',
-            'status' => TicketStatus::Open,
-            'priority' => TicketPriority::Urgent,
-            'source' => TicketSource::Email,
-            'is_sla_response_breached' => true,
-        ]);
-
         $component = Livewire::actingAs($user)
             ->test(ExecutiveOverview::class)
             ->assertSet('timeframe', 'quarter');
@@ -110,12 +98,6 @@ class ExecutiveOverviewTest extends TestCase
         $this->assertEquals(100000.0, $component->get('closedWonRevenue'));
         $this->assertEquals(200000.0, $component->get('totalRevenueQuota'));
         $this->assertEquals(50.0, $component->get('quotaAttainmentRate'));
-
-        $serviceKpis = $component->get('serviceKpis');
-        $this->assertIsArray($serviceKpis);
-        $this->assertEquals(1, $serviceKpis['open_tickets']);
-        $this->assertEquals(1, $serviceKpis['urgent_open']);
-        $this->assertEquals(1, $serviceKpis['sla_breaches']);
 
         // Switch timeframe
         $component->call('setTimeframe', 'year')

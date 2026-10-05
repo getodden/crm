@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Support;
 
-use Odden\Marketing\Models\Campaign;
 use Odden\Sales\Models\Deal;
-use Odden\Service\Models\Ticket;
 
 /**
  * Which optional Odden packages are installed alongside Core.
@@ -25,12 +23,12 @@ final class OddenPackages
 
     public static function hasService(): bool
     {
-        return self::$overrides['service'] ?? class_exists(Ticket::class);
+        return self::$overrides['service'] ?? class_exists('Odden\\Service\\Models\\Ticket');
     }
 
     public static function hasMarketing(): bool
     {
-        return self::$overrides['marketing'] ?? class_exists(Campaign::class);
+        return self::$overrides['marketing'] ?? class_exists('Odden\\Marketing\\Models\\Campaign');
     }
 
     /**

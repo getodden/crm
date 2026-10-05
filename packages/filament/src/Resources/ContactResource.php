@@ -41,17 +41,14 @@ use Odden\Filament\Resources\ContactResource\Pages\EditContact;
 use Odden\Filament\Resources\ContactResource\Pages\ListContacts;
 use Odden\Filament\Resources\ContactResource\Pages\ViewContact;
 use Odden\Filament\Resources\ContactResource\RelationManagers\CompaniesRelationManager;
-use Odden\Filament\Resources\ContactResource\RelationManagers\FormSubmissionsRelationManager;
-use Odden\Filament\Resources\ContactResource\RelationManagers\LeadScoreLogsRelationManager;
-use Odden\Filament\Resources\ContactResource\RelationManagers\MarketingCampaignsRelationManager;
 use Odden\Filament\Resources\ContactResource\RelationManagers\SalesSequenceEnrollmentsRelationManager;
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\OddenPackages;
-use Odden\Marketing\Models\Campaign;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\RouteLeadAction;
 use Odden\Sales\Models\Deal;
@@ -394,11 +391,8 @@ class ContactResource extends Resource
             $relations[] = SalesSequenceEnrollmentsRelationManager::class;
         }
 
-        if (class_exists(Campaign::class)) {
-            $relations[] = MarketingCampaignsRelationManager::class;
-            $relations[] = FormSubmissionsRelationManager::class;
-            $relations[] = LeadScoreLogsRelationManager::class;
-        }
+        // Added by the packages that are installed separately (Marketing).
+        array_push($relations, ...Modules::contactRelationManagers());
 
         $relations[] = ActivitiesRelationManager::class;
         $relations[] = PropertyHistoryRelationManager::class;

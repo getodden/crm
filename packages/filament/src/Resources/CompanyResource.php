@@ -39,8 +39,8 @@ use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
-use Odden\Marketing\Actions\CalculateCompanyIntentScoreAction;
 use Odden\Sales\Models\Deal;
 use UnitEnum;
 
@@ -176,21 +176,8 @@ class CompanyResource extends Resource
                             ->success()
                             ->send();
                     }),
-                Action::make('recalculateIntent')
-                    ->label('Recalculate Intent')
-                    ->icon(Heroicon::Bolt)
-                    ->color('warning')
-                    ->visible(fn (): bool => class_exists(CalculateCompanyIntentScoreAction::class))
-                    ->authorize(OddenAuthorization::forRecord('update', self::class))
-                    ->action(function (Company $record): void {
-                        app(CalculateCompanyIntentScoreAction::class)->execute($record);
-
-                        Notification::make()
-                            ->title('ABM Intent Updated')
-                            ->body("Intent score recalculated: {$record->intent_score} pts".($record->intent_surge ? ' (SURGING)' : ''))
-                            ->success()
-                            ->send();
-                    }),
+                // Added by the packages that are installed separately (Marketing: Recalculate Intent).
+                ...Modules::companyActions(),
                 Action::make('ai_briefing')
                     ->label('AI Briefing')
                     ->icon(Heroicon::Sparkles)

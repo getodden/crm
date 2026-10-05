@@ -29,17 +29,13 @@
         "laravel/framework": "^12.0 || ^13.0"
     },
     "require-dev": {
-        "getodden/crm-marketing": "self.version",
         "getodden/crm-sales": "self.version",
-        "getodden/crm-service": "self.version",
         "orchestra/testbench": "^10.0 || ^11.0",
         "pestphp/pest": "^3.8 || ^4.0 || ^5.0",
         "pestphp/pest-plugin-laravel": "^3.0 || ^4.0 || ^5.0"
     },
     "suggest": {
-        "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit",
-        "getodden/crm-service": "Adds Tickets, SLAs, Knowledge Articles, and the Service Cockpit",
-        "getodden/crm-marketing": "Adds Campaigns, Workflows, Forms, and the Marketing Cockpit"
+        "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit"
     },
     "repositories": [
         {
@@ -52,20 +48,6 @@
         {
             "type": "path",
             "url": "../sales",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
-            "url": "../service",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
-            "url": "../marketing",
             "options": {
                 "symlink": true
             }

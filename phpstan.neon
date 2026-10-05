@@ -6,9 +6,7 @@ parameters:
         - app
         - packages/core/src
         - packages/filament/src
-        - packages/marketing/src
         - packages/sales/src
-        - packages/service/src
 
     # The level 8 is the highest level before 9 (mixed type enforcement)
     level: 8

@@ -20,14 +20,12 @@ use Illuminate\Support\Facades\Gate;
 use Kirschbaum\PowerJoins\PowerJoinsServiceProvider;
 use Livewire\LivewireServiceProvider;
 use Odden\Core\CoreServiceProvider;
+use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenPackages;
 use Odden\Filament\Tests\Fixtures\AdminPanelProvider;
 use Odden\Filament\Tests\Fixtures\ConfigurablePolicy;
 use Odden\Filament\Tests\Fixtures\User;
-use Odden\MailBuilder\MailBuilderServiceProvider;
-use Odden\Marketing\MarketingServiceProvider;
 use Odden\Sales\SalesServiceProvider;
-use Odden\Service\ServiceHubServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
@@ -36,10 +34,19 @@ use function Orchestra\Testbench\default_migration_path;
 
 abstract class TestCase extends Orchestra
 {
+    protected function setUp(): void
+    {
+        // The registry is static, so a package left over from an earlier test must not leak into this one.
+        Modules::flush();
+
+        parent::setUp();
+    }
+
     protected function tearDown(): void
     {
         ConfigurablePolicy::$denied = [];
         OddenPackages::reset();
+        Modules::flush();
 
         parent::tearDown();
     }
@@ -84,9 +91,6 @@ abstract class TestCase extends Orchestra
             FilamentServiceProvider::class,
             CoreServiceProvider::class,
             SalesServiceProvider::class,
-            ServiceHubServiceProvider::class,
-            MailBuilderServiceProvider::class,
-            MarketingServiceProvider::class,
             \Odden\Filament\FilamentServiceProvider::class,
             AdminPanelProvider::class,
         ];

@@ -11,14 +11,12 @@ use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\CrmList;
 use Odden\Core\Models\PropertyDefinition;
-use Odden\Marketing\Database\Seeders\MarketingDatabaseSeeder;
 use Odden\Sales\Database\Seeders\SalesDatabaseSeeder;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\DealStageHistory;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
-use Odden\Service\Database\Seeders\ServiceDatabaseSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -191,7 +189,5 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(SalesDatabaseSeeder::class);
-        $this->call(ServiceDatabaseSeeder::class);
-        $this->call(MarketingDatabaseSeeder::class);
     }
 }

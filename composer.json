@@ -16,8 +16,6 @@
         "getodden/crm-core": "^0.2@dev",
         "getodden/crm-filament": "^0.2@dev",
         "getodden/crm-sales": "^0.2@dev",
-        "getodden/crm-service": "^0.2@dev",
-        "getodden/crm-marketing": "^0.2@dev",
         "getodden/mail": "^2.0",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0"
@@ -31,9 +29,7 @@
                 "versions": {
                     "getodden/crm-core": "0.2.x-dev",
                     "getodden/crm-filament": "0.2.x-dev",
-                    "getodden/crm-marketing": "0.2.x-dev",
-                    "getodden/crm-sales": "0.2.x-dev",
-                    "getodden/crm-service": "0.2.x-dev"
+                    "getodden/crm-sales": "0.2.x-dev"
                 }
             }
         }
