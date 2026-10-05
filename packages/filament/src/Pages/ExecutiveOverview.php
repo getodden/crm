@@ -16,17 +16,13 @@ use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Pages\Concerns\AuthorizesPageAccess;
-use Odden\Filament\Resources\CampaignResource;
 use Odden\Filament\Resources\CompanyResource;
 use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\SalesQuotaResource;
-use Odden\Filament\Resources\TicketResource;
-use Odden\Marketing\Actions\GetCampaignAttributionAction;
-use Odden\Marketing\Models\Campaign;
+use Odden\Filament\Support\Modules;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesQuota;
-use Odden\Service\Models\Ticket;
 use UnitEnum;
 
 class ExecutiveOverview extends Page
@@ -57,9 +53,18 @@ class ExecutiveOverview extends Page
             CompanyResource::class,
             DealResource::class,
             SalesQuotaResource::class,
-            CampaignResource::class,
-            TicketResource::class,
+            ...Modules::authorizationResources(),
         ];
+    }
+
+    /**
+     * The summary cards that separately installed packages (Marketing, Service) add to the cross-hub row.
+     *
+     * @return list<array{view: string, data: array<string, mixed>, position: 'before'|'after'}>
+     */
+    public function getExecutiveCardsProperty(): array
+    {
+        return Modules::executiveCards();
     }
 
     public function setTimeframe(string $timeframe): void
@@ -304,68 +309,6 @@ class ExecutiveOverview extends Page
     // CROSS-HUB STRATEGIC HEALTH
     // ==========================================
 
-    /**
-     * @return array{
-     *     campaigns_count: int,
-     *     total_delivered: int,
-     *     avg_open_rate: float,
-     *     avg_click_rate: float
-     * }
-     */
-    public function getMarketingKpisProperty(): array
-    {
-        if (! class_exists(Campaign::class)) {
-            return ['campaigns_count' => 0, 'total_delivered' => 0, 'avg_open_rate' => 0.0, 'avg_click_rate' => 0.0];
-        }
-
-        $campaignsCount = Campaign::query()->where('status', 'sent')->count();
-        $delivered = (int) Campaign::query()->sum('delivered_count');
-        $uniqueOpens = (int) Campaign::query()->sum('unique_opens_count');
-        $uniqueClicks = (int) Campaign::query()->sum('unique_clicks_count');
-
-        $openRate = $delivered > 0 ? round(($uniqueOpens / $delivered) * 100, 1) : 0.0;
-        $clickRate = $delivered > 0 ? round(($uniqueClicks / $delivered) * 100, 1) : 0.0;
-
-        return [
-            'campaigns_count' => $campaignsCount,
-            'total_delivered' => $delivered,
-            'avg_open_rate' => $openRate,
-            'avg_click_rate' => $clickRate,
-        ];
-    }
-
-    /**
-     * @return array{
-     *     open_tickets: int,
-     *     urgent_open: int,
-     *     sla_breaches: int,
-     *     avg_csat: float,
-     *     sla_compliance_rate: float
-     * }
-     */
-    public function getServiceKpisProperty(): array
-    {
-        if (! class_exists(Ticket::class)) {
-            return ['open_tickets' => 0, 'urgent_open' => 0, 'sla_breaches' => 0, 'avg_csat' => 5.0, 'sla_compliance_rate' => 100.0];
-        }
-
-        $openTickets = Ticket::query()->whereNotIn('status', ['resolved', 'closed'])->count();
-        $urgentOpen = Ticket::query()->whereNotIn('status', ['resolved', 'closed'])->whereIn('priority', ['urgent', 'high'])->count();
-        $slaBreaches = Ticket::query()->where('is_sla_response_breached', true)->orWhere('is_sla_resolution_breached', true)->count();
-        $avgCsat = round((float) (Ticket::query()->whereNotNull('csat_rating')->avg('csat_rating') ?? 4.8), 2);
-
-        $totalEvaluated = max(1, Ticket::query()->count());
-        $complianceRate = round((($totalEvaluated - $slaBreaches) / $totalEvaluated) * 100, 1);
-
-        return [
-            'open_tickets' => $openTickets,
-            'urgent_open' => $urgentOpen,
-            'sla_breaches' => $slaBreaches,
-            'avg_csat' => $avgCsat,
-            'sla_compliance_rate' => max(0.0, $complianceRate),
-        ];
-    }
-
     // ==========================================
     // EXECUTIVE ATTENTION RADAR
     // ==========================================
@@ -530,47 +473,5 @@ class ExecutiveOverview extends Page
         usort($leaderboard, fn (array $a, array $b): int => $b['attainment'] <=> $a['attainment']);
 
         return array_slice($leaderboard, 0, 5);
-    }
-
-    /**
-     * Top marketing campaigns driving pipeline and closed revenue.
-     *
-     * @return array<int, array{
-     *     name: string,
-     *     status: string,
-     *     budget: float,
-     *     actual_cost: float,
-     *     won_revenue: float,
-     *     pipeline_value: float,
-     *     roi: float
-     * }>
-     */
-    public function getTopRevenueCampaignsProperty(): array
-    {
-        if (! class_exists(Campaign::class) || ! class_exists(GetCampaignAttributionAction::class)) {
-            return [];
-        }
-
-        $campaigns = Campaign::query()->where('status', 'sent')->limit(5)->get();
-        $action = app(GetCampaignAttributionAction::class);
-
-        $results = [];
-        foreach ($campaigns as $campaign) {
-            $attr = $action->execute($campaign);
-
-            $results[] = [
-                'name' => $campaign->name,
-                'status' => $campaign->status->value,
-                'budget' => (float) ($campaign->budget ?? 0),
-                'actual_cost' => (float) ($campaign->actual_cost ?? 0),
-                'won_revenue' => $attr['won_revenue'],
-                'pipeline_value' => $attr['pipeline_value'],
-                'roi' => $attr['roi_percentage'],
-            ];
-        }
-
-        usort($results, fn (array $a, array $b): int => $b['won_revenue'] <=> $a['won_revenue']);
-
-        return $results;
     }
 }

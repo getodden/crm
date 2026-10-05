@@ -7,16 +7,23 @@ namespace Odden\Filament\Tests;
 use Filament\Panel;
 use InvalidArgumentException;
 use Odden\Filament\OddenPlugin;
-use Odden\Filament\Pages\MarketingCockpit;
 use Odden\Filament\Pages\SalesCockpit;
-use Odden\Filament\Pages\ServiceCockpit;
-use Odden\Filament\Resources\CampaignResource;
 use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Resources\DealResource;
-use Odden\Filament\Resources\TicketResource;
+use Odden\Filament\Support\Modules;
 
 class OddenPluginOptionsTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Stand-ins for the separately installed packages, which register themselves the same way.
+        Modules::flush();
+        Modules::register('marketing', resources: ['Fake\\CampaignResource'], pages: ['Fake\\MarketingCockpit']);
+        Modules::register('service', resources: ['Fake\\TicketResource'], pages: ['Fake\\ServiceCockpit']);
+    }
+
     private function registeredPanel(OddenPlugin $plugin): Panel
     {
         $panel = Panel::make()->id('plugin-options-test')->path('plugin-options-test');
@@ -30,8 +37,8 @@ class OddenPluginOptionsTest extends TestCase
         $panel = $this->registeredPanel(OddenPlugin::make());
 
         $this->assertContains(DealResource::class, $panel->getResources());
-        $this->assertContains(TicketResource::class, $panel->getResources());
-        $this->assertContains(CampaignResource::class, $panel->getResources());
+        $this->assertContains('Fake\\TicketResource', $panel->getResources());
+        $this->assertContains('Fake\\CampaignResource', $panel->getResources());
         $this->assertContains(SalesCockpit::class, $panel->getPages());
     }
 
@@ -41,10 +48,21 @@ class OddenPluginOptionsTest extends TestCase
 
         $this->assertContains(DealResource::class, $panel->getResources());
         $this->assertContains(SalesCockpit::class, $panel->getPages());
-        $this->assertNotContains(CampaignResource::class, $panel->getResources());
-        $this->assertNotContains(MarketingCockpit::class, $panel->getPages());
-        $this->assertNotContains(TicketResource::class, $panel->getResources());
-        $this->assertNotContains(ServiceCockpit::class, $panel->getPages());
+        $this->assertNotContains('Fake\\CampaignResource', $panel->getResources());
+        $this->assertNotContains('Fake\\MarketingCockpit', $panel->getPages());
+        $this->assertNotContains('Fake\\TicketResource', $panel->getResources());
+        $this->assertNotContains('Fake\\ServiceCockpit', $panel->getPages());
+    }
+
+    public function test_a_package_that_is_not_installed_adds_nothing(): void
+    {
+        Modules::flush();
+
+        $panel = $this->registeredPanel(OddenPlugin::make());
+
+        $this->assertContains(DealResource::class, $panel->getResources());
+        $this->assertNotContains('Fake\\TicketResource', $panel->getResources());
+        $this->assertNotContains('Fake\\CampaignResource', $panel->getResources());
     }
 
     public function test_unknown_modules_are_rejected(): void

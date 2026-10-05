@@ -9,12 +9,10 @@ use Livewire\Livewire;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Pages\DataQuality;
-use Odden\Filament\Pages\ServiceCockpit;
+use Odden\Filament\Pages\SalesCockpit;
 use Odden\Filament\Resources\DealResource\Pages\KanbanDeals;
 use Odden\Filament\Tests\Fixtures\User;
-use Odden\Marketing\Models\Campaign;
 use Odden\Sales\Models\Deal;
-use Odden\Service\Models\Ticket;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class PageAuthorizationTest extends TestCase
@@ -33,17 +31,7 @@ class PageAuthorizationTest extends TestCase
             'data quality (contacts)' => ['/admin/data-quality', Contact::class],
             'data quality (companies)' => ['/admin/data-quality', Company::class],
             'sales cockpit' => ['/admin/sales-cockpit', Deal::class],
-            'service cockpit' => ['/admin/service-cockpit', Ticket::class],
-            'service analytics' => ['/admin/service-analytics', Ticket::class],
-            'marketing cockpit' => ['/admin/marketing-cockpit', Campaign::class],
-            'abm cockpit' => ['/admin/abm-cockpit', Company::class],
-            'marketing attribution' => ['/admin/marketing-attribution', Campaign::class],
-            'campaign benchmarking' => ['/admin/campaign-benchmarking', Campaign::class],
-            'marketing calendar' => ['/admin/marketing-calendar', Campaign::class],
-            'utm link builder' => ['/admin/utm-link-builder', Campaign::class],
-            'sender domain health' => ['/admin/sender-domain-health', Campaign::class],
             'deal board' => ['/admin/deals/board', Deal::class],
-            'ticket board' => ['/admin/tickets/board', Ticket::class],
         ];
     }
 
@@ -71,17 +59,17 @@ class PageAuthorizationTest extends TestCase
 
     public function test_pages_are_hidden_from_navigation_when_policy_denies_view_any(): void
     {
-        $this->denyAbilities([Ticket::class, Contact::class, Deal::class], ['viewAny']);
+        $this->denyAbilities([Contact::class, Deal::class], ['viewAny']);
 
         $this->actingAs(User::factory()->create());
 
-        $this->assertFalse(ServiceCockpit::canAccess());
+        $this->assertFalse(SalesCockpit::canAccess());
         $this->assertFalse(DataQuality::canAccess());
         $this->assertFalse(KanbanDeals::canAccess());
 
         $this->get('/admin/contacts')->assertForbidden();
         $this->get('/admin')->assertSuccessful()
-            ->assertDontSee('Support Cockpit')
+            ->assertDontSee('Sales Cockpit')
             ->assertDontSee('Data Quality');
     }
 
@@ -89,16 +77,16 @@ class PageAuthorizationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)->test(ServiceCockpit::class);
+        $component = Livewire::actingAs($user)->test(SalesCockpit::class);
 
-        $this->denyAbilities([Ticket::class], ['viewAny']);
+        $this->denyAbilities([Deal::class], ['viewAny']);
 
-        $component->call('setActiveTab', 'all')->assertForbidden();
+        $component->call('setTab', 'all')->assertForbidden();
     }
 
     public function test_pages_require_an_authenticated_user(): void
     {
-        $this->assertFalse(ServiceCockpit::canAccess());
+        $this->assertFalse(SalesCockpit::canAccess());
         $this->assertFalse(DataQuality::canAccess());
     }
 }

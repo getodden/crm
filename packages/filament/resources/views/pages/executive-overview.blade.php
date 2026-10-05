@@ -732,32 +732,11 @@
 
         {{-- Cross-Hub Strategic Summary (Marketing, Sales, Service) --}}
         <div class="exec-grid-3">
-            {{-- Marketing Summary --}}
-            @php $mktg = $this->marketingKpis; @endphp
-            <div class="exec-card">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-                    <x-filament::icon icon="heroicon-m-megaphone" style="width: 1.25rem; height: 1.25rem; color: #6366f1;" />
-                    <h4 style="font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Marketing Engine</h4>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.75rem;">
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">Active Campaigns:</span>
-                        <strong>{{ $mktg['campaigns_count'] }}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">Delivered Volume:</span>
-                        <strong>{{ number_format($mktg['total_delivered']) }}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">Average Open Rate:</span>
-                        <strong style="color: #10b981;">{{ $mktg['avg_open_rate'] }}%</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="color: #64748b;">Average Click Rate:</span>
-                        <strong style="color: #6366f1;">{{ $mktg['avg_click_rate'] }}%</strong>
-                    </div>
-                </div>
-            </div>
+            @foreach ($this->executiveCards as $card)
+                @if ($card['position'] === 'before')
+                    @include($card['view'], $card['data'])
+                @endif
+            @endforeach
 
             {{-- Sales Summary --}}
             <div class="exec-card">
@@ -785,32 +764,11 @@
                 </div>
             </div>
 
-            {{-- Service Summary --}}
-            @php $srv = $this->serviceKpis; @endphp
-            <div class="exec-card">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-                    <x-filament::icon icon="heroicon-m-lifebuoy" style="width: 1.25rem; height: 1.25rem; color: #f43f5e;" />
-                    <h4 style="font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Service & CSAT</h4>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.75rem;">
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">SLA Compliance:</span>
-                        <strong style="color: #10b981;">{{ $srv['sla_compliance_rate'] }}%</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">CSAT Score:</span>
-                        <strong style="color: #f59e0b;">{{ $srv['avg_csat'] }} / 5.0 ★</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
-                        <span style="color: #64748b;">Open Tickets:</span>
-                        <strong>{{ $srv['open_tickets'] }}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="color: #64748b;">Urgent Open:</span>
-                        <strong style="color: {{ $srv['urgent_open'] > 0 ? '#f43f5e' : 'inherit' }};">{{ $srv['urgent_open'] }}</strong>
-                    </div>
-                </div>
-            </div>
+            @foreach ($this->executiveCards as $card)
+                @if ($card['position'] === 'after')
+                    @include($card['view'], $card['data'])
+                @endif
+            @endforeach
         </div>
 
         {{-- Executive Attention Radar (Deals & At-Risk Accounts) --}}
