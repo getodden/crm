@@ -26,6 +26,10 @@ php artisan migrate
 
 All Odden tables are prefixed with `odden_`. Table names are configurable per package (the `tables` key in each config file) if they would clash with your own.
 
+## Paid add-ons
+
+Odden Marketing, Odden Service, and Odden CRM Pro are private packages installed with a license key. See [Install a paid add-on](paid-add-ons.md).
+
 ## Add the Filament admin
 
 ```bash
