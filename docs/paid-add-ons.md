@@ -1,9 +1,9 @@
 ---
 title: Install a paid add-on
-description: Install Odden Marketing, Odden Service, or Odden CRM Pro with your license key, set up the license check, and keep the add-ons updated.
+description: Install Odden Marketing or Odden Service with your license key, set up the license check, and keep the add-ons updated.
 ---
 
-Odden Marketing, Odden Service, and Odden CRM Pro (the AI features) are private packages. Composer downloads them from `packages.odden.io`, a registry that checks your license key. Everything else about installing them is the same as the open packages: they register themselves, load their own migrations, and need the open [Core](core/index.md) package.
+Odden Marketing and Odden Service are private packages, and both include the AI features. Composer downloads them from `packages.odden.io`, a registry that checks your license key. Everything else about installing them is the same as the open packages: they register themselves, load their own migrations, and need the open [Core](core/index.md) package.
 
 ## What you get when you buy
 
@@ -15,10 +15,9 @@ Right after you pay, you get an email with your **license key**, or one key for 
 | --- | --- |
 | Odden Marketing | `getodden/crm-marketing` |
 | Odden Service | `getodden/crm-service` |
-| Odden CRM Pro (AI) | `getodden/crm-pro` |
-| The Suite | all three |
+| The Suite | both |
 
-Every paid package also installs `getodden/crm-license`, which handles the license check. A key only downloads the packages it covers: asking for another one answers "not found". Products bought together share one key; a product bought later is a separate purchase, so write to support@odden.io and we will add it to your existing key.
+Every paid package also installs `getodden/crm-license`, which handles the license check, and `getodden/crm-pro`, the engine behind the [AI features](https://odden.io/docs/marketing/ai) that both add-ons include. You do not install or buy it separately. A key only downloads the packages it covers: asking for another one answers "not found". Products bought together share one key; a product bought later is a separate purchase, so write to support@odden.io and we will add it to your existing key.
 
 The email also has a button, **Add my licenses to my account**. It works once and expires after 30 days, so use it soon. See [Your license dashboard](#your-license-dashboard).
 
@@ -63,7 +62,6 @@ Require only what you bought:
 ```bash
 composer require getodden/crm-marketing
 composer require getodden/crm-service
-composer require getodden/crm-pro
 ```
 
 Then run the migrations, as for any Odden package:
@@ -74,7 +72,7 @@ php artisan migrate
 
 If you use the [Filament admin](filament/index.md), the paid modules add their screens to it by themselves.
 
-The paid packages need PHP 8.3 or newer, Laravel 12 or 13, and the open `getodden/crm-core` (Composer installs it for you). Each add-on's own documentation lists what to schedule and configure: Marketing and Service have their own commands to add to `routes/console.php`, and Pro runs on [your own Anthropic key](#odden-crm-pro-uses-your-own-ai-key).
+The paid packages need PHP 8.3 or newer, Laravel 12 or 13, and the open `getodden/crm-core` (Composer installs it for you). Each add-on's own documentation lists what to schedule and configure: Marketing and Service have their own commands to add to `routes/console.php`, and the AI features run on [your own Anthropic key](#the-ai-features-use-your-own-ai-key).
 
 ## 4. Set the key on your live site
 
@@ -116,7 +114,7 @@ A license decides one thing: **which new versions you can install with Composer.
 Update as usual:
 
 ```bash
-composer update getodden/crm-marketing getodden/crm-service getodden/crm-pro
+composer update getodden/crm-marketing getodden/crm-service
 php artisan migrate
 ```
 
@@ -142,9 +140,9 @@ Each production site needs its own license and its own key:
 
 Install each site with its own key in its own `ODDEN_LICENSE_KEY`. They can all share one `auth.json`, since any valid key can download what it covers.
 
-## Odden CRM Pro uses your own AI key
+## The AI features use your own AI key
 
-Pro's AI features run on **your** Anthropic key, so nothing about them is billed by Odden. Set `ODDEN_AI_API_KEY` in your environment. Without it every AI feature falls back to the built-in version, and nothing breaks.
+The AI features that come with Marketing and Service run on **your** Anthropic key, so nothing about them is billed by Odden. Set `ODDEN_AI_API_KEY` in your environment. Without it every AI feature falls back to the built-in version, and nothing breaks.
 
 ## Troubleshooting
 
