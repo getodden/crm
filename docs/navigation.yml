@@ -4,6 +4,7 @@
   pages:
     - index
     - installation
+    - paid-add-ons
     - configuration
 
 - title: Core
