@@ -120,6 +120,14 @@ php artisan migrate
 
 A version released after your updates ended answers "Your license does not include this version". Renewing makes the newer versions available again.
 
+## Version 0.9 and earlier
+
+Odden Marketing and Odden Service were released as open source under the MIT license up to version 0.9. Those releases remain MIT-licensed, and you may keep using, modifying and redistributing them under that license.
+
+Version 0.9 is the last open release. It is frozen: we do not maintain it, and it will not get new features, bug fixes or security updates. It is available in the public [`getodden/crm`](https://github.com/getodden/crm) repository at the `v0.9.0` tag.
+
+The paid add-ons are the maintained versions. A license gives you every new version released while it is current, including fixes, the AI features, and support at support@odden.io. If you run 0.9 in production, plan to move to the paid add-on to receive security and compatibility updates.
+
 ## Your license dashboard
 
 The **Add my licenses to my account** button in your email takes you to Odden Cloud, where you sign in or create an account and add the licenses to it. From the dashboard at `cloud.odden.io/licenses` you can:
