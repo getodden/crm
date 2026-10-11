@@ -94,6 +94,7 @@ Other options in `config/odden-core.php`:
 | `tables` | `odden_*` names | Table names for Core's models |
 | `auto_associate_companies` | `false` | Associate new contacts with a company that matches their email domain |
 | `freemail_domains` | `[]` | Extra consumer email domains to never treat as a company domain |
+| `email_validation.*` | on | Record an email status for every contact; see [Email validation](core/email-validation.md) |
 | `lifecycle.strict_transitions` | `false` | Only allow contacts to move forward through lifecycle stages |
 | `enrichment.driver` | `heuristic` (`ODDEN_ENRICHMENT_DRIVER`) | Driver for company enrichment |
 | `enrichment.auto_enrich` | `false` | Enrich companies automatically |
