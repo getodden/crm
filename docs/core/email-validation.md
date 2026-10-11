@@ -25,6 +25,7 @@ Each status can carry a reason, stored in `email_status_reason`:
 | `disposable` | risky | A throwaway-inbox provider, including its subdomains |
 | `role` | risky | A shared mailbox such as `info@` or `support@`; `support+billing@` counts as `support@` |
 | `dns_unavailable` | unknown | The lookup could not be completed; try again later |
+| `bounced` | invalid | A message to this address bounced. Set by the Marketing add-on from delivery events; a re-check never clears it, only a change of address does |
 | `not_checked` | unknown | Only the offline checks have run |
 
 `email_checked_at` records when the address was last checked.
