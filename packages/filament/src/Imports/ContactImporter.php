@@ -132,7 +132,8 @@ class ContactImporter extends Importer
      */
     protected function beforeSave(): void
     {
-        if (! config('odden-core.email_validation.enabled', true) || ! $this->record instanceof Contact) {
+        // A bounce is evidence from a real delivery attempt; re-importing the address must not check it away.
+        if (! config('odden-core.email_validation.enabled', true) || ! $this->record instanceof Contact || $this->record->hasBounced()) {
             return;
         }
 

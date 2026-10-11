@@ -150,6 +150,21 @@ class ContactImporterTest extends TestCase
         $this->assertSame('Hopper', $existing->last_name);
     }
 
+    public function test_updating_a_bounced_contact_keeps_its_bounced_status(): void
+    {
+        $existing = Contact::factory()->create(['email' => 'grace@navy.mil', 'first_name' => 'Original']);
+        $existing->forceFill(['email_status' => EmailStatus::Invalid, 'email_status_reason' => EmailStatusReason::Bounced])->saveQuietly();
+
+        ContactImporter::test(options: ['existing' => 'update'])
+            ->import(['email' => 'grace@navy.mil', 'first_name' => 'Changed'])
+            ->assertImported();
+
+        $existing->refresh();
+
+        $this->assertSame('Changed', $existing->first_name);
+        $this->assertTrue($existing->hasBounced());
+    }
+
     public function test_a_duplicate_within_one_file_is_reported_not_created_twice(): void
     {
         $importer = ContactImporter::test();
