@@ -17,6 +17,7 @@
     - core/lifecycle-stages
     - core/lists
     - core/duplicates-and-merging
+    - core/email-validation
     - core/events
     - core/integration
 
