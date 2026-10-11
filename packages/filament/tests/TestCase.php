@@ -100,6 +100,9 @@ abstract class TestCase extends Orchestra
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['config']->set('auth.providers.users.model', User::class);
+
+        // Import batches are written to job_batches on the connection the tests run on.
+        $app['config']->set('queue.batching.database', $app['config']->get('database.default'));
     }
 
     /**
@@ -111,6 +114,7 @@ abstract class TestCase extends Orchestra
     {
         after_resolving($this->app, 'migrator', static function ($migrator): void {
             $migrator->path(default_migration_path());
+            $migrator->path(__DIR__.'/Fixtures/migrations');
         });
     }
 }

@@ -39,6 +39,7 @@
     - filament/configuration
     - filament/resources
     - filament/pages
+    - filament/importing-contacts
     - filament/custom-properties
     - filament/authorization
     - filament/modules
