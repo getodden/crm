@@ -114,7 +114,7 @@ abstract class TestCase extends Orchestra
     {
         after_resolving($this->app, 'migrator', static function ($migrator): void {
             $migrator->path(default_migration_path());
-            $migrator->path(dirname(__DIR__).'/vendor/filament/actions/database/migrations');
+            $migrator->path(__DIR__.'/Fixtures/migrations');
         });
     }
 }
