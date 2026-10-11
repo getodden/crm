@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\MergeContactsAction;
 use Odden\Core\Contracts\SummarizesTimeline;
 use Odden\Core\Contracts\TenantContext;
+use Odden\Core\Enums\EmailStatus;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Contact;
@@ -148,6 +149,15 @@ class ContactResource extends Resource
                     ->label('Email')
                     ->copyable()
                     ->searchable(),
+                TextColumn::make('email_status')
+                    ->label('Email Status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): ?string => $state instanceof EmailStatus ? $state->label() : null)
+                    ->color(fn ($state): string => $state instanceof EmailStatus ? $state->color() : 'gray')
+                    ->tooltip(fn (Contact $record): ?string => $record->email_status_reason?->label())
+                    ->placeholder('Not checked')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('phone')
                     ->label('Phone')
                     ->searchable(),
@@ -216,6 +226,19 @@ class ContactResource extends Resource
                     ->options(collect(LifecycleStage::cases())->mapWithKeys(
                         fn (LifecycleStage $stage) => [$stage->value => $stage->label()]
                     )),
+                SelectFilter::make('email_status')
+                    ->label('Email Status')
+                    ->options([
+                        ...collect(EmailStatus::cases())->mapWithKeys(
+                            fn (EmailStatus $status) => [$status->value => $status->label()]
+                        )->all(),
+                        'unchecked' => 'Not checked',
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        'unchecked' => $query->whereNull('email_status'),
+                        default => $query->where('email_status', $data['value']),
+                    }),
                 TrashedFilter::make(),
             ])
             ->recordActions([

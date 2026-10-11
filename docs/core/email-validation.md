@@ -30,6 +30,8 @@ Each status can carry a reason, stored in `email_status_reason`:
 
 `email_checked_at` records when the address was last checked.
 
+In the admin panel the contact list shows the status as a column, with the reason as a tooltip, and can be filtered by it.
+
 ## When it runs
 
 - **Every create and every change of address.** The contact model records the offline checks, so contacts created by the portal, chat, inbound mail, booking and imports all get a status. An address that changes is checked again, so a status is never carried over to a different address.

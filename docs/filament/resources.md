@@ -22,7 +22,7 @@ The custom actions listed here check your model policies when you register them.
 
 The contact form has **Contact Details** (name, job title, email, phone, LinkedIn URL, lifecycle stage, lead status, owner), **Marketing & Lead Qualification** (lead score, email verified date, last marketing email), and a **Custom Properties** section when contact properties are defined (see [Custom properties in forms](custom-properties.md)).
 
-The table filters on lead status, lifecycle stage and trashed records. Contacts are soft-deleted, so you also get bulk restore and force-delete.
+The table has an **Email Status** column (valid, risky, invalid, or "Not checked") with the reason as a tooltip, and the column can be sorted or hidden. It filters on email status (including "Not checked"), lead status, lifecycle stage and trashed records. See [Email validation](../core/email-validation.md) for what each status means. Contacts are soft-deleted, so you also get bulk restore and force-delete.
 
 Row actions:
 
