@@ -11,12 +11,16 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Sales\Actions\CalculateDealHealthScoreAction;
 use Odden\Sales\Actions\CalculatePipelineForecastAction;
 use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
 
+/**
+ * @property-read Collection<int, PipelineStage> $stages
+ */
 class KanbanDeals extends Page
 {
     protected static string $resource = DealResource::class;
@@ -70,6 +74,16 @@ class KanbanDeals extends Page
                 ->orderBy('created_at', 'desc')])
             ->orderBy('sort_order')
             ->get();
+    }
+
+    /**
+     * Health scores of every deal on the board, keyed by deal id, scored in one batch rather than per card.
+     *
+     * @return array<int|string, array{score: int, status: string, badge_label: string, badge_color: string, factors: list<array{name: string, points: int, positive: bool, description: string}>, recommendations: list<string>}>
+     */
+    public function getHealthScoresProperty(): array
+    {
+        return app(CalculateDealHealthScoreAction::class)->executeMany($this->stages->flatMap(fn (PipelineStage $stage) => $stage->deals));
     }
 
     public function getTotalPipelineValueProperty(): float

@@ -13,6 +13,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Odden\Sales\Support\Money;
 
 class DealProductsRelationManager extends RelationManager
 {
@@ -40,7 +41,7 @@ class DealProductsRelationManager extends RelationManager
             TextInput::make('unit_price')
                 ->label('Unit Price')
                 ->numeric()
-                ->prefix('$')
+                ->prefix(fn (): string => Money::prefix($this->getOwnerRecord()->getAttribute('currency')))
                 ->required(),
             TextInput::make('quantity')
                 ->label('Quantity')
@@ -78,7 +79,7 @@ class DealProductsRelationManager extends RelationManager
                     ->placeholder('-'),
                 TextColumn::make('unit_price')
                     ->label('Unit Price')
-                    ->money(fn (): string => $this->getOwnerRecord()->currency ?? 'USD'),
+                    ->money(fn (): string => $this->getOwnerRecord()->getAttribute('currency') ?? Money::defaultCurrency()),
                 TextColumn::make('quantity')
                     ->label('Qty')
                     ->numeric(),
@@ -89,7 +90,7 @@ class DealProductsRelationManager extends RelationManager
                 TextColumn::make('total_price')
                     ->label('Total')
                     ->weight('bold')
-                    ->money(fn (): string => $this->getOwnerRecord()->currency ?? 'USD'),
+                    ->money(fn (): string => $this->getOwnerRecord()->getAttribute('currency') ?? Money::defaultCurrency()),
             ])
             ->headerActions([
                 CreateAction::make()->label('Add Product'),

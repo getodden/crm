@@ -71,8 +71,17 @@ class SalesQuotaResource extends Resource
                         TextInput::make('target_amount')
                             ->label('Target Revenue')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(fn (callable $get): string => Money::prefix(is_string($get('currency')) ? $get('currency') : null))
                             ->required(),
+                        TextInput::make('currency')
+                            ->label('Currency')
+                            ->helperText('ISO 4217 code, e.g. USD or EUR. Only won deals in this currency count toward the quota.')
+                            ->default(fn (): string => Money::defaultCurrency())
+                            ->required()
+                            ->length(3)
+                            ->regex('/^[A-Za-z]{3}$/')
+                            ->dehydrateStateUsing(fn (?string $state): string => strtoupper(trim((string) $state)))
+                            ->live(onBlur: true),
                         DatePicker::make('period_start')
                             ->label('Start Date')
                             ->required(),

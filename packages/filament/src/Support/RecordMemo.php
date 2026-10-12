@@ -38,4 +38,16 @@ final class RecordMemo
 
         return $entries[$key];
     }
+
+    public static function has(object $record, string $key): bool
+    {
+        return array_key_exists($key, (self::$values ??= new WeakMap)[$record] ?? []);
+    }
+
+    public static function put(object $record, string $key, mixed $value): void
+    {
+        $values = self::$values ??= new WeakMap;
+
+        $values[$record] = [...($values[$record] ?? []), $key => $value];
+    }
 }
