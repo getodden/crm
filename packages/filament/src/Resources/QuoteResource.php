@@ -224,6 +224,7 @@ class QuoteResource extends Resource
                     ->label('Portal')
                     ->icon(Heroicon::ArrowTopRightOnSquare)
                     ->color('info')
+                    ->visible(fn (Quote $record): bool => $record->status !== QuoteStatus::Draft)
                     ->url(fn (Quote $record): string => route('odden.quotes.show', ['token' => $record->public_token]), shouldOpenInNewTab: true),
                 Action::make('acceptQuote')
                     ->label('Accept & Sign')

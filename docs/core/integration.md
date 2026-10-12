@@ -74,10 +74,11 @@ The Sales package and the paid Marketing and Service add-ons build their routes 
 ```
 
 - If the config value is not a non-empty string, every request gets a `403` "This endpoint is disabled until an API token is configured." Endpoints stay closed until you set a token.
-- The client can send the token as a bearer token (`Authorization: Bearer <token>`), as an `X-Odden-Token` header, or as a `?token=` query parameter for providers that can only be given a URL. They're checked in that order.
+- The client can send the token as a bearer token (`Authorization: Bearer <token>`) or as an `X-Odden-Token` header. They're checked in that order.
+- A `?token=` query parameter is ignored unless the route opts in with a second middleware parameter, `RequireApiToken::class.':acme-crm.api.token,query'`, for providers that can only be given a URL.
 - A missing or wrong token gets a `401` "Invalid or missing API token." The comparison uses `hash_equals()`.
 
-Query-string tokens can end up in access logs. Prefer the header forms where the caller supports them.
+Query-string tokens can end up in access logs and proxies, which is why a route has to opt in. Prefer the header forms.
 
 ## CSRF exemption
 
