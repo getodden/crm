@@ -25,24 +25,34 @@ class DealPipelineForecastWidget extends StatsOverviewWidget
             visibleDeals: DealResource::getEloquentQuery(),
         );
 
+        $currency = $forecast['currency'];
+        $others = $forecast['other_currencies'];
+        $otherNote = $others === []
+            ? null
+            : 'Not included: '.implode(', ', array_map(
+                fn (string $code, array $totals): string => Money::format($totals['open_value'], $code).' open',
+                array_keys($others),
+                $others,
+            ));
+
         return [
-            Stat::make('Open Pipeline', Money::format($forecast['open_value']))
-                ->description("{$forecast['open_count']} active open deals")
+            Stat::make('Open Pipeline', Money::format($forecast['open_value'], $currency))
+                ->description("{$forecast['open_count']} active open deals".($otherNote !== null ? " · {$otherNote}" : ''))
                 ->icon(Heroicon::CurrencyDollar)
                 ->color('info'),
 
-            Stat::make('Weighted Forecast', Money::format($forecast['weighted_forecast']))
+            Stat::make('Weighted Forecast', Money::format($forecast['weighted_forecast'], $currency))
                 ->description('Probability-weighted revenue')
                 ->icon(Heroicon::ChartBar)
                 ->color('primary'),
 
-            Stat::make('Closed Won', Money::format($forecast['won_value']))
+            Stat::make('Closed Won', Money::format($forecast['won_value'], $currency))
                 ->description("{$forecast['won_count']} deals closed won")
                 ->icon(Heroicon::CheckCircle)
                 ->color('success'),
 
             Stat::make('Win Rate', "{$forecast['win_rate']}%")
-                ->description('Avg size: '.Money::format($forecast['average_deal_size'], decimals: 0))
+                ->description('Avg size: '.Money::format($forecast['average_deal_size'], $currency, 0))
                 ->icon(Heroicon::ArrowTrendingUp)
                 ->color($forecast['win_rate'] >= 50.0 ? 'success' : 'warning'),
         ];

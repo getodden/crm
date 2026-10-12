@@ -368,11 +368,19 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Open Pipeline</div>
                 <div class="odden-stat-value">
-                    ${{ number_format($this->forecast['open_value'], 2) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['open_value'], $this->forecast['currency']) }}
                 </div>
                 <div class="odden-stat-subtext" style="color: #0284c7;">
                     {{ $this->forecast['open_count'] }} active open {{ \Illuminate\Support\Str::plural('deal', $this->forecast['open_count']) }}
                 </div>
+                @if ($this->forecast['other_currencies'] !== [])
+                    <div style="font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem;">
+                        Not included:
+                        @foreach ($this->forecast['other_currencies'] as $code => $totals)
+                            {{ \Odden\Sales\Support\Money::format($totals['open_value'], $code) }} open{{ $loop->last ? '' : ',' }}
+                        @endforeach
+                    </div>
+                @endif
                 @if ($this->forecast['stale_deals_count'] > 0)
                     <div style="font-size: 0.6875rem; color: #dc2626; font-weight: 600; margin-top: 0.25rem;">
                         ⚠️ {{ $this->forecast['stale_deals_count'] }} {{ \Illuminate\Support\Str::plural('deal', $this->forecast['stale_deals_count']) }} exceeding stage limit
@@ -383,7 +391,7 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Weighted Forecast</div>
                 <div class="odden-stat-value" style="color: #f97316;">
-                    ${{ number_format($this->forecast['weighted_forecast'], 2) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['weighted_forecast'], $this->forecast['currency']) }}
                 </div>
                 <div class="odden-stat-subtext">
                     Probability-adjusted revenue
@@ -393,7 +401,7 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Closed Won</div>
                 <div class="odden-stat-value" style="color: #16a34a;">
-                    ${{ number_format($this->forecast['won_value'], 2) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['won_value'], $this->forecast['currency']) }}
                 </div>
                 <div class="odden-stat-subtext" style="color: #16a34a;">
                     {{ $this->forecast['won_count'] }} {{ \Illuminate\Support\Str::plural('deal', $this->forecast['won_count']) }} won
@@ -406,7 +414,7 @@
                     {{ $this->forecast['win_rate'] }}%
                 </div>
                 <div class="odden-stat-subtext">
-                    Avg deal: ${{ number_format($this->forecast['average_deal_size'], 0) }}
+                    Avg deal: {{ \Odden\Sales\Support\Money::format($this->forecast['average_deal_size'], $this->forecast['currency'], 0) }}
                 </div>
             </div>
         </div>
@@ -428,7 +436,7 @@
                         <div class="odden-stage-meta">
                             <span>{{ $stage->deals->count() }} {{ \Illuminate\Support\Str::plural('deal', $stage->deals->count()) }}</span>
                             <span style="font-weight: 600;">
-                                ${{ number_format($stage->deals->sum('amount'), 2) }}
+                                {{ \Odden\Sales\Support\Money::formatTotals($stage->deals) }}
                             </span>
                         </div>
                     </div>
@@ -473,7 +481,7 @@
 
                                 <div class="odden-card-row">
                                     <span class="odden-card-amount">
-                                        ${{ number_format((float) $deal->amount, 2) }}
+                                        {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency) }}
                                     </span>
                                     <div style="display: flex; align-items: center; gap: 0.375rem;">
                                         @php $health = $deal->getHealthScore(); @endphp

@@ -25,6 +25,7 @@ use Odden\Filament\Resources\SalesQuotaResource\Pages\ListSalesQuotas;
 use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
 use Odden\Sales\Enums\QuotaPeriod;
 use Odden\Sales\Models\SalesQuota;
+use Odden\Sales\Support\Money;
 use UnitEnum;
 
 class SalesQuotaResource extends Resource
@@ -128,7 +129,7 @@ class SalesQuotaResource extends Resource
                     ->getStateUsing(function (SalesQuota $record): string {
                         $metrics = app(CalculateQuotaAttainmentAction::class)->execute($record);
 
-                        return '$'.number_format($metrics['won_amount'], 2);
+                        return Money::format($metrics['won_amount'], $metrics['currency']);
                     }),
             ])
             ->recordActions([

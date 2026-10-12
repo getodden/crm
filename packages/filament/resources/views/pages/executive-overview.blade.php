@@ -480,13 +480,18 @@
                         <x-filament::icon icon="heroicon-m-funnel" style="width: 1.25rem; height: 1.25rem; color: #6366f1;" />
                     </div>
                     <div class="exec-card-value">
-                        ${{ number_format($this->activePipeline, 2) }}
+                        {{ $this->currencyPrefix }}{{ number_format($this->activePipeline, 2) }}
                     </div>
+                    @if ($this->otherCurrencyTotals !== [])
+                        <div style="font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem;">
+                            Revenue figures are in {{ $this->reportingCurrency }}. Not included: {{ implode(', ', $this->otherCurrencyTotals) }}
+                        </div>
+                    @endif
                 </div>
                 <div>
                     <div class="exec-card-meta">
                         <span>Weighted Forecast:</span>
-                        <strong style="color: #0f172a;">${{ number_format($this->weightedForecast, 2) }}</strong>
+                        <strong style="color: #0f172a;">{{ $this->currencyPrefix }}{{ number_format($this->weightedForecast, 2) }}</strong>
                     </div>
                     <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #6366f1; font-weight: 600;">
                         Coverage: {{ $this->pipelineCoverageRatio }}x quota
@@ -502,7 +507,7 @@
                         <x-filament::icon icon="heroicon-m-banknotes" style="width: 1.25rem; height: 1.25rem; color: #10b981;" />
                     </div>
                     <div class="exec-card-value">
-                        ${{ number_format($this->closedWonRevenue, 2) }}
+                        {{ $this->currencyPrefix }}{{ number_format($this->closedWonRevenue, 2) }}
                     </div>
                 </div>
                 <div>
@@ -514,7 +519,7 @@
                         <div class="exec-progress-bar" style="background: #10b981; width: {{ min(100, $this->quotaAttainmentRate) }}%;"></div>
                     </div>
                     <div style="margin-top: 0.25rem; font-size: 0.6875rem; color: #64748b;">
-                        Target Quota: ${{ number_format($this->totalRevenueQuota, 0) }}
+                        Target Quota: {{ $this->currencyPrefix }}{{ number_format($this->totalRevenueQuota, 0) }}
                     </div>
                 </div>
             </div>
@@ -533,7 +538,7 @@
                 <div>
                     <div class="exec-card-meta">
                         <span>Average Deal Size:</span>
-                        <strong style="color: #0f172a;">${{ number_format($this->avgDealSize, 0) }}</strong>
+                        <strong style="color: #0f172a;">{{ $this->currencyPrefix }}{{ number_format($this->avgDealSize, 0) }}</strong>
                     </div>
                     <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #f59e0b; font-weight: 600;">
                         Commercial efficiency
@@ -665,15 +670,15 @@
                                         {{ $rep['name'] }}
                                     </div>
                                     <div style="font-size: 0.6875rem; color: #94a3b8;">
-                                        {{ $rep['email'] }} • Pipeline: ${{ number_format($rep['pipeline'], 0) }}
+                                        {{ $rep['email'] }} • Pipeline: {{ $this->currencyPrefix }}{{ number_format($rep['pipeline'], 0) }}
                                     </div>
                                 </div>
                                 <div style="width: 10rem; text-align: right; flex-shrink: 0;">
                                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.375rem; margin-bottom: 0.25rem;">
                                         <strong style="color: {{ $rep['attainment'] >= 100 ? '#10b981' : 'inherit' }};">
-                                            ${{ number_format($rep['won'], 0) }}
+                                            {{ $this->currencyPrefix }}{{ number_format($rep['won'], 0) }}
                                         </strong>
-                                        <span style="font-size: 0.625rem; color: #94a3b8;">/ ${{ number_format($rep['quota'], 0) }}</span>
+                                        <span style="font-size: 0.625rem; color: #94a3b8;">/ {{ $this->currencyPrefix }}{{ number_format($rep['quota'], 0) }}</span>
                                         <strong style="font-size: 0.6875rem; color: {{ $rep['attainment'] >= 100 ? '#10b981' : ($rep['attainment'] >= 70 ? '#f59e0b' : '#f43f5e') }};">
                                             ({{ $rep['attainment'] }}%)
                                         </strong>
@@ -720,7 +725,7 @@
                                 </div>
                                 <div style="text-align: right;">
                                     <strong style="font-size: 0.8125rem;">
-                                        ${{ number_format((float) $deal->amount, 0) }}
+                                        {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency, 0) }}
                                     </strong>
                                 </div>
                             </div>
@@ -751,7 +756,7 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
                         <span style="color: #64748b;">Weighted Forecast:</span>
-                        <strong>${{ number_format($this->weightedForecast, 0) }}</strong>
+                        <strong>{{ $this->currencyPrefix }}{{ number_format($this->weightedForecast, 0) }}</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
                         <span style="color: #64748b;">Win Rate:</span>
@@ -759,7 +764,7 @@
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span style="color: #64748b;">Avg Deal Size:</span>
-                        <strong>${{ number_format($this->avgDealSize, 0) }}</strong>
+                        <strong>{{ $this->currencyPrefix }}{{ number_format($this->avgDealSize, 0) }}</strong>
                     </div>
                 </div>
             </div>
@@ -800,7 +805,7 @@
                                 </div>
                                 <div style="text-align: right;">
                                     <strong style="font-size: 0.875rem; color: #10b981;">
-                                        ${{ number_format((float) $deal->amount, 0) }}
+                                        {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency, 0) }}
                                     </strong>
                                 </div>
                             </div>
