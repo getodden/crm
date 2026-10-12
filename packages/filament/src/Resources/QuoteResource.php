@@ -25,6 +25,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
@@ -35,7 +36,9 @@ use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Exceptions\StageRequirementException;
+use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
+use Odden\Sales\Support\Money;
 use UnitEnum;
 
 class QuoteResource extends Resource
@@ -65,8 +68,12 @@ class QuoteResource extends Resource
                             ->placeholder('Auto-generated'),
                         Select::make('deal_id')
                             ->label('Associated Deal')
-                            ->relationship('deal', 'name')
+                            ->relationship('deal', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->whereIn(
+                                $query->getModel()->getQualifiedKeyName(),
+                                OddenAuthorization::scoped(Deal::class)->select((new Deal)->getQualifiedKeyName()),
+                            ))
                             ->searchable()
+                            ->live()
                             ->required(),
                         TextInput::make('title')
                             ->label('Title')
@@ -77,6 +84,8 @@ class QuoteResource extends Resource
                             ->options(collect(QuoteStatus::cases())->mapWithKeys(
                                 fn (QuoteStatus $s) => [$s->value => $s->label()]
                             ))
+                            ->disableOptionWhen(self::isAcceptedOption(...))
+                            ->helperText('A quote becomes Accepted only through Accept & Sign, which records the signer and wins the deal.')
                             ->default(QuoteStatus::Draft->value)
                             ->required(),
                         DatePicker::make('expires_at')
@@ -85,17 +94,17 @@ class QuoteResource extends Resource
                         TextInput::make('discount_amount')
                             ->label('Discount Amount')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->default(0.00),
                         TextInput::make('tax_amount')
                             ->label('Tax Amount')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->default(0.00),
                         TextInput::make('total_amount')
                             ->label('Total Amount')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->disabled()
                             ->dehydrated(false),
                     ])
@@ -116,7 +125,7 @@ class QuoteResource extends Resource
                                 TextInput::make('unit_price')
                                     ->label('Unit Price')
                                     ->numeric()
-                                    ->prefix('$')
+                                    ->prefix(fn (callable $get): string => self::currencyPrefix($get('../../deal_id')))
                                     ->required()
                                     ->columnSpan(1),
                                 TextInput::make('quantity')
@@ -129,6 +138,8 @@ class QuoteResource extends Resource
                                 TextInput::make('discount_percent')
                                     ->label('Disc %')
                                     ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
                                     ->default(0)
                                     ->suffix('%')
                                     ->columnSpan(1),
@@ -277,6 +288,56 @@ class QuoteResource extends Resource
     public static function canEdit(Model $record): bool
     {
         return ! ($record instanceof Quote && $record->status === QuoteStatus::Accepted) && parent::canEdit($record);
+    }
+
+    /**
+     * Deleting a signed quote would remove the record of what the customer accepted.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return ! ($record instanceof Quote && $record->status === QuoteStatus::Accepted) && parent::canDelete($record);
+    }
+
+    /**
+     * Accepted is shown (so a signed quote still reads correctly) but cannot be picked: accepting goes through
+     * AcceptQuoteAction, which records the signer and wins the deal.
+     */
+    public static function isAcceptedOption(string $value): bool
+    {
+        return $value === QuoteStatus::Accepted->value;
+    }
+
+    /**
+     * The amount prefix for a quote on the given deal: the deal's currency (a quote is always in its deal's currency).
+     */
+    public static function currencyPrefix(mixed $dealId): string
+    {
+        $currency = filled($dealId) ? Deal::query()->whereKey($dealId)->value('currency') : null;
+
+        return Money::prefix(is_string($currency) ? $currency : null);
+    }
+
+    /**
+     * Fill the fields a quote takes from its deal: the currency, and the deal owner as the quote's owner when none
+     * is set. The deal must be one the user can see.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function fillFromDeal(array $data, ?Deal $deal = null): array
+    {
+        $deal ??= filled($data['deal_id'] ?? null)
+            ? OddenAuthorization::find(DealResource::class, Deal::class, $data['deal_id'])
+            : null;
+
+        if ($deal === null) {
+            return $data;
+        }
+
+        $data['currency'] = $deal->currency;
+        $data['user_id'] ??= $deal->owner_id ?? OddenAuthorization::userId();
+
+        return $data;
     }
 
     public static function getPages(): array

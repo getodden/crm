@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Resources\PipelineResource\RelationManagers;
 
+use Closure;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -16,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 use Odden\Sales\Enums\StageAutomationActionType;
 
 class StagesRelationManager extends RelationManager
@@ -40,6 +42,11 @@ class StagesRelationManager extends RelationManager
                 ->label('Internal Code')
                 ->placeholder('e.g. discovery_call')
                 ->required()
+                // Codes are unique within a pipeline.
+                ->unique(
+                    ignoreRecord: true,
+                    modifyRuleUsing: fn (Unique $rule): Unique => $rule->where('pipeline_id', $this->getOwnerRecord()->getKey()),
+                )
                 ->maxLength(100),
             TextInput::make('probability')
                 ->label('Win Probability (%)')
@@ -60,12 +67,20 @@ class StagesRelationManager extends RelationManager
                 ->minValue(1)
                 ->placeholder('e.g. 14')
                 ->nullable(),
+            // A stage closes a deal as won or as lost, not both.
             Toggle::make('is_closed_won')
                 ->label('Closed Won Stage')
-                ->helperText('Deals entering this stage will automatically be marked as Won.'),
+                ->helperText('Deals entering this stage will automatically be marked as Won.')
+                ->live()
+                ->rule(fn (callable $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                    if ($value && $get('is_closed_lost')) {
+                        $fail('A stage cannot be both Closed Won and Closed Lost.');
+                    }
+                }),
             Toggle::make('is_closed_lost')
                 ->label('Closed Lost Stage')
-                ->helperText('Deals entering this stage will automatically be marked as Lost.'),
+                ->helperText('Deals entering this stage will automatically be marked as Lost.')
+                ->live(),
             Repeater::make('automations')
                 ->relationship('automations')
                 ->label('Stage Transition Automations & Guards')
@@ -81,6 +96,22 @@ class StagesRelationManager extends RelationManager
                             fn (StageAutomationActionType $t) => [$t->value => $t->label()]
                         ))
                         ->required()
+                        ->live()
+                        ->columnSpan(2),
+                    TextInput::make('action_payload.task_subject')
+                        ->label('Task Subject')
+                        ->placeholder('Defaults to "Follow up: <deal> in [<stage>]"')
+                        ->maxLength(255)
+                        ->visible(fn (callable $get): bool => $get('action_type') === StageAutomationActionType::CreateTask->value)
+                        ->columnSpan(3),
+                    TextInput::make('action_payload.due_days')
+                        ->label('Due In (days)')
+                        ->numeric()
+                        ->integer()
+                        ->minValue(0)
+                        ->maxValue(365)
+                        ->placeholder('2')
+                        ->visible(fn (callable $get): bool => $get('action_type') === StageAutomationActionType::CreateTask->value)
                         ->columnSpan(2),
                     Toggle::make('is_active')
                         ->label('Active')

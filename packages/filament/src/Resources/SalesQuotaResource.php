@@ -22,6 +22,7 @@ use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\CreateSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\EditSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\ListSalesQuotas;
+use Odden\Filament\Support\RecordMemo;
 use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
 use Odden\Sales\Enums\QuotaPeriod;
 use Odden\Sales\Models\SalesQuota;
@@ -77,6 +78,7 @@ class SalesQuotaResource extends Resource
                             ->required(),
                         DatePicker::make('period_end')
                             ->label('End Date')
+                            ->afterOrEqual('period_start')
                             ->required(),
                     ])
                     ->columns(2),
@@ -98,7 +100,7 @@ class SalesQuotaResource extends Resource
                 TextColumn::make('period_type')
                     ->label('Period')
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => ucfirst((string) $state)),
+                    ->formatStateUsing(fn ($state): string => $state instanceof QuotaPeriod ? $state->label() : ucfirst((string) $state)),
                 TextColumn::make('period_start')
                     ->label('Range')
                     ->formatStateUsing(fn (SalesQuota $record): string => $record->period_start->format('M j').' - '.$record->period_end->format('M j, Y')),
@@ -109,13 +111,13 @@ class SalesQuotaResource extends Resource
                 TextColumn::make('attainment')
                     ->label('Attainment')
                     ->getStateUsing(function (SalesQuota $record): string {
-                        $metrics = app(CalculateQuotaAttainmentAction::class)->execute($record);
+                        $metrics = self::attainment($record);
 
                         return "{$metrics['attainment_percent']}%";
                     })
                     ->badge()
                     ->color(function (SalesQuota $record): string {
-                        $metrics = app(CalculateQuotaAttainmentAction::class)->execute($record);
+                        $metrics = self::attainment($record);
                         $pct = $metrics['attainment_percent'];
 
                         return match (true) {
@@ -127,7 +129,7 @@ class SalesQuotaResource extends Resource
                 TextColumn::make('won_closed')
                     ->label('Closed Won')
                     ->getStateUsing(function (SalesQuota $record): string {
-                        $metrics = app(CalculateQuotaAttainmentAction::class)->execute($record);
+                        $metrics = self::attainment($record);
 
                         return Money::format($metrics['won_amount'], $metrics['currency']);
                     }),
@@ -141,6 +143,16 @@ class SalesQuotaResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * The quota's attainment, computed once per row (the table shows it in two columns and a colour).
+     *
+     * @return array{currency: string, excluded_deal_count: int, target_amount: float, won_amount: float, attainment_percent: float, gap_to_target: float, open_pipeline_amount: float, coverage_ratio: float}
+     */
+    public static function attainment(SalesQuota $record): array
+    {
+        return RecordMemo::remember($record, 'attainment', fn (): array => app(CalculateQuotaAttainmentAction::class)->execute($record));
     }
 
     public static function getPages(): array

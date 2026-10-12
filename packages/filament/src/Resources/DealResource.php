@@ -45,6 +45,7 @@ use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Filament\Support\RecordMemo;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\RouteLeadAction;
 use Odden\Sales\Enums\DealStatus;
@@ -81,15 +82,19 @@ class DealResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->columnSpan(2),
+                        // Stage and status only change through the stage actions (Change Stage, Mark Won, Mark Lost,
+                        // the board), which run the stage guards and automations, keep the stage history and fire the
+                        // deal events. On edit they are shown but not saved.
                         Select::make('pipeline_id')
                             ->label('Pipeline')
                             ->relationship('pipeline', 'name')
                             ->default(fn (): ?int => Pipeline::query()->default()->value('id') ?? Pipeline::query()->value('id'))
                             ->reactive()
+                            ->disabledOn('edit')
                             ->required(),
                         Select::make('stage_id')
                             ->label('Pipeline Stage')
-                            ->options(function (callable $get): array {
+                            ->options(function (callable $get, string $operation): array {
                                 $pipelineId = $get('pipeline_id');
                                 if (! $pipelineId) {
                                     return [];
@@ -97,10 +102,18 @@ class DealResource extends Resource
 
                                 return PipelineStage::query()
                                     ->where('pipeline_id', $pipelineId)
+                                    // A new deal starts in an open stage; closing it goes through Mark Won / Mark Lost.
+                                    ->when($operation === 'create', fn (Builder $query): Builder => $query
+                                        ->where('is_closed_won', false)
+                                        ->where('is_closed_lost', false))
                                     ->orderBy('sort_order')
                                     ->pluck('name', 'id')
                                     ->toArray();
                             })
+                            ->disabledOn('edit')
+                            ->helperText(fn (string $operation): ?string => $operation === 'edit'
+                                ? 'Use Change Stage, Mark Won or Mark Lost on the deal page to move this deal.'
+                                : null)
                             ->required(),
                         TextInput::make('amount')
                             ->label('Deal Amount')
@@ -123,8 +136,8 @@ class DealResource extends Resource
                                 fn (DealStatus $s) => [$s->value => $s->label()]
                             ))
                             ->default(DealStatus::Open->value)
-                            ->reactive()
-                            ->required(),
+                            ->hiddenOn('create')
+                            ->disabled(),
                         DatePicker::make('expected_close_date')
                             ->label('Expected Close Date'),
                         Select::make('owner_id')
@@ -136,6 +149,7 @@ class DealResource extends Resource
                             ->nullable(),
                         DateTimePicker::make('closed_at')
                             ->label('Closed Date')
+                            ->disabled()
                             ->visible(fn (callable $get): bool => in_array($get('status'), [DealStatus::Won->value, DealStatus::Lost->value], true)),
                         Select::make('lost_reason')
                             ->label('Reason for Loss')
@@ -159,6 +173,8 @@ class DealResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Days in stage, rot and health read the stage and its history for every row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['pipeline', 'stage', 'stageHistory', 'owner']))
             ->columns([
                 TextColumn::make('name')
                     ->label('Deal Name')
@@ -195,11 +211,11 @@ class DealResource extends Resource
                     }),
                 TextColumn::make('health_score')
                     ->label('Health')
-                    ->getStateUsing(fn (Deal $record): string => $record->getHealthScore()['badge_label'])
+                    ->getStateUsing(fn (Deal $record): string => self::healthScore($record)['badge_label'])
                     ->badge()
-                    ->color(fn (Deal $record): string => $record->getHealthScore()['badge_color'])
+                    ->color(fn (Deal $record): string => self::healthScore($record)['badge_color'])
                     ->tooltip(function (Deal $record): string {
-                        $health = $record->getHealthScore();
+                        $health = self::healthScore($record);
 
                         return ! empty($health['recommendations'])
                             ? $health['recommendations'][0]
@@ -342,6 +358,16 @@ class DealResource extends Resource
                     RestoreBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * The deal's health score, computed once per row (the column uses it for its label, colour and tooltip).
+     *
+     * @return array{score: int, status: string, badge_label: string, badge_color: string, factors: list<array{name: string, points: int, positive: bool, description: string}>, recommendations: list<string>}
+     */
+    public static function healthScore(Deal $record): array
+    {
+        return RecordMemo::remember($record, 'health', fn (): array => $record->getHealthScore());
     }
 
     public static function getRelations(): array

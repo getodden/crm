@@ -41,7 +41,6 @@ use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
-use Odden\Sales\Models\Deal;
 use UnitEnum;
 
 class CompanyResource extends Resource
@@ -84,10 +83,13 @@ class CompanyResource extends Resource
                                 'neutral' => 'Neutral (Stable)',
                                 'at_risk' => 'At Risk (High Churn Risk)',
                             ])
-                            ->default('healthy'),
+                            ->default('healthy')
+                            ->required(),
                         TextInput::make('health_score')
                             ->label('Health Score (0-100)')
                             ->numeric()
+                            ->integer()
+                            ->required()
                             ->default(70)
                             ->minValue(0)
                             ->maxValue(100),
@@ -202,14 +204,24 @@ class CompanyResource extends Resource
                     ->form([
                         Select::make('secondary_company_id')
                             ->label('Select Duplicate Company to Merge into This Record')
-                            ->options(fn (Company $record): array => OddenAuthorization::query(self::class, Company::class)
+                            ->searchable()
+                            // Searched on the server, within the companies the user can see, so every company is reachable.
+                            ->getSearchResultsUsing(fn (Company $record, string $search): array => OddenAuthorization::query(self::class, Company::class)
                                 ->whereKeyNot($record->getKey())
+                                ->where(fn (Builder $query): Builder => $query
+                                    ->whereRaw('lower(name) like ?', ['%'.mb_strtolower(trim($search)).'%'])
+                                    ->orWhereRaw('lower(domain) like ?', ['%'.mb_strtolower(trim($search)).'%']))
                                 ->orderBy('name')
                                 ->limit(50)
                                 ->get()
-                                ->mapWithKeys(fn (Company $c): array => [$c->id => "{$c->name} ({$c->domain})"])
+                                ->mapWithKeys(fn (Company $c): array => [$c->getKey() => "{$c->name} ({$c->domain})"])
                                 ->all())
-                            ->searchable()
+                            ->getOptionLabelUsing(function (mixed $value): ?string {
+                                /** @var Company|null $company */
+                                $company = is_int($value) || is_string($value) ? OddenAuthorization::query(self::class, Company::class)->find($value) : null;
+
+                                return $company !== null ? "{$company->name} ({$company->domain})" : null;
+                            })
                             ->required(),
                     ])
                     ->action(function (Company $record, array $data): void {
@@ -244,7 +256,7 @@ class CompanyResource extends Resource
             ContactsRelationManager::class,
         ];
 
-        if (class_exists(Deal::class)) {
+        if (Modules::salesEnabled()) {
             $relations[] = DealsRelationManager::class;
         }
 

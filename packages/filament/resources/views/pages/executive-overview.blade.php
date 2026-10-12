@@ -494,7 +494,11 @@
                         <strong style="color: #0f172a;">{{ $this->currencyPrefix }}{{ number_format($this->weightedForecast, 2) }}</strong>
                     </div>
                     <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #6366f1; font-weight: 600;">
-                        Coverage: {{ $this->pipelineCoverageRatio }}x quota
+                        @if ($this->pipelineCoverageRatio === null)
+                            Coverage: no quota set
+                        @else
+                            Coverage: {{ $this->pipelineCoverageRatio }}x quota
+                        @endif
                     </div>
                 </div>
             </div>
@@ -513,13 +517,21 @@
                 <div>
                     <div class="exec-card-meta">
                         <span>Attainment:</span>
-                        <strong style="color: #10b981;">{{ $this->quotaAttainmentRate }}%</strong>
+                        @if ($this->quotaAttainmentRate === null)
+                            <strong style="color: #64748b;">No quota set</strong>
+                        @else
+                            <strong style="color: #10b981;">{{ $this->quotaAttainmentRate }}%</strong>
+                        @endif
                     </div>
                     <div class="exec-progress-track">
-                        <div class="exec-progress-bar" style="background: #10b981; width: {{ min(100, $this->quotaAttainmentRate) }}%;"></div>
+                        <div class="exec-progress-bar" style="background: #10b981; width: {{ min(100, $this->quotaAttainmentRate ?? 0) }}%;"></div>
                     </div>
                     <div style="margin-top: 0.25rem; font-size: 0.6875rem; color: #64748b;">
-                        Target Quota: {{ $this->currencyPrefix }}{{ number_format($this->totalRevenueQuota, 0) }}
+                        @if ($this->totalRevenueQuota === null)
+                            Target Quota: no quota set for this period
+                        @else
+                            Target Quota: {{ $this->currencyPrefix }}{{ number_format($this->totalRevenueQuota, 0) }}
+                        @endif
                     </div>
                 </div>
             </div>
@@ -674,17 +686,24 @@
                                     </div>
                                 </div>
                                 <div style="width: 10rem; text-align: right; flex-shrink: 0;">
+                                    @php
+                                        $repColor = $rep['attainment'] === null ? '#94a3b8' : ($rep['attainment'] >= 100 ? '#10b981' : ($rep['attainment'] >= 70 ? '#f59e0b' : '#f43f5e'));
+                                    @endphp
                                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.375rem; margin-bottom: 0.25rem;">
-                                        <strong style="color: {{ $rep['attainment'] >= 100 ? '#10b981' : 'inherit' }};">
+                                        <strong style="color: {{ ($rep['attainment'] ?? 0) >= 100 ? '#10b981' : 'inherit' }};">
                                             {{ $this->currencyPrefix }}{{ number_format($rep['won'], 0) }}
                                         </strong>
-                                        <span style="font-size: 0.625rem; color: #94a3b8;">/ {{ $this->currencyPrefix }}{{ number_format($rep['quota'], 0) }}</span>
-                                        <strong style="font-size: 0.6875rem; color: {{ $rep['attainment'] >= 100 ? '#10b981' : ($rep['attainment'] >= 70 ? '#f59e0b' : '#f43f5e') }};">
-                                            ({{ $rep['attainment'] }}%)
-                                        </strong>
+                                        @if ($rep['quota'] === null)
+                                            <span style="font-size: 0.625rem; color: #94a3b8;">No quota set</span>
+                                        @else
+                                            <span style="font-size: 0.625rem; color: #94a3b8;">/ {{ $this->currencyPrefix }}{{ number_format($rep['quota'], 0) }}</span>
+                                            <strong style="font-size: 0.6875rem; color: {{ $repColor }};">
+                                                ({{ $rep['attainment'] }}%)
+                                            </strong>
+                                        @endif
                                     </div>
                                     <div class="exec-progress-track">
-                                        <div class="exec-progress-bar" style="background: {{ $rep['attainment'] >= 100 ? '#10b981' : ($rep['attainment'] >= 70 ? '#f59e0b' : '#f43f5e') }}; width: {{ min(100, $rep['attainment']) }}%;"></div>
+                                        <div class="exec-progress-bar" style="background: {{ $repColor }}; width: {{ min(100, $rep['attainment'] ?? 0) }}%;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -752,7 +771,7 @@
                 <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.75rem;">
                     <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
                         <span style="color: #64748b;">Pipeline Coverage:</span>
-                        <strong style="color: #10b981;">{{ $this->pipelineCoverageRatio }}x Target</strong>
+                        <strong style="color: #10b981;">{{ $this->pipelineCoverageRatio === null ? 'No quota set' : $this->pipelineCoverageRatio.'x Target' }}</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding-bottom: 0.375rem; border-bottom: 1px solid #f1f5f9;">
                         <span style="color: #64748b;">Weighted Forecast:</span>

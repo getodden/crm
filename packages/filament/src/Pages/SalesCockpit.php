@@ -12,6 +12,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Enums\LeadStatus;
@@ -95,6 +96,8 @@ class SalesCockpit extends Page
     public int $meetingDurationMinutes = 30;
 
     public string $meetingNotes = '';
+
+    public string $meetingContactSearch = '';
 
     /**
      * @return list<class-string<\Filament\Resources\Resource>>
@@ -437,8 +440,9 @@ class SalesCockpit extends Page
                 'timezone' => $contact->timezone ?? 'UTC',
                 'last_touch' => $contact->last_contacted_at !== null ? $contact->last_contacted_at->diffForHumans() : 'Never',
                 'due' => $enrollment->next_step_due_at !== null ? 'Due '.$enrollment->next_step_due_at->format('M d') : 'Due today',
-                'action_label' => 'Complete Step',
-                'action_type' => 'advance_sequence',
+                // Email steps are sent by the sequence processor; only manual steps are completed from here.
+                'action_label' => $stepType === 'email' ? 'View Contact' : 'Complete Step',
+                'action_type' => $stepType === 'email' ? 'view_contact' : 'advance_sequence',
                 'step_title' => $stepTitle,
                 'avatar_initials' => $this->getInitials($contact->full_name),
                 'avatars' => [
@@ -496,7 +500,8 @@ class SalesCockpit extends Page
         // 3. Closing: Rotten / Stale Deals
         $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', DealStatus::Open)
-            ->with(['stage', 'contacts'])
+            // isRotten() and daysInCurrentStage() read the stage history of every deal.
+            ->with(['stage', 'contacts', 'stageHistory'])
             ->get();
 
         foreach ($openDeals as $deal) {
@@ -610,7 +615,11 @@ class SalesCockpit extends Page
     }
 
     /**
-     * Advance a sequence step for an enrolled contact.
+     * Complete the current manual step (call, LinkedIn, task) of an enrollment and move it on.
+     *
+     * The step is claimed the way the cadence processor claims it, so it runs once even if the processor gets there
+     * at the same time, and it is recorded as an activity on the contact (the processor's pending task for the step
+     * is completed, when there is one). Email steps are sent by the processor, not from here.
      */
     public function advanceEnrollment(int $enrollmentId): void
     {
@@ -620,11 +629,81 @@ class SalesCockpit extends Page
         $contact = $this->findContactForUpdate($enrollment->contact_id);
         OddenAuthorization::authorize('update', $enrollment);
 
-        $enrollment->advanceStep();
+        $step = $enrollment->current_step;
+        $stepDef = ($enrollment->sequence->steps ?? [])[$step - 1] ?? null;
+
+        if ($enrollment->status !== 'active' || $stepDef === null) {
+            Notification::make()
+                ->title('Step Not Completed')
+                ->body("{$contact->full_name} is no longer active in this sequence.")
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if ($stepDef['type'] === 'email') {
+            Notification::make()
+                ->title('Step Not Completed')
+                ->body('Email steps are sent by the sequence processor; this one has not been sent yet.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $activityType = match ($stepDef['type']) {
+            'call' => ActivityType::Call,
+            'linkedin' => ActivityType::LinkedIn,
+            default => ActivityType::Task,
+        };
+
+        $claimed = DB::transaction(function () use ($enrollment, $contact, $step, $stepDef, $activityType): bool {
+            if (! $enrollment->claimStep($step)) {
+                return false;
+            }
+
+            /** @var Activity|null $pending */
+            $pending = Activity::query()
+                ->where('subject_type', $contact->getMorphClass())
+                ->where('subject_id', $contact->getKey())
+                ->where('status', ActivityStatus::Pending)
+                ->where('metadata->sequence_enrollment_id', $enrollment->id)
+                ->where('metadata->step', $step)
+                ->latest('id')
+                ->first();
+
+            if ($pending !== null) {
+                $pending->update(['status' => ActivityStatus::Completed, 'completed_at' => now()]);
+            } else {
+                $contact->logActivity(
+                    type: $activityType,
+                    title: "{$activityType->label()}: {$stepDef['title']}",
+                    body: "Cadence [{$enrollment->sequence->name}] Step {$step}",
+                    metadata: [
+                        'sequence_enrollment_id' => $enrollment->id,
+                        'step' => $step,
+                    ],
+                    status: ActivityStatus::Completed,
+                );
+            }
+
+            return true;
+        });
+
+        if (! $claimed) {
+            Notification::make()
+                ->title('Step Already Handled')
+                ->body("This step for {$contact->full_name} was already completed or the enrollment has moved on.")
+                ->warning()
+                ->send();
+
+            return;
+        }
 
         $contact->markContacted();
         if ($contact->lead_status === LeadStatus::New) {
-            $contact->updateQuietly(['lead_status' => LeadStatus::InProgress]);
+            $contact->update(['lead_status' => LeadStatus::InProgress]);
         }
 
         Notification::make()
@@ -692,7 +771,7 @@ class SalesCockpit extends Page
         $contact->markContacted();
 
         if ($contact->lead_status === LeadStatus::New) {
-            $contact->updateQuietly([
+            $contact->update([
                 'lead_status' => LeadStatus::AttemptedContact,
             ]);
         }
@@ -732,6 +811,11 @@ class SalesCockpit extends Page
 
         $contact = $this->findContactForUpdate($this->callContactId);
 
+        $this->validate([
+            'callDurationMinutes' => ['integer', 'min:0', 'max:1440'],
+            'followUpTaskDate' => [$this->createFollowUpTask ? 'required' : 'nullable', 'date_format:Y-m-d'],
+        ]);
+
         $disposition = CallDisposition::tryFrom($this->callDisposition) ?? CallDisposition::Connected;
 
         $contact->logActivity(
@@ -749,9 +833,9 @@ class SalesCockpit extends Page
 
         // Update lead status based on outcome
         if ($disposition === CallDisposition::Connected) {
-            $contact->updateQuietly(['lead_status' => LeadStatus::Connected]);
+            $contact->update(['lead_status' => LeadStatus::Connected]);
         } elseif ($contact->lead_status === LeadStatus::New) {
-            $contact->updateQuietly(['lead_status' => LeadStatus::AttemptedContact]);
+            $contact->update(['lead_status' => LeadStatus::AttemptedContact]);
         }
 
         // Schedule follow-up task if selected
@@ -785,6 +869,8 @@ class SalesCockpit extends Page
         $this->meetingTime = '10:00';
         $this->meetingDurationMinutes = 30;
         $this->meetingNotes = '';
+        $this->meetingContactSearch = '';
+        $this->resetErrorBag();
         $this->showMeetingModal = true;
     }
 
@@ -796,38 +882,37 @@ class SalesCockpit extends Page
 
     public function saveMeetingLog(): void
     {
-        $dueAt = Carbon::today()->setTime(10, 0);
-        if ($this->meetingDate && $this->meetingTime) {
-            $dueAt = Carbon::parse("{$this->meetingDate} {$this->meetingTime}");
+        if ($this->meetingContactId !== null) {
+            $this->findContactForUpdate($this->meetingContactId);
         }
 
-        if ($this->meetingContactId) {
-            $contact = $this->findContactForUpdate($this->meetingContactId);
+        // A meeting is an activity on a record: it needs a contact.
+        $this->validate([
+            'meetingContactId' => ['required', 'integer'],
+            'meetingTitle' => ['required', 'string', 'max:255'],
+            'meetingDate' => ['required', 'date_format:Y-m-d'],
+            'meetingTime' => ['required', 'regex:/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/'],
+            'meetingDurationMinutes' => ['integer', 'min:1', 'max:1440'],
+        ], [
+            'meetingContactId.required' => 'Choose the contact this meeting is with.',
+        ]);
 
-            $contact->logActivity(
-                type: ActivityType::Meeting,
-                title: $this->meetingTitle,
-                body: $this->meetingNotes,
-                metadata: ['duration_minutes' => $this->meetingDurationMinutes],
-                dueAt: $dueAt,
-                status: ActivityStatus::Pending
-            );
+        $contact = $this->findContactForUpdate((int) $this->meetingContactId);
 
-            if ($contact->lead_status === LeadStatus::New) {
-                $contact->updateQuietly(['lead_status' => LeadStatus::InProgress]);
-            }
-        } else {
-            OddenAuthorization::authorize('create', Activity::class);
+        // Both parts were checked above, so this parses.
+        $dueAt = Carbon::parse("{$this->meetingDate} {$this->meetingTime}");
 
-            Activity::query()->create([
-                'type' => ActivityType::Meeting,
-                'title' => $this->meetingTitle,
-                'body' => $this->meetingNotes,
-                'metadata' => ['duration_minutes' => $this->meetingDurationMinutes],
-                'due_at' => $dueAt,
-                'status' => ActivityStatus::Pending,
-                'creator_id' => OddenAuthorization::userId(),
-            ]);
+        $contact->logActivity(
+            type: ActivityType::Meeting,
+            title: $this->meetingTitle,
+            body: $this->meetingNotes,
+            metadata: ['duration_minutes' => $this->meetingDurationMinutes],
+            dueAt: $dueAt,
+            status: ActivityStatus::Pending
+        );
+
+        if ($contact->lead_status === LeadStatus::New) {
+            $contact->update(['lead_status' => LeadStatus::InProgress]);
         }
 
         Notification::make()
@@ -837,6 +922,41 @@ class SalesCockpit extends Page
             ->send();
 
         $this->closeMeetingModal();
+    }
+
+    /**
+     * Contacts to pick from when a meeting is scheduled without one: searched on the server, within the contacts the
+     * user can see, so the whole list is reachable.
+     *
+     * @return array<int, string>
+     */
+    public function getMeetingContactOptionsProperty(): array
+    {
+        $search = trim($this->meetingContactSearch);
+
+        $query = OddenAuthorization::scoped(Contact::class);
+
+        if ($search !== '') {
+            $like = '%'.mb_strtolower($search).'%';
+            $query->where(fn ($q) => $q
+                ->whereRaw('lower(first_name) like ?', [$like])
+                ->orWhereRaw('lower(last_name) like ?', [$like])
+                ->orWhereRaw('lower(email) like ?', [$like]));
+        }
+
+        $options = $query->orderBy('last_name')->orderBy('first_name')->limit(25)->get()
+            ->mapWithKeys(fn (Contact $c): array => [$c->id => trim("{$c->full_name} ({$c->email})")])
+            ->all();
+
+        if ($this->meetingContactId !== null && ! isset($options[$this->meetingContactId])) {
+            /** @var Contact|null $selected */
+            $selected = OddenAuthorization::scoped(Contact::class)->find($this->meetingContactId);
+            if ($selected !== null) {
+                $options = [$selected->id => trim("{$selected->full_name} ({$selected->email})")] + $options;
+            }
+        }
+
+        return $options;
     }
 
     /**

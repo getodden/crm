@@ -1242,6 +1242,7 @@
                                 <div>
                                     <label style="font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.25rem;">Due Date</label>
                                     <input type="date" wire:model="followUpTaskDate" style="width: 100%; padding: 0.4rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.8125rem;">
+                                    @error('followUpTaskDate') <p style="font-size: 0.75rem; color: #e11d48; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                         @endif
@@ -1265,6 +1266,17 @@
                 </div>
                 <form wire:submit="saveMeetingLog" style="padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.875rem;">
                     <div>
+                        <label style="font-size: 0.8125rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.25rem;">Contact</label>
+                        <input type="search" wire:model.live.debounce.300ms="meetingContactSearch" placeholder="Search by name or email..." style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none; margin-bottom: 0.375rem;">
+                        <select wire:model="meetingContactId" style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none;" required>
+                            <option value="">Choose a contact...</option>
+                            @foreach ($this->meetingContactOptions as $optionId => $optionLabel)
+                                <option value="{{ $optionId }}">{{ $optionLabel }}</option>
+                            @endforeach
+                        </select>
+                        @error('meetingContactId') <p style="font-size: 0.75rem; color: #e11d48; margin-top: 0.25rem;">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
                         <label style="font-size: 0.8125rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.25rem;">Meeting Title</label>
                         <input type="text" wire:model="meetingTitle" style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none;" required>
                     </div>
@@ -1272,10 +1284,12 @@
                         <div>
                             <label style="font-size: 0.8125rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.25rem;">Date</label>
                             <input type="date" wire:model="meetingDate" style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none;" required>
+                            @error('meetingDate') <p style="font-size: 0.75rem; color: #e11d48; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label style="font-size: 0.8125rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.25rem;">Time</label>
                             <input type="time" wire:model="meetingTime" style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none;" required>
+                            @error('meetingTime') <p style="font-size: 0.75rem; color: #e11d48; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                         </div>
                     </div>
                     <div>

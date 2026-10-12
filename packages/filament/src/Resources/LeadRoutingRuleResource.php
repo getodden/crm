@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources;
 
 use BackedEnum;
+use Closure;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -68,9 +69,23 @@ class LeadRoutingRuleResource extends Resource
                             ->searchable()
                             ->columnSpanFull(),
                         KeyValue::make('criteria')
-                            ->label('Matching Criteria (Optional Filters e.g. state: CA)')
+                            ->label('Matching Criteria (Optional Filters e.g. min_amount: 10000, timezone: Europe/Berlin)')
+                            ->helperText('Supported fields: lead_status, timezone, city (contacts); pipeline_id, min_amount (deals).')
                             ->keyLabel('Field')
                             ->valueLabel('Value')
+                            // Refuse fields no lead can be matched on here, rather than when the rule is saved.
+                            ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                // LeadRoutingRule::unsupportedCriteria() arrives with getodden/crm#123.
+                                if (! is_array($value) || ! method_exists(LeadRoutingRule::class, 'unsupportedCriteria')) {
+                                    return;
+                                }
+
+                                $unsupported = LeadRoutingRule::unsupportedCriteria($value);
+
+                                if ($unsupported !== []) {
+                                    $fail('Lead routing rules cannot match on: '.implode(', ', $unsupported).'.');
+                                }
+                            })
                             ->columnSpanFull(),
                         TextInput::make('sort_order')
                             ->label('Evaluation Priority')
@@ -102,9 +117,10 @@ class LeadRoutingRuleResource extends Resource
                     ->label('Strategy')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => $state instanceof LeadRoutingStrategy ? $state->label() : (LeadRoutingStrategy::tryFrom((string) $state)?->label() ?? (string) $state)),
-                TextColumn::make('assigned_user_ids')
+                // The state is the list of user ids; one summary for the row, not one per id.
+                TextColumn::make('reps_pool')
                     ->label('Reps Pool')
-                    ->formatStateUsing(fn (LeadRoutingRule $record): string => count($record->assigned_user_ids).' reps'),
+                    ->state(fn (LeadRoutingRule $record): string => count($record->assigned_user_ids ?? []).' '.str('rep')->plural(count($record->assigned_user_ids ?? []))),
                 IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean()

@@ -7,6 +7,7 @@ namespace Odden\Filament\Resources\PipelineResource\Pages;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Odden\Filament\Resources\PipelineResource;
+use Odden\Sales\Models\Pipeline;
 
 class EditPipeline extends EditRecord
 {
@@ -17,5 +18,13 @@ class EditPipeline extends EditRecord
         return [
             DeleteAction::make(),
         ];
+    }
+
+    protected function afterSave(): void
+    {
+        /** @var Pipeline $record */
+        $record = $this->getRecord();
+
+        PipelineResource::keepSingleDefault($record);
     }
 }
