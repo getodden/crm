@@ -9,6 +9,20 @@ use Filament\Facades\Filament;
 use Filament\Resources\Resource as FilamentResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Models\Activity;
+use Odden\Core\Models\Company;
+use Odden\Core\Models\Contact;
+use Odden\Filament\Resources\CompanyResource;
+use Odden\Filament\Resources\ContactResource;
+use Odden\Filament\Resources\DealResource;
+use Odden\Filament\Resources\QuoteResource;
+use Odden\Filament\Resources\SalesQuotaResource;
+use Odden\Filament\Resources\SalesSequenceResource;
+use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\Quote;
+use Odden\Sales\Models\SalesQuota;
+use Odden\Sales\Models\SalesSequence;
+use Odden\Sales\Models\SalesSequenceEnrollment;
 
 use function Filament\get_authorization_response;
 
@@ -26,12 +40,12 @@ final class OddenAuthorization
      * @var array<class-string<Model>, class-string<FilamentResource>>
      */
     private const RESOURCES = [
-        \Odden\Core\Models\Contact::class => \Odden\Filament\Resources\ContactResource::class,
-        \Odden\Core\Models\Company::class => \Odden\Filament\Resources\CompanyResource::class,
-        \Odden\Sales\Models\Deal::class => \Odden\Filament\Resources\DealResource::class,
-        \Odden\Sales\Models\Quote::class => \Odden\Filament\Resources\QuoteResource::class,
-        \Odden\Sales\Models\SalesSequence::class => \Odden\Filament\Resources\SalesSequenceResource::class,
-        \Odden\Sales\Models\SalesQuota::class => \Odden\Filament\Resources\SalesQuotaResource::class,
+        Contact::class => ContactResource::class,
+        Company::class => CompanyResource::class,
+        Deal::class => DealResource::class,
+        Quote::class => QuoteResource::class,
+        SalesSequence::class => SalesSequenceResource::class,
+        SalesQuota::class => SalesQuotaResource::class,
     ];
 
     /**
@@ -149,19 +163,19 @@ final class OddenAuthorization
      * Activities whose subject (contact, company or deal) is visible to the panel user. Activities
      * on other subject types are not shown.
      *
-     * @return Builder<\Odden\Core\Models\Activity>
+     * @return Builder<Activity>
      */
     public static function activities(): Builder
     {
-        $query = \Odden\Core\Models\Activity::query();
+        $query = Activity::query();
 
         $query->where(function (Builder $where): void {
             $any = false;
 
             foreach ([
-                \Odden\Core\Models\Contact::class,
-                \Odden\Core\Models\Company::class,
-                \Odden\Sales\Models\Deal::class,
+                Contact::class,
+                Company::class,
+                Deal::class,
             ] as $model) {
                 if (! class_exists($model)) {
                     continue;
@@ -185,16 +199,16 @@ final class OddenAuthorization
     /**
      * Sequence enrollments whose sequence and contact are both visible to the panel user.
      *
-     * @return Builder<\Odden\Sales\Models\SalesSequenceEnrollment>
+     * @return Builder<SalesSequenceEnrollment>
      */
     public static function enrollments(): Builder
     {
-        $contact = new \Odden\Core\Models\Contact;
-        $sequence = new \Odden\Sales\Models\SalesSequence;
+        $contact = new Contact;
+        $sequence = new SalesSequence;
 
-        return \Odden\Sales\Models\SalesSequenceEnrollment::query()
-            ->whereIn('contact_id', self::scoped(\Odden\Core\Models\Contact::class)->select($contact->getQualifiedKeyName()))
-            ->whereIn('sequence_id', self::scoped(\Odden\Sales\Models\SalesSequence::class)->select($sequence->getQualifiedKeyName()));
+        return SalesSequenceEnrollment::query()
+            ->whereIn('contact_id', self::scoped(Contact::class)->select($contact->getQualifiedKeyName()))
+            ->whereIn('sequence_id', self::scoped(SalesSequence::class)->select($sequence->getQualifiedKeyName()));
     }
 
     /**
