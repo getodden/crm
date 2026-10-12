@@ -30,15 +30,17 @@ Helpers on `Contact`:
 - `markContacted(?CarbonInterface $at = null)`: sets `last_contacted_at` (default `now()`) with a normal `update()`, so model events fire and the change is written to the [property history](custom-properties.md#change-history).
 - `owner()`: `BelongsTo` your user model (see [the user model](integration.md#the-user-model)).
 - `companies()`: `BelongsToMany` companies through `odden_associations`, where the contact is the parent and the company the child, of any association type. The pivot includes `id` and `type`.
-- `whereEmail(string $email)` scope: lowercases and trims the value before matching. It compares the stored value exactly, so it won't find a contact saved with mixed case; use `ContactLookup` below for that.
+- `whereEmail(string $email)` scope: lowercases and trims the value before matching.
+
+A contact's `email` is lowercased and trimmed whenever it's saved, and a migration normalizes contacts saved before this was done, so an exact match on the normalized address finds every contact.
 
 ### Looking up contacts by email
 
 `Odden\Core\Support\ContactLookup` finds and creates contacts by email address, ignoring case and surrounding whitespace. The Service portal, chat widget, and inbound email, and Sales meeting booking all use it, so one person is one contact however they type their address.
 
 - `ContactLookup::normalizeEmail(string $email): string` lowercases and trims.
-- `ContactLookup::findByEmail(string $email): ?Contact` first looks for a contact stored with exactly the normalized address, which can use the `email` index. Only when there's none does it compare `LOWER(TRIM(email))`, which also matches older contacts saved with mixed case or spaces (this query can't use the index). Among several matches, the oldest wins. An empty address returns `null`.
-- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email.
+- `ContactLookup::findByEmail(string $email): ?Contact` looks for a contact stored with exactly the normalized address, which uses the `email` index. Among several matches, the oldest wins. An empty address returns `null`.
+- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email through `CreateContactAction`, so `ContactCreated` fires and the address is checked like any other new contact. Concurrent calls for the same address are serialized with a cache lock (when the cache store supports locks), so only one contact is created.
 
 ```php
 use Odden\Core\Support\ContactLookup;
