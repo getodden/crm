@@ -183,7 +183,7 @@ class SalesCockpit extends Page
      */
     public function getSequencesListProperty(): Collection
     {
-        return SalesSequence::query()
+        return OddenAuthorization::scoped(SalesSequence::class)
             ->where('is_active', true)
             ->with(['enrollments' => fn ($q) => $q->where('status', 'active')->with('contact')])
             ->orderBy('id')
@@ -217,7 +217,7 @@ class SalesCockpit extends Page
         $todayEnd = Carbon::today()->endOfDay();
         $weekEnd = Carbon::today()->endOfWeek();
 
-        $baseQuery = Activity::query()
+        $baseQuery = OddenAuthorization::activities()
             ->where('status', ActivityStatus::Pending);
 
         if ($this->selectedUserId) {
@@ -282,7 +282,7 @@ class SalesCockpit extends Page
         $sequences = $this->getSequencesListProperty();
         $totalSequences = $sequences->count();
 
-        $allEnrollments = SalesSequenceEnrollment::query()->where('status', 'active');
+        $allEnrollments = OddenAuthorization::enrollments()->where('status', 'active');
         $totalEnrolled = (clone $allEnrollments)->count();
         $stepsDue = (clone $allEnrollments)->where(function ($q) use ($todayStr): void {
             $q->whereNull('next_step_due_at')->orWhere('next_step_due_at', '<=', $todayStr);
@@ -353,7 +353,7 @@ class SalesCockpit extends Page
         $start = (clone $selectedDate)->startOfDay();
         $end = (clone $selectedDate)->endOfDay();
 
-        return Activity::query()
+        return OddenAuthorization::activities()
             ->whereBetween('due_at', [$start, $end])
             ->whereIn('type', [ActivityType::Meeting, ActivityType::Call])
             ->with(['subject'])
@@ -401,7 +401,7 @@ class SalesCockpit extends Page
         $actions = [];
 
         // 1. Prospecting: Sequence steps due
-        $dueEnrollments = SalesSequenceEnrollment::query()
+        $dueEnrollments = OddenAuthorization::enrollments()
             ->where('status', 'active')
             ->where(function ($q): void {
                 $q->whereNull('next_step_due_at')
@@ -448,7 +448,7 @@ class SalesCockpit extends Page
         }
 
         // 2. Prospecting: New uncontacted leads
-        $newContacts = Contact::query()
+        $newContacts = OddenAuthorization::scoped(Contact::class)
             ->where(function ($q): void {
                 $q->where('lead_status', LeadStatus::New)
                     ->orWhereNull('last_contacted_at');
@@ -493,7 +493,7 @@ class SalesCockpit extends Page
         }
 
         // 3. Closing: Rotten / Stale Deals
-        $openDeals = Deal::query()
+        $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', DealStatus::Open)
             ->with(['stage', 'contacts'])
             ->get();
@@ -538,7 +538,7 @@ class SalesCockpit extends Page
         }
 
         // 4. Closing: Pending quotes awaiting response
-        $quotes = Quote::query()
+        $quotes = OddenAuthorization::scoped(Quote::class)
             ->where('status', QuoteStatus::Sent)
             ->with(['deal.contacts'])
             ->latest()
@@ -614,7 +614,7 @@ class SalesCockpit extends Page
     public function advanceEnrollment(int $enrollmentId): void
     {
         /** @var SalesSequenceEnrollment $enrollment */
-        $enrollment = SalesSequenceEnrollment::query()->with('sequence')->findOrFail($enrollmentId);
+        $enrollment = OddenAuthorization::enrollments()->with('sequence')->findOrFail($enrollmentId);
 
         $contact = $this->findContactForUpdate($enrollment->contact_id);
         OddenAuthorization::authorize('update', $enrollment);
@@ -639,7 +639,7 @@ class SalesCockpit extends Page
     public function completeActivity(int $activityId): void
     {
         /** @var Activity $activity */
-        $activity = Activity::query()->findOrFail($activityId);
+        $activity = OddenAuthorization::activities()->findOrFail($activityId);
 
         OddenAuthorization::authorize('update', $activity);
 

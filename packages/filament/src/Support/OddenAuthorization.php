@@ -23,6 +23,18 @@ use function Filament\get_authorization_response;
 final class OddenAuthorization
 {
     /**
+     * @var array<class-string<Model>, class-string<FilamentResource>>
+     */
+    private const RESOURCES = [
+        \Odden\Core\Models\Contact::class => \Odden\Filament\Resources\ContactResource::class,
+        \Odden\Core\Models\Company::class => \Odden\Filament\Resources\CompanyResource::class,
+        \Odden\Sales\Models\Deal::class => \Odden\Filament\Resources\DealResource::class,
+        \Odden\Sales\Models\Quote::class => \Odden\Filament\Resources\QuoteResource::class,
+        \Odden\Sales\Models\SalesSequence::class => \Odden\Filament\Resources\SalesSequenceResource::class,
+        \Odden\Sales\Models\SalesQuota::class => \Odden\Filament\Resources\SalesQuotaResource::class,
+    ];
+
+    /**
      * Whether the current user may perform the ability on the record or model class.
      *
      * When a resource is given, its own authorization rules are used (including
@@ -110,6 +122,79 @@ final class OddenAuthorization
             (new $model)->getQualifiedKeyName(),
             $scoped->select($scoped->getModel()->getQualifiedKeyName()),
         );
+    }
+
+    /**
+     * The visible records of a model the panel has a resource for: Contact, Company, Deal, Quote,
+     * SalesSequence and SalesQuota. Pages and widgets that query these models directly should use this
+     * so tenant or user scoping in the resource's `getEloquentQuery()` is honoured.
+     *
+     * @template TModel of Model
+     *
+     * @param  class-string<TModel>  $model
+     * @return Builder<TModel>
+     */
+    public static function scoped(string $model): Builder
+    {
+        $resource = self::RESOURCES[$model] ?? null;
+
+        if ($resource === null) {
+            throw new \InvalidArgumentException("No panel resource is registered for [{$model}].");
+        }
+
+        return self::query($resource, $model);
+    }
+
+    /**
+     * Activities whose subject (contact, company or deal) is visible to the panel user. Activities
+     * on other subject types are not shown.
+     *
+     * @return Builder<\Odden\Core\Models\Activity>
+     */
+    public static function activities(): Builder
+    {
+        $query = \Odden\Core\Models\Activity::query();
+
+        $query->where(function (Builder $where): void {
+            $any = false;
+
+            foreach ([
+                \Odden\Core\Models\Contact::class,
+                \Odden\Core\Models\Company::class,
+                \Odden\Sales\Models\Deal::class,
+            ] as $model) {
+                if (! class_exists($model)) {
+                    continue;
+                }
+
+                $any = true;
+                $keys = self::scoped($model)->select((new $model)->getQualifiedKeyName());
+                $where->orWhere(fn (Builder $q) => $q
+                    ->where('subject_type', (new $model)->getMorphClass())
+                    ->whereIn('subject_id', $keys));
+            }
+
+            if (! $any) {
+                $where->whereRaw('1 = 0');
+            }
+        });
+
+        return $query;
+    }
+
+    /**
+     * Sequence enrollments whose sequence and contact are both visible to the panel user.
+     *
+     * @return Builder<\Odden\Sales\Models\SalesSequenceEnrollment>
+     */
+    public static function enrollments(): Builder
+    {
+        $contact = new \Odden\Core\Models\Contact;
+        $sequence = new \Odden\Sales\Models\SalesSequence;
+
+        return \Odden\Sales\Models\SalesSequenceEnrollment::query()
+            ->whereIn('contact_id', self::scoped(\Odden\Core\Models\Contact::class)->select($contact->getQualifiedKeyName()))
+            ->whereIn('sequence_id', self::scoped(\Odden\Sales\Models\SalesSequence::class)->select($sequence->getQualifiedKeyName()));
     }
 
     /**

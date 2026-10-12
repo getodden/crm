@@ -99,7 +99,7 @@ class KanbanDeals extends Page
      */
     public function getForecastProperty(): array
     {
-        return app(CalculatePipelineForecastAction::class)->execute($this->pipelineId);
+        return app(CalculatePipelineForecastAction::class)->execute($this->pipelineId, visibleDeals: DealResource::getEloquentQuery());
     }
 
     public function moveDeal(int $dealId, int $stageId): void

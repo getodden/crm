@@ -67,7 +67,7 @@ class DataQuality extends Page
      */
     public function getDuplicateContactsProperty(): array
     {
-        return app(FindDuplicateContactsAction::class)->execute();
+        return app(FindDuplicateContactsAction::class)->execute(ContactResource::getEloquentQuery());
     }
 
     /**
@@ -75,17 +75,17 @@ class DataQuality extends Page
      */
     public function getDuplicateCompaniesProperty(): array
     {
-        return app(FindDuplicateCompaniesAction::class)->execute();
+        return app(FindDuplicateCompaniesAction::class)->execute(CompanyResource::getEloquentQuery());
     }
 
     public function getTotalContactsCountProperty(): int
     {
-        return Contact::query()->count();
+        return OddenAuthorization::scoped(Contact::class)->count();
     }
 
     public function getTotalCompaniesCountProperty(): int
     {
-        return Company::query()->count();
+        return OddenAuthorization::scoped(Company::class)->count();
     }
 
     public function getDataCleanlinessScoreProperty(): float
