@@ -85,7 +85,8 @@ $all = app(CalculatePipelineForecastAction::class)->execute();
 | `won_count` | Number of won deals. |
 | `lost_count` | Number of lost deals. |
 | `win_rate` | `won / (won + lost) × 100`, one decimal. `0.0` when nothing is closed. |
-| `average_deal_size` | Average `amount` across all deals, including open and lost ones. |
+| `average_deal_size` | Average `amount` across all deals in `currency`: open, won and lost. Kept with this meaning for compatibility; for the usual sales definition use `average_won_deal_size`. |
+| `average_won_deal_size` | Average `amount` of won deals in `currency` (`won_value / won_count`). `0.0` when nothing is won. |
 | `lost_reasons` | Count of lost deals per `lost_reason`, with `unspecified` for empty reasons. |
 | `stale_deals_count` | Number of open deals that are rotting. |
 
