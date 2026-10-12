@@ -75,8 +75,7 @@ class LeadRoutingRuleResource extends Resource
                             ->valueLabel('Value')
                             // Refuse fields no lead can be matched on here, rather than when the rule is saved.
                             ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
-                                // LeadRoutingRule::unsupportedCriteria() arrives with getodden/crm#123.
-                                if (! is_array($value) || ! method_exists(LeadRoutingRule::class, 'unsupportedCriteria')) {
+                                if (! is_array($value)) {
                                     return;
                                 }
 

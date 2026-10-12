@@ -260,10 +260,6 @@ class SmallerReviewFindingsTest extends TestCase
 
     public function test_routing_criteria_on_unsupported_fields_are_a_validation_error(): void
     {
-        if (! method_exists(LeadRoutingRule::class, 'unsupportedCriteria')) {
-            $this->markTestSkipped('Needs LeadRoutingRule::unsupportedCriteria() from getodden/crm#123.');
-        }
-
         $user = User::factory()->create();
 
         Livewire::actingAs($user)
