@@ -128,7 +128,7 @@ class SalesQuotaResource extends Resource
                     ->getStateUsing(function (SalesQuota $record): string {
                         $metrics = app(CalculateQuotaAttainmentAction::class)->execute($record);
 
-                        return '$'.number_format($metrics['won_amount'], 2);
+                        return \Odden\Sales\Support\Money::format($metrics['won_amount'], $metrics['currency']);
                     }),
             ])
             ->recordActions([

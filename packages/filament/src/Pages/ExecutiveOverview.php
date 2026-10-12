@@ -24,6 +24,7 @@ use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesQuota;
+use Odden\Sales\Support\Money;
 use UnitEnum;
 
 class ExecutiveOverview extends Page
@@ -90,13 +91,72 @@ class ExecutiveOverview extends Page
     // REVENUE & PIPELINE FLYWHEEL METRICS
     // ==========================================
 
+    /**
+     * The one currency the revenue figures are reported in (amounts are never added across currencies).
+     */
+    public function getReportingCurrencyProperty(): string
+    {
+        if (! class_exists(Deal::class)) {
+            return Money::defaultCurrency();
+        }
+
+        return Money::reportingCurrency(OddenAuthorization::scoped(Deal::class));
+    }
+
+    /**
+     * The prefix for the revenue figures, such as "$" or "CHF ".
+     */
+    public function getCurrencyPrefixProperty(): string
+    {
+        return Money::prefix($this->getReportingCurrencyProperty());
+    }
+
+    /**
+     * Open and won totals of deals in currencies other than the reporting currency.
+     *
+     * @return array<string, string>
+     */
+    public function getOtherCurrencyTotalsProperty(): array
+    {
+        if (! class_exists(Deal::class)) {
+            return [];
+        }
+
+        $reporting = $this->getReportingCurrencyProperty();
+        $totals = [];
+
+        foreach (OddenAuthorization::scoped(Deal::class)->where('currency', '!=', $reporting)->whereIn('status', ['open', 'won'])->get(['currency', 'amount', 'status']) as $deal) {
+            $code = strtoupper((string) $deal->currency);
+            $totals[$code] = ($totals[$code] ?? 0.0) + (float) $deal->amount;
+        }
+
+        ksort($totals);
+
+        $formatted = [];
+        foreach ($totals as $code => $amount) {
+            $formatted[$code] = Money::format($amount, $code);
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Deals in the reporting currency.
+     *
+     * @return Builder<Deal>
+     */
+    protected function reportingDeals(): Builder
+    {
+        return OddenAuthorization::scoped(Deal::class)->where('currency', $this->getReportingCurrencyProperty());
+    }
+
     public function getActivePipelineProperty(): float
     {
         if (! class_exists(Deal::class)) {
             return 0.0;
         }
 
-        return (float) OddenAuthorization::scoped(Deal::class)
+        return (float) $this->reportingDeals()
             ->where('status', 'open')
             ->sum('amount');
     }
@@ -108,7 +168,7 @@ class ExecutiveOverview extends Page
         }
 
         /** @var Collection<int, Deal> $deals */
-        $deals = OddenAuthorization::scoped(Deal::class)
+        $deals = $this->reportingDeals()
             ->where('status', 'open')
             ->with('stage')
             ->get();
@@ -130,7 +190,7 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return (float) OddenAuthorization::scoped(Deal::class)
+        return (float) $this->reportingDeals()
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->sum('amount');
@@ -145,6 +205,7 @@ class ExecutiveOverview extends Page
         [$start, $end] = $this->getDateRange();
 
         $sum = (float) OddenAuthorization::scoped(SalesQuota::class)
+            ->where('currency', $this->getReportingCurrencyProperty())
             ->where(function (Builder $q) use ($start, $end): void {
                 $q->whereBetween('period_start', [$start, $end])
                     ->orWhereBetween('period_end', [$start, $end]);
@@ -210,7 +271,7 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return round((float) (OddenAuthorization::scoped(Deal::class)
+        return round((float) ($this->reportingDeals()
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->avg('amount') ?? 0), 2);
@@ -325,7 +386,7 @@ class ExecutiveOverview extends Page
             return new Collection;
         }
 
-        return OddenAuthorization::scoped(Deal::class)
+        return $this->reportingDeals()
             ->where('status', 'open')
             ->where('amount', '>=', 10000)
             ->with('stage')
@@ -400,6 +461,7 @@ class ExecutiveOverview extends Page
         $quotasByUser = [];
         if (class_exists(SalesQuota::class)) {
             $quotas = OddenAuthorization::scoped(SalesQuota::class)
+                ->where('currency', $this->getReportingCurrencyProperty())
                 ->where(function (Builder $q) use ($start, $end): void {
                     $q->whereBetween('period_start', [$start, $end])
                         ->orWhereBetween('period_end', [$start, $end]);
@@ -411,7 +473,7 @@ class ExecutiveOverview extends Page
             }
         }
 
-        $wonDeals = OddenAuthorization::scoped(Deal::class)
+        $wonDeals = $this->reportingDeals()
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->whereNotNull('owner_id')
@@ -423,7 +485,7 @@ class ExecutiveOverview extends Page
             $wonByUser[$ownerId] = ($wonByUser[$ownerId] ?? 0.0) + (float) $d->amount;
         }
 
-        $openDeals = OddenAuthorization::scoped(Deal::class)
+        $openDeals = $this->reportingDeals()
             ->where('status', 'open')
             ->whereNotNull('owner_id')
             ->get(['owner_id', 'amount']);

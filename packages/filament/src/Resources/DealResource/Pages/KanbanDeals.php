@@ -80,6 +80,7 @@ class KanbanDeals extends Page
         return (float) OddenAuthorization::query(DealResource::class, Deal::class)
             ->where('pipeline_id', $this->pipelineId)
             ->where('status', 'open')
+            ->where('currency', $this->forecast['currency'])
             ->sum('amount');
     }
 
