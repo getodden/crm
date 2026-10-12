@@ -32,7 +32,7 @@ class ListSalesSequences extends ListRecords
                     ->every(fn (SalesSequence $sequence): bool => OddenAuthorization::allows('update', $sequence, SalesSequenceResource::class)))
                 ->action(function (): void {
                     // Only the sequences this user can see, so a scoped user cannot run other teams' cadences.
-                    $visible = OddenAuthorization::query(SalesSequenceResource::class, SalesSequence::class)->pluck('id')->all();
+                    $visible = OddenAuthorization::query(SalesSequenceResource::class, SalesSequence::class)->pluck('id')->map(fn (mixed $id): int|string => is_int($id) ? $id : (string) $id)->values()->all();
                     $stats = app(ProcessCadencesAction::class)->execute($visible);
 
                     Notification::make()
