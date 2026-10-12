@@ -48,21 +48,22 @@ $survivor = app(MergeContactsAction::class)->execute($primary, $secondary);
 
 `execute(Contact $primary, Contact $secondary, array $fieldOverrides = []): Contact` runs in a database transaction:
 
-1. Copies `first_name`, `last_name`, `phone`, `lifecycle_stage`, `lead_status`, `owner_id`, and `team_id` from the secondary where the primary's value is empty.
-2. Applies `$fieldOverrides` to the primary.
+1. Copies `first_name`, `last_name`, `phone`, `lead_status`, `owner_id`, and `team_id` from the secondary where the primary's value is empty.
+2. Applies `$fieldOverrides` to the primary, except `lifecycle_stage` (see step 7).
 3. Keeps the higher `lead_score`.
 4. Merges `properties`. The primary's values win when both have the same key.
 5. Keeps the earlier date of each lifecycle stage timestamp (`became_lead_at`, `became_customer_at`, and so on).
 6. Saves the primary. This is a normal save, so [property history](custom-properties.md#change-history) is written.
-7. Moves everything Core stores against the secondary to the primary:
+7. Moves the primary to the further-along [lifecycle stage](lifecycle-stages.md) of the two records: Subscriber, Lead, MQL, SQL, Opportunity, Customer, Evangelist in that order, with Other below them all. A customer is therefore never moved backwards, and a Lead merged with a Customer becomes a Customer, keeping the Customer's `became_customer_at`. The change is recorded as a transition with source `merge`, and is allowed in strict mode because the person already reached that stage as the other record. A `lifecycle_stage` in `$fieldOverrides` is used instead, and is validated by the state machine like any other change, so merging a customer into `lead` throws `InvalidLifecycleStageTransitionException` and nothing is merged.
+8. Moves everything Core stores against the secondary to the primary:
     - activities,
-    - associations, in both directions. Links that would duplicate one the primary already has are deleted, and so is any link between the two records being merged. Deals from Sales are linked through associations, so they move here.
+    - associations, in both directions. A link is deleted instead of moved when it would link the primary to itself (a link between the two records being merged), when the primary already has a link of the same type to the same record in either direction, or when moving it would break the cardinality of its [association type](associations.md#cardinality): the primary keeps its own link, and the secondary's is dropped. Deals from Sales are linked through associations, so they move here.
     - static and active [list](lists.md) memberships. Memberships of lists the primary is already on are deleted.
     - [property history](custom-properties.md#change-history),
     - [lifecycle stage transitions](lifecycle-stages.md).
-8. Dispatches [`ContactsMerged`](#moving-your-own-data-on-merge). Each installed module moves its own data in a listener; see [What each module moves](#what-each-module-moves).
-9. Logs a "Contact Merged" note on the primary.
-10. Soft-deletes the secondary.
+9. Dispatches [`ContactsMerged`](#moving-your-own-data-on-merge). Each installed module moves its own data in a listener; see [What each module moves](#what-each-module-moves).
+10. Logs a "Contact Merged" note on the primary.
+11. Soft-deletes the secondary.
 
 If any step throws, including a `ContactsMerged` listener, the whole merge is rolled back.
 
@@ -97,7 +98,7 @@ foreach (app(FindDuplicateContactsAction::class)->execute() as $group) {
 
 `MergeCompaniesAction::execute(Company $primary, Company $secondary, array $fieldOverrides = []): Company` works the same way, with these differences:
 
-- It fills empty `domain`, `phone`, `industry`, `account_tier`, `owner_id`, and `team_id` from the secondary.
+- It fills empty `domain`, `phone`, `industry`, `account_tier`, `owner_id`, and `team_id` from the secondary. The lifecycle stage is merged as for contacts.
 - It keeps the higher `intent_score`, sets `intent_surge` if either record has it, and sets `health_score` to the average of the two.
 - Deals and contacts are linked through associations, so they move with the associations.
 - It dispatches [`CompaniesMerged`](#moving-your-own-data-on-merge) instead of `ContactsMerged`.
