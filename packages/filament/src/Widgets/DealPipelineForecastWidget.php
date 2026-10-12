@@ -7,6 +7,7 @@ namespace Odden\Filament\Widgets;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Odden\Filament\Resources\DealResource;
 use Odden\Sales\Actions\CalculatePipelineForecastAction;
 use Odden\Sales\Support\Money;
 
@@ -19,7 +20,10 @@ class DealPipelineForecastWidget extends StatsOverviewWidget
      */
     protected function getStats(): array
     {
-        $forecast = app(CalculatePipelineForecastAction::class)->execute($this->pipelineId);
+        $forecast = app(CalculatePipelineForecastAction::class)->execute(
+            $this->pipelineId,
+            visibleDeals: DealResource::getEloquentQuery(),
+        );
 
         return [
             Stat::make('Open Pipeline', Money::format($forecast['open_value']))

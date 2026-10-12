@@ -21,6 +21,7 @@ use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\SalesQuotaResource;
 use Odden\Filament\Support\Modules;
+use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesQuota;
 use UnitEnum;
@@ -95,7 +96,7 @@ class ExecutiveOverview extends Page
             return 0.0;
         }
 
-        return (float) Deal::query()
+        return (float) OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
             ->sum('amount');
     }
@@ -107,7 +108,7 @@ class ExecutiveOverview extends Page
         }
 
         /** @var Collection<int, Deal> $deals */
-        $deals = Deal::query()
+        $deals = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
             ->with('stage')
             ->get();
@@ -129,7 +130,7 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return (float) Deal::query()
+        return (float) OddenAuthorization::scoped(Deal::class)
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->sum('amount');
@@ -143,7 +144,7 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        $sum = (float) SalesQuota::query()
+        $sum = (float) OddenAuthorization::scoped(SalesQuota::class)
             ->where(function (Builder $q) use ($start, $end): void {
                 $q->whereBetween('period_start', [$start, $end])
                     ->orWhereBetween('period_end', [$start, $end]);
@@ -183,12 +184,12 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        $wonCount = Deal::query()
+        $wonCount = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->count();
 
-        $lostCount = Deal::query()
+        $lostCount = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'lost')
             ->whereBetween('closed_at', [$start, $end])
             ->count();
@@ -209,7 +210,7 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return round((float) (Deal::query()
+        return round((float) (OddenAuthorization::scoped(Deal::class)
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->avg('amount') ?? 0), 2);
@@ -234,12 +235,12 @@ class ExecutiveOverview extends Page
      */
     public function getFlywheelFunnelProperty(): array
     {
-        $totalContacts = Contact::query()->count();
-        $mqls = Contact::query()->where('lifecycle_stage', LifecycleStage::MarketingQualifiedLead->value)->count();
-        $sqls = Contact::query()->where('lifecycle_stage', LifecycleStage::SalesQualifiedLead->value)->count();
-        $customers = Contact::query()->where('lifecycle_stage', LifecycleStage::Customer->value)->count();
+        $totalContacts = OddenAuthorization::scoped(Contact::class)->count();
+        $mqls = OddenAuthorization::scoped(Contact::class)->where('lifecycle_stage', LifecycleStage::MarketingQualifiedLead->value)->count();
+        $sqls = OddenAuthorization::scoped(Contact::class)->where('lifecycle_stage', LifecycleStage::SalesQualifiedLead->value)->count();
+        $customers = OddenAuthorization::scoped(Contact::class)->where('lifecycle_stage', LifecycleStage::Customer->value)->count();
 
-        $opps = class_exists(Deal::class) ? Deal::query()->count() : 0;
+        $opps = class_exists(Deal::class) ? OddenAuthorization::scoped(Deal::class)->count() : 0;
 
         $leads = max(1, $totalContacts);
 
@@ -274,7 +275,7 @@ class ExecutiveOverview extends Page
      */
     public function getCustomerHealthMetricsProperty(): array
     {
-        $total = Company::query()->count();
+        $total = OddenAuthorization::scoped(Company::class)->count();
         if ($total === 0) {
             return [
                 'total' => 0,
@@ -288,10 +289,10 @@ class ExecutiveOverview extends Page
             ];
         }
 
-        $healthy = Company::query()->where('health_status', CustomerHealthStatus::Healthy->value)->count();
-        $neutral = Company::query()->where('health_status', CustomerHealthStatus::Neutral->value)->count();
-        $atRisk = Company::query()->where('health_status', CustomerHealthStatus::AtRisk->value)->count();
-        $avgScore = round((float) (Company::query()->avg('health_score') ?? 70), 1);
+        $healthy = OddenAuthorization::scoped(Company::class)->where('health_status', CustomerHealthStatus::Healthy->value)->count();
+        $neutral = OddenAuthorization::scoped(Company::class)->where('health_status', CustomerHealthStatus::Neutral->value)->count();
+        $atRisk = OddenAuthorization::scoped(Company::class)->where('health_status', CustomerHealthStatus::AtRisk->value)->count();
+        $avgScore = round((float) (OddenAuthorization::scoped(Company::class)->avg('health_score') ?? 70), 1);
 
         return [
             'total' => $total,
@@ -324,7 +325,7 @@ class ExecutiveOverview extends Page
             return new Collection;
         }
 
-        return Deal::query()
+        return OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
             ->where('amount', '>=', 10000)
             ->with('stage')
@@ -340,7 +341,7 @@ class ExecutiveOverview extends Page
      */
     public function getAtRiskStrategicAccountsProperty(): Collection
     {
-        return Company::query()
+        return OddenAuthorization::scoped(Company::class)
             ->where('health_status', CustomerHealthStatus::AtRisk->value)
             ->orderBy('health_score', 'asc')
             ->limit(5)
@@ -359,7 +360,7 @@ class ExecutiveOverview extends Page
         }
 
         /** @var Collection<int, Deal> $openDeals */
-        $openDeals = Deal::query()
+        $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
             ->with(['stage', 'owner'])
             ->orderBy('amount', 'desc')
@@ -398,7 +399,7 @@ class ExecutiveOverview extends Page
 
         $quotasByUser = [];
         if (class_exists(SalesQuota::class)) {
-            $quotas = SalesQuota::query()
+            $quotas = OddenAuthorization::scoped(SalesQuota::class)
                 ->where(function (Builder $q) use ($start, $end): void {
                     $q->whereBetween('period_start', [$start, $end])
                         ->orWhereBetween('period_end', [$start, $end]);
@@ -410,7 +411,7 @@ class ExecutiveOverview extends Page
             }
         }
 
-        $wonDeals = Deal::query()
+        $wonDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->whereNotNull('owner_id')
@@ -422,7 +423,7 @@ class ExecutiveOverview extends Page
             $wonByUser[$ownerId] = ($wonByUser[$ownerId] ?? 0.0) + (float) $d->amount;
         }
 
-        $openDeals = Deal::query()
+        $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
             ->whereNotNull('owner_id')
             ->get(['owner_id', 'amount']);
