@@ -68,6 +68,7 @@ curl -X POST https://example.com/api/module/endpoint \
 curl ... -H "X-Odden-Token: $ODDEN_MODULE_API_TOKEN"
 
 # Query string, for providers that only accept a webhook URL
+# (only on routes that opt in; Odden's provider webhooks do)
 https://example.com/api/module/webhook?token=...
 ```
 
