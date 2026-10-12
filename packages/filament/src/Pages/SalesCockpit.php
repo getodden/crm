@@ -33,6 +33,7 @@ use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
 use Odden\Sales\Models\SalesSequence;
 use Odden\Sales\Models\SalesSequenceEnrollment;
+use Odden\Sales\Support\Money;
 use UnitEnum;
 
 class SalesCockpit extends Page
@@ -515,7 +516,7 @@ class SalesCockpit extends Page
                     'id' => "deal_{$deal->id}",
                     'category' => 'closing',
                     'title' => $deal->name,
-                    'subtitle' => \Odden\Sales\Support\Money::format($deal->amount, $deal->currency)." • Stage: {$deal->stage->name} ({$days}d inactive)",
+                    'subtitle' => Money::format($deal->amount, $deal->currency)." • Stage: {$deal->stage->name} ({$days}d inactive)",
                     'badge' => "Stale ({$days}d > {$rotLimit}d)",
                     'badge_color' => 'rose',
                     'type' => 'deal',
@@ -555,7 +556,7 @@ class SalesCockpit extends Page
                 'id' => "quote_{$quote->id}",
                 'category' => 'closing',
                 'title' => "Quote #{$quote->quote_number} • {$dealName}",
-                'subtitle' => \Odden\Sales\Support\Money::format($quote->total_amount, $quote->currency)." sent to {$contactName}",
+                'subtitle' => Money::format($quote->total_amount, $quote->currency)." sent to {$contactName}",
                 'badge' => 'Awaiting Acceptance',
                 'badge_color' => 'purple',
                 'type' => 'quote',
