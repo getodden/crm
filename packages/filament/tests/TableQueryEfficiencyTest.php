@@ -22,6 +22,7 @@ use Odden\Filament\Pages\SalesCockpit;
 use Odden\Filament\Resources\ContactResource\Pages\EditContact;
 use Odden\Filament\Resources\CrmListResource\Pages\EditCrmList;
 use Odden\Filament\Resources\CrmListResource\RelationManagers\MembersRelationManager;
+use Odden\Filament\Resources\DealResource\Pages\KanbanDeals;
 use Odden\Filament\Resources\DealResource\Pages\ListDeals;
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\ListSalesQuotas;
@@ -32,9 +33,11 @@ use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\DealStageHistory;
 use Odden\Sales\Models\Pipeline;
+use Odden\Sales\Models\Quote;
 use Odden\Sales\Models\SalesQuota;
 use Odden\Sales\Models\SalesSequence;
 use Odden\Sales\Models\SalesSequenceEnrollment;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Log Activity goes through LogActivityAction (#116); tables and pages do their heavy work once per row and load
@@ -92,20 +95,22 @@ class TableQueryEfficiencyTest extends TestCase
         Event::assertDispatched(ActivityLogged::class);
     }
 
-    public function test_the_deals_table_scores_each_deal_once_without_lazy_loading(): void
+    public function test_the_deals_table_scores_the_page_in_one_batch_without_lazy_loading(): void
     {
         $this->openDeals(3);
-        $calls = 0;
-        $this->app->bind(CalculateDealHealthScoreAction::class, function () use (&$calls): CalculateDealHealthScoreAction {
-            return new class($calls) extends CalculateDealHealthScoreAction
+        $batches = [];
+        $this->app->bind(CalculateDealHealthScoreAction::class, function () use (&$batches): CalculateDealHealthScoreAction {
+            return new class($batches) extends CalculateDealHealthScoreAction
             {
-                public function __construct(private int &$calls) {}
+                /** @param  list<int>  $batches */
+                public function __construct(private array &$batches) {}
 
-                public function execute(Deal $deal): array
+                public function executeMany(iterable $deals): array
                 {
-                    $this->calls++;
+                    $scores = parent::executeMany($deals);
+                    $this->batches[] = count($scores);
 
-                    return parent::execute($deal);
+                    return $scores;
                 }
             };
         });
@@ -114,7 +119,71 @@ class TableQueryEfficiencyTest extends TestCase
 
         Livewire::actingAs(User::factory()->create())->test(ListDeals::class)->assertSuccessful();
 
-        $this->assertSame(3, $calls);
+        $this->assertSame([3], $batches);
+    }
+
+    /**
+     * Queries a page runs, measured after a warm-up render so one-off lookups (settings, permissions) don't count.
+     *
+     * @param  class-string  $page
+     */
+    private function queriesToRender(string $page, User $user): int
+    {
+        Livewire::actingAs($user)->test($page)->assertSuccessful();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        Livewire::actingAs($user)->test($page)->assertSuccessful();
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
+    }
+
+    /**
+     * @return array<string, array{class-string}>
+     */
+    public static function dealPages(): array
+    {
+        return [
+            'deals table' => [ListDeals::class],
+            'deal kanban' => [KanbanDeals::class],
+            'sales cockpit' => [SalesCockpit::class],
+            'executive overview' => [ExecutiveOverview::class],
+        ];
+    }
+
+    #[DataProvider('dealPages')]
+    public function test_deal_pages_run_the_same_queries_for_more_deals(string $page): void
+    {
+        $user = User::factory()->create();
+        $pipeline = Pipeline::factory()->withStages()->create(['is_default' => true]);
+        $stage = $pipeline->stages->first();
+        $stage->update(['rot_after_days' => 2]);
+
+        $addDeals = function (int $count) use ($pipeline, $stage, $user): void {
+            foreach (Deal::factory()->count($count)->create([
+                'pipeline_id' => $pipeline->id,
+                'stage_id' => $stage->id,
+                'status' => 'open',
+                'owner_id' => $user->id,
+                'expected_close_date' => now()->addDays(10),
+            ]) as $deal) {
+                DealStageHistory::query()->create(['deal_id' => $deal->id, 'to_stage_id' => $deal->stage_id, 'entered_at' => now()->subDays(30)]);
+                $contact = Contact::factory()->create(['lifecycle_stage' => 'lead']);
+                $deal->contacts()->attach($contact->id, ['parent_type' => $deal->getMorphClass(), 'child_type' => $contact->getMorphClass()]);
+                $deal->logActivity(ActivityType::Call, 'Discovery call');
+                Quote::factory()->create(['deal_id' => $deal->id]);
+            }
+        };
+
+        $addDeals(2);
+        $few = $this->queriesToRender($page, $user);
+
+        $addDeals(6);
+        $many = $this->queriesToRender($page, $user);
+
+        $this->assertSame($few, $many, "{$page} runs more queries for more deals");
     }
 
     public function test_the_quota_table_computes_attainment_once_per_quota(): void

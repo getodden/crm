@@ -484,7 +484,7 @@
                                         {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency) }}
                                     </span>
                                     <div style="display: flex; align-items: center; gap: 0.375rem;">
-                                        @php $health = $deal->getHealthScore(); @endphp
+                                        @php $health = $this->healthScores[$deal->id] ?? $deal->getHealthScore(); @endphp
                                         <x-filament::badge :color="$health['badge_color']" size="sm" :title="count($health['recommendations']) > 0 ? $health['recommendations'][0] : 'Healthy deal progression'">
                                             {{ $health['badge_label'] }}
                                         </x-filament::badge>

@@ -25,11 +25,13 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Collection;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\DealResource\Pages\CreateDeal;
 use Odden\Filament\Resources\DealResource\Pages\EditDeal;
@@ -46,6 +48,7 @@ use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\RecordMemo;
+use Odden\Sales\Actions\CalculateDealHealthScoreAction;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\RouteLeadAction;
 use Odden\Sales\Enums\DealStatus;
@@ -54,6 +57,7 @@ use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
 use Odden\Sales\Models\SalesPlaybook;
+use Odden\Sales\Support\Money;
 use UnitEnum;
 
 class DealResource extends Resource
@@ -117,18 +121,14 @@ class DealResource extends Resource
                             ->required(),
                         TextInput::make('amount')
                             ->label('Deal Amount')
-                            ->prefix('$')
+                            ->prefix(fn (callable $get): string => Money::prefix(is_string($get('currency')) ? $get('currency') : null))
                             ->numeric()
                             ->default(0.00)
                             ->required(),
                         Select::make('currency')
-                            ->options([
-                                'USD' => 'USD ($)',
-                                'EUR' => 'EUR (€)',
-                                'GBP' => 'GBP (£)',
-                                'CAD' => 'CAD ($)',
-                            ])
-                            ->default('USD')
+                            ->options(fn (?Deal $record): array => self::currencyOptions($record?->currency))
+                            ->default(fn (): string => Money::defaultCurrency())
+                            ->live()
                             ->required(),
                         Select::make('status')
                             ->label('Status')
@@ -211,11 +211,11 @@ class DealResource extends Resource
                     }),
                 TextColumn::make('health_score')
                     ->label('Health')
-                    ->getStateUsing(fn (Deal $record): string => self::healthScore($record)['badge_label'])
+                    ->getStateUsing(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_label'])
                     ->badge()
-                    ->color(fn (Deal $record): string => self::healthScore($record)['badge_color'])
-                    ->tooltip(function (Deal $record): string {
-                        $health = self::healthScore($record);
+                    ->color(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_color'])
+                    ->tooltip(function (Deal $record, HasTable $livewire): string {
+                        $health = self::healthScore($record, $livewire);
 
                         return ! empty($health['recommendations'])
                             ? $health['recommendations'][0]
@@ -361,13 +361,66 @@ class DealResource extends Resource
     }
 
     /**
-     * The deal's health score, computed once per row (the column uses it for its label, colour and tooltip).
+     * The deal's health score, computed once per row (the column uses it for its label, colour and tooltip). The
+     * first row to ask scores every deal on the table page in one batch, so the page costs the same few queries
+     * whatever its size.
      *
      * @return array{score: int, status: string, badge_label: string, badge_color: string, factors: list<array{name: string, points: int, positive: bool, description: string}>, recommendations: list<string>}
      */
-    public static function healthScore(Deal $record): array
+    public static function healthScore(Deal $record, ?HasTable $livewire = null): array
     {
-        return RecordMemo::remember($record, 'health', fn (): array => $record->getHealthScore());
+        return RecordMemo::remember($record, 'health', function () use ($record, $livewire): array {
+            $deals = [$record];
+
+            $records = $livewire?->getTableRecords();
+            $rows = match (true) {
+                $records === null => [],
+                $records instanceof Collection => $records->all(),
+                default => $records->items(),
+            };
+
+            foreach ($rows as $row) {
+                if ($row instanceof Deal && $row !== $record && ! RecordMemo::has($row, 'health')) {
+                    $deals[] = $row;
+                }
+            }
+
+            $scores = app(CalculateDealHealthScoreAction::class)->executeMany($deals);
+
+            foreach ($deals as $deal) {
+                if ($deal !== $record) {
+                    RecordMemo::put($deal, 'health', $scores[$deal->getKey()]);
+                }
+            }
+
+            return $scores[$record->getKey()];
+        });
+    }
+
+    /**
+     * Currencies a deal can be in: the common ones, the configured default and the deal's own (so editing a deal in
+     * another currency keeps it).
+     *
+     * @return array<string, string>
+     */
+    public static function currencyOptions(?string $current = null): array
+    {
+        $codes = array_unique(array_filter([
+            Money::defaultCurrency(),
+            'USD',
+            'EUR',
+            'GBP',
+            'CAD',
+            strtoupper(trim((string) $current)),
+        ]));
+
+        $options = [];
+        foreach ($codes as $code) {
+            $symbol = trim(Money::prefix($code));
+            $options[$code] = $symbol === $code ? $code : "{$code} ({$symbol})";
+        }
+
+        return $options;
     }
 
     public static function getRelations(): array
