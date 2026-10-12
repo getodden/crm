@@ -192,7 +192,7 @@ $domains->execute('ann@www.initech.io'); // "initech.io"
 
 ## Enrichment
 
-`EnrichCompanyAction::execute(Company $company, ?string $driverName = null): Company` asks an enrichment driver about the company's `domain` and saves the result. It does nothing if the company has no domain or the driver returns `null`. Otherwise it:
+`EnrichCompanyAction::execute(Company $company, ?string $driverName = null): Company` asks an enrichment driver about the company's `domain` and saves the result. It does nothing if the company has no domain, or the driver returns `null` or nothing besides a `name`. Otherwise it:
 
 - sets `industry` if it is empty,
 - merges `logo_url`, `tech_stack`, `employee_count_range`, `description`, `city`, `country`, `linkedin_url` (whichever the driver returned) and `enriched_at` into `properties`,
@@ -205,11 +205,13 @@ $company = app(CreateCompanyAction::class)->execute(
     enrich: true,
 );
 
-$company->industry;                              // "Financial Services & FinTech"
-$company->getProperty('employee_count_range');   // "11-50"
+$company->industry;                              // whatever your driver returned
+$company->getProperty('employee_count_range');
 ```
 
-The default `heuristic` driver (`HeuristicEnrichmentDriver`) makes no HTTP requests. It guesses from the domain name alone: the industry and tech stack come from keywords in the domain, `employee_count_range` is always `11-50`, `logo_url` is a Google favicon URL, and `description` is generated text. Treat its output as placeholder data.
+The default `heuristic` driver (`HeuristicEnrichmentDriver`) makes no HTTP requests and guesses nothing: it returns a `name` derived from the domain, which `EnrichCompanyAction` doesn't use, so on its own it leaves companies unchanged. It returns a `logo_url` only when you set `odden-core.enrichment.logo_url` (env `ODDEN_ENRICHMENT_LOGO_URL`) to a logo service URL with a `{domain}` placeholder, such as `https://www.google.com/s2/favicons?domain={domain}&sz=128`; that sends each company's domain to the service, so it's off by default. For industry, size, and tech stack, register a driver backed by a real data source.
+
+Earlier versions guessed the industry from keywords in the domain and saved it to `industry`, and set `employee_count_range`, `tech_stack`, and `description` to placeholder values. Those values stay on companies enriched before; clear them if you don't want them.
 
 ### Custom drivers
 
