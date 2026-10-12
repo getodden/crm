@@ -11,7 +11,7 @@ Every contact, company, and custom object record has a `properties` JSON column 
 
 | Column | Notes |
 | --- | --- |
-| `entity_type` | Free-form string identifying the record type. Unique together with `name`. |
+| `entity_type` | Free-form string identifying the record type. Unique together with `name` (and the tenant, when a tenancy add-on has added a `tenant_id` column before this migration runs). |
 | `name` | The key inside `properties`. |
 | `label` | Display label. |
 | `type` | `PropertyType` enum, default `text`. |
@@ -173,7 +173,7 @@ $license->logNote('Renewal discussed.');
 
 `CreateCustomObjectDefinitionAction::execute(array $attributes): CustomObjectDefinition`:
 
-- converts `name` to a snake-case slug. Names are unique.
+- converts `name` to a snake-case slug. Names are unique per team (and tenant); definitions with no `team_id` are shared by every team. A duplicate throws `Odden\Core\Exceptions\DuplicateNameException`.
 - derives `plural_label` from `singular_label` when you don't pass one.
 - dispatches `CustomObjectDefinitionCreated`.
 
@@ -181,7 +181,7 @@ $license->logNote('Renewal discussed.');
 
 `CreateCustomObjectRecordAction::execute(CustomObjectDefinition|string $definition, array $attributes): CustomObjectRecord`:
 
-- accepts a definition model or its `name`. An unknown name throws `InvalidArgumentException`.
+- accepts a definition model or its `name`. A name is looked up in the `team_id` you pass in `$attributes`, then among definitions with no team, and only in the active tenant. An unknown name throws `InvalidArgumentException`.
 - sets `definition_id`.
 - when `name` is empty, uses the value of the definition's `primary_display_property` from `properties`, or falls back to `"{singular_label} #<uniqid>"`.
 - dispatches `CustomObjectRecordCreated`.

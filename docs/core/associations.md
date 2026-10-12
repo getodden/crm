@@ -27,7 +27,7 @@ $contact->dissociateFrom($company); // number of rows deleted
 | `dissociateFrom(Model $record, ?string $type = null): int` | Deletes links in either direction, optionally only of one type. |
 | `isAssociatedWith(Model $record, ?string $type = null): bool` | Checks both directions. |
 | `getAssociated(string $modelClass, ?string $type = null): Collection` | Records of `$modelClass` linked in either direction. |
-| `getAssociatedByLabel(string $modelClass, string $label): Collection` | Records linked with a matching association label, or whose association type has that `label` or `reverse_label`. |
+| `getAssociatedByLabel(string $modelClass, string $label): Collection` | Records linked with that label as seen from `$this`: children whose link or type has that `label`, and parents whose type has that `reverse_label`. A link whose type has no reverse label reads the same from both sides. |
 | `associationsAsParent()`, `associationsAsChild()` | `MorphMany` relations to the raw `Association` rows. |
 
 The `type` column holds a type name, with `default` as the default. A link is unique per parent, child, and type, so `associateWith()` with the same arguments returns the existing row. The same two records can be linked under different types.
@@ -44,8 +44,8 @@ app(AssociateRecordsAction::class)->execute($company, $contact, 'billing_contact
 
 `AssociateRecordsAction::execute(Model $parent, Model $child, string|AssociationType $type = 'default', ?string $label = null): Association`:
 
-1. Resolves the association type. If you pass a string, it looks for an `AssociationType` with that `name`. If none exists, the string is still stored as `type` and no rules apply.
-2. Enforces the type's cardinality, throwing `Odden\Core\Exceptions\CardinalityViolationException`.
+1. Resolves the association type. If you pass a string, it looks for an `AssociationType` with that `name` in the parent record's team, then for one with no team (and, when a tenancy add-on is installed, only in the parent's tenant or with no tenant). Another team's or tenant's type is never used. If none is found, the string is still stored as `type` and no rules apply.
+2. Enforces the type's cardinality, throwing `Odden\Core\Exceptions\CardinalityViolationException`. The check and the write run in a transaction holding a lock on the type, so two concurrent links can't both pass.
 3. Creates the link, or updates the existing one. It sets `association_type_id` and the `label`, which defaults to the type's `label`.
 4. Dispatches `RecordsAssociated`, only when a new row was created.
 
@@ -57,7 +57,7 @@ Merging records moves their associations to the surviving record. See [Duplicate
 
 | Column | Notes |
 | --- | --- |
-| `name` | Unique. This is what `associations.type` stores. |
+| `name` | Unique per team (and tenant). Rows with no `team_id` are shared by every team. Creating a duplicate throws `Odden\Core\Exceptions\DuplicateNameException`. This is what `associations.type` stores. |
 | `label` | Label shown from the parent's side. |
 | `reverse_label` | Label shown from the child's side. Nullable. |
 | `cardinality` | `AssociationCardinality`, default `many_to_many`. |
@@ -91,7 +91,7 @@ $jane->getAssociatedByLabel(Company::class, 'Billing contact for');
 $company->associateWith($sam, 'billing_contact'); // throws CardinalityViolationException
 ```
 
-`CreateAssociationTypeAction::execute(array $attributes): AssociationType` converts a string `cardinality` to the enum and creates the row. `AssociationType::getLabelFor(Model $record)` returns `reverse_label` when the record's morph class equals `to_record_type`, and `label` otherwise.
+`CreateAssociationTypeAction::execute(array $attributes): AssociationType` converts a string `cardinality` to the enum and creates the row. `AssociationType::getLabelFor(Model $record, ?Association $association = null)` returns the label `$record` sees: `reverse_label` when the record is the child, `label` otherwise, and always `label` when there's no reverse label. Without an association it decides by record type (child when the record's morph class equals `to_record_type`), so pass the association when both ends can be the same type, such as company to company.
 
 When `from_record_type` and `to_record_type` are both set, the two records must be of those types, in either order. When only one is set, one of the two records must be of that type. Otherwise `AssociateRecordsAction` (and so `associateWith()`) throws `Odden\Core\Exceptions\InvalidAssociationException` and nothing is saved. With neither set, any pair of models can be linked.
 
@@ -106,6 +106,8 @@ When `from_record_type` and `to_record_type` are both set, the two records must 
 | `OneToOne` | `one_to_one` | A parent can have at most one child, and a child at most one parent, of this type. |
 
 Rules apply only to links created with a type that exists as an `AssociationType` row. Re-linking the same parent and child never violates them.
+
+When `from_record_type` and `to_record_type` are both set and differ, a record's type decides its side, whichever way round you link. With a one-to-many `employer` type from companies to contacts, `$contact->associateWith($otherCompany, 'employer')` is refused just like `$otherCompany->associateWith($contact, 'employer')`. Without both record types, the parent is the record you call `associateWith()` on.
 
 ## Free-form labels
 
