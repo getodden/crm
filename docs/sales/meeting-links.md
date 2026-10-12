@@ -3,7 +3,7 @@ title: Meeting links
 description: Give reps public booking pages that create contacts and meeting activities.
 ---
 
-A meeting link is a public page at `/meet/{slug}` where a prospect picks an open slot to meet a rep. Slots come from the link's working hours, duration, buffer, and timezone, and slots the rep already has booked are left out. Booking records the booking, creates or updates the contact, logs a pending meeting activity owned by the rep, stops any active sequences for that contact, and emails a confirmation with an .ics calendar invite to both the visitor and the rep.
+A meeting link is a public page at `/meet/{slug}` where a prospect picks an open slot to meet a rep. Slots come from the link's working hours, duration, buffer, and timezone, and slots the rep already has booked are left out. Booking records the booking, creates or matches the contact, logs a pending meeting activity owned by the rep, stops any active sequences for that contact, and emails a confirmation with an .ics calendar invite to both the visitor and the rep.
 
 ## Creating a link
 
@@ -147,14 +147,23 @@ $result['contact'];  // Odden\Core\Models\Contact
 $result['activity']; // Pending meeting activity
 ```
 
-Everything runs in one database transaction:
+Booking happens in two steps.
 
-1. The rep's meeting link rows are locked (`SELECT ... FOR UPDATE`), so bookings for the same rep happen one at a time, and the slot is checked again with `MeetingAvailability::isAvailable()`. If `$scheduledAt` is not exactly the start of an open slot, `MeetingSlotUnavailableException` is thrown and nothing is written. SQLite has no row locks, but its single-writer locking makes a conflicting concurrent booking fail with a database error instead of double-booking.
-2. The email is trimmed and lower-cased, and an existing contact with that email is reused, ignoring case and surrounding whitespace in the stored address too (see [Looking up contacts by email](../core/contacts-and-companies.md#looking-up-contacts-by-email)). Otherwise a contact is created with the name split on the first space into `first_name` and `last_name`, `lead_status` `Open`, and `owner_id` set to the rep. An existing contact's phone is filled in only if it was empty; its owner and other fields are not changed.
-3. A `meeting` activity is logged on the contact with status `pending`, `due_at` set to the scheduled time, the rep as creator, and the title `{link title} with {contact name}`. The body is the visitor's notes, or `Booked online via /meet/{slug}`. Metadata holds `duration_minutes` and `booking_slug`.
-4. All of the contact's `active` [sequence enrollments](sequences.md#enrollment-status) are set to `unenrolled`.
-5. The `SalesMeetingBooking` is created.
-6. An `Odden\Sales\Mail\MeetingBookedMail` is queued to the visitor and another to the rep (if the rep's user has an email address). They are dispatched after the transaction commits.
+First the slot is checked with `MeetingAvailability::isAvailable()`; if `$scheduledAt` is not exactly the start of an open slot, `MeetingSlotUnavailableException` is thrown and nothing is written. Then the contact is found or created with `Odden\Core\Support\ContactLookup::findOrCreate()` (see [Looking up contacts by email](../core/contacts-and-companies.md#looking-up-contacts-by-email)):
+
+- The email is trimmed and lower-cased, and an existing contact with that email is reused, ignoring case and surrounding whitespace in the stored address too.
+- Otherwise a contact is created through `CreateContactAction`, so `ContactCreated` fires and the email is checked like any other new contact's. It gets the name split on the first space into `first_name` and `last_name`, the visitor's phone, `lead_status` `Open`, and `owner_id` set to the rep. Two bookings of the same new address at once create one contact.
+- The visitor's email address is not verified, so an existing contact is never changed: not its name, phone, owner, or anything else.
+
+The contact is resolved before the booking transaction, because a contact created inside an uncommitted transaction would be invisible to a concurrent booking of the same address. If the slot is taken by someone else in the moment between the two steps, the contact stays without a booking.
+
+The rest runs in one database transaction:
+
+1. The rep's meeting link rows are locked (`SELECT ... FOR UPDATE`), so bookings for the same rep happen one at a time, and the slot is checked again. If it is no longer open, `MeetingSlotUnavailableException` is thrown and nothing in this transaction is written. SQLite has no row locks, but its single-writer locking makes a conflicting concurrent booking fail with a database error instead of double-booking.
+2. A `meeting` activity is logged on the contact with status `pending`, `due_at` set to the scheduled time, the rep as creator, and the title `{link title} with {contact name}`. The body is `Booked online via /meet/{slug}` when the visitor left no notes. With notes, it is the notes for a contact the booking created; for an existing contact it says the booking came from an unverified visitor, with the name and email they typed, followed by the notes. Metadata holds `duration_minutes` and `booking_slug`.
+3. All of the contact's `active` [sequence enrollments](sequences.md#enrollment-status) are set to `unenrolled`.
+4. The `SalesMeetingBooking` is created.
+5. An `Odden\Sales\Mail\MeetingBookedMail` is queued to the visitor and another to the rep (if the rep's user has an email address). They are dispatched after the transaction commits.
 
 ## Confirmation emails
 
