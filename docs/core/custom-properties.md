@@ -11,7 +11,7 @@ Every contact, company, and custom object record has a `properties` JSON column 
 
 | Column | Notes |
 | --- | --- |
-| `entity_type` | Free-form string identifying the record type. Unique together with `name`. |
+| `entity_type` | Free-form string identifying the record type. Unique together with `name` (and the tenant, when a tenancy add-on has added a `tenant_id` column before this migration runs). |
 | `name` | The key inside `properties`. |
 | `label` | Display label. |
 | `type` | `PropertyType` enum, default `text`. |
@@ -102,18 +102,18 @@ try {
 
 ## Change history
 
-The `AuditsProperties` trait listens to the Eloquent `updating` event. For each changed attribute it writes an `Odden\Core\Models\PropertyHistory` row (table `odden_property_history`):
+The `AuditsProperties` trait listens to the Eloquent `updated` event, so history is only written once the change is saved. For each changed attribute it writes an `Odden\Core\Models\PropertyHistory` row (table `odden_property_history`):
 
 | Column | Value |
 | --- | --- |
 | `auditable_type`, `auditable_id` | The record. |
 | `property_name` | The column name. For the `properties` column, one row per changed key, named after the key. |
-| `old_value`, `new_value` | Scalars cast to string, enums stored as their backing value, other values JSON-encoded. |
+| `old_value`, `new_value` | Both read through the model's casts and written the same way: dates in the database format (`2026-01-01 09:00:00`), enums as their backing value, booleans as `1` or `0`, other scalars as strings, other values JSON-encoded, and `null` stays `null`. |
 | `user_id` | `auth()->id()` at the time of the change, or `null`. |
-| `source` | The request's `X-Odden-Source` header, defaulting to `web`. The default applies in queued jobs and console commands too. |
+| `source` | Set by the server: `web` during an HTTP request, `console` in commands and queued jobs, or the value passed to `AuditSource::using()`. |
 | `created_at` | `now()`. |
 
-`updated_at`, `deleted_at`, and `remember_token` are never recorded. Creating a record writes no history.
+`updated_at`, `deleted_at`, `remember_token`, and the timestamps the system maintains itself (`email_checked_at`, `lead_score_updated_at`, `last_health_calculated_at`) are never recorded. Creating a record writes no history.
 
 ```php
 $contact = Contact::create([
@@ -139,7 +139,15 @@ History is only written for changes made through Eloquent model events. These ch
 
 Lifecycle stage changes from `TransitionLifecycleStageAction`, `Contact::markContacted()`, and company [enrichment](contacts-and-companies.md#enrichment) do write history, in addition to the [lifecycle transition](lifecycle-stages.md) row where that applies.
 
-To tag changes that come from an import or an integration, have the client send an `X-Odden-Source` header, such as `X-Odden-Source: import`, on the HTTP request that makes them. Changes made outside an HTTP request are always recorded as `web`.
+To tag changes that come from an import or an integration, make them inside `Odden\Core\Support\AuditSource::using()`:
+
+```php
+use Odden\Core\Support\AuditSource;
+
+AuditSource::using('import', fn () => $contact->update(['job_title' => 'CTO']));
+```
+
+The `X-Odden-Source` request header is no longer read: a client could set it to anything, so it can't label an audit trail.
 
 ## Custom objects
 
@@ -173,7 +181,7 @@ $license->logNote('Renewal discussed.');
 
 `CreateCustomObjectDefinitionAction::execute(array $attributes): CustomObjectDefinition`:
 
-- converts `name` to a snake-case slug. Names are unique.
+- converts `name` to a snake-case slug. Names are unique per team (and tenant); definitions with no `team_id` are shared by every team. A duplicate throws `Odden\Core\Exceptions\DuplicateNameException`.
 - derives `plural_label` from `singular_label` when you don't pass one.
 - dispatches `CustomObjectDefinitionCreated`.
 
@@ -181,7 +189,7 @@ $license->logNote('Renewal discussed.');
 
 `CreateCustomObjectRecordAction::execute(CustomObjectDefinition|string $definition, array $attributes): CustomObjectRecord`:
 
-- accepts a definition model or its `name`. An unknown name throws `InvalidArgumentException`.
+- accepts a definition model or its `name`. A name is looked up in the `team_id` you pass in `$attributes`, then among definitions with no team, and only in the active tenant. An unknown name throws `InvalidArgumentException`.
 - sets `definition_id`.
 - when `name` is empty, uses the value of the definition's `primary_display_property` from `properties`, or falls back to `"{singular_label} #<uniqid>"`.
 - dispatches `CustomObjectRecordCreated`.

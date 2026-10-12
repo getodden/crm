@@ -72,13 +72,16 @@ return [
     | "check_dns" is applied when a contact is created through CreateContactAction;
     | set it to false to keep that step out of the request and run
     | ValidateContactEmailAction from a queue instead. Definite answers are cached
-    | per domain for "dns_cache_minutes".
+    | per domain for "dns_cache_minutes"; failed lookups (the resolver timed out
+    | or errored) for "dns_failure_cache_minutes", so they aren't retried for
+    | every contact on that domain.
     |
     */
     'email_validation' => [
         'enabled' => env('ODDEN_EMAIL_VALIDATION', true),
         'check_dns' => env('ODDEN_EMAIL_CHECK_DNS', true),
         'dns_cache_minutes' => 1440,
+        'dns_failure_cache_minutes' => 5,
 
         // Extra disposable-provider domains and shared-mailbox local parts to flag as risky.
         'disposable_domains' => [],
@@ -123,11 +126,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for automated domain and corporate data enrichment.
-    | Available drivers: "heuristic" (zero-external-API cost default)
+    | Available drivers: "heuristic" (no external API; it only returns what
+    | the domain itself tells it, never guessed industry, size or tech stack).
+    |
+    | logo_url: a logo service URL with a {domain} placeholder, for example
+    | "https://www.google.com/s2/favicons?domain={domain}&sz=128". Off by
+    | default, because using one sends company domains to that service.
     |
     */
     'enrichment' => [
         'driver' => env('ODDEN_ENRICHMENT_DRIVER', 'heuristic'),
         'auto_enrich' => false,
+        'logo_url' => env('ODDEN_ENRICHMENT_LOGO_URL'),
     ],
 ];

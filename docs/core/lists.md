@@ -13,7 +13,7 @@ description: Group contacts or companies into static lists, or into active lists
 | Column | Notes |
 | --- | --- |
 | `name`, `description` | |
-| `entity_type` | `contact` (default) or `company`. Active lists evaluate companies for `company` and contacts for any other value. |
+| `entity_type` | `contact` (default) or `company`, or the model's morph class. Evaluating an active list with any other value throws `InvalidListCriteriaException`. |
 | `type` | `ListType`, default `static`. |
 | `criteria` | JSON array of rules, for active lists. |
 | `created_by_id` | Your user model. `creator()` is a `BelongsTo` relation. |
@@ -70,24 +70,29 @@ $count = $list->syncActiveMembers();
 
 Membership doesn't update on its own when records change. The Filament package syncs a list when you create or edit it, and Marketing syncs a list before sending a campaign or an ad audience to it. Otherwise, call `syncActiveMembers()` yourself when you need fresh results, for example from a scheduled command. It calls `EvaluateActiveListAction::execute(CrmList $list): int`, which you can also call directly.
 
+The sync works out which memberships to add and remove in SQL, inside a transaction, so it handles lists of any size, and a membership another sync added at the same time is kept rather than failing. On large lists it can still take a while, so prefer running it from a queued job or a scheduled command over a web request.
+
 ### Rules
 
-Each rule is an array with `property`, `operator` (default `=`), and `value`. All rules must match (AND). Rules with an empty `property` are skipped.
+Each rule is an array with `property` (or `field`, the name the Filament panel saves), `operator` (default `=`), and `value`. All rules must match (AND). A rule without a property, or with an operator that isn't listed below, throws `Odden\Core\Exceptions\InvalidListCriteriaException` and leaves the memberships unchanged, rather than matching every record.
 
-| Operator | Condition |
-| --- | --- |
-| `=` | equal (also used for any unknown operator) |
-| `!=`, `>`, `>=`, `<`, `<=` | comparison |
-| `contains` | `LIKE %value%` |
-| `in`, `not_in` | `value` is an array |
-| `is_null`, `is_not_null` | `value` is ignored |
+| Operator | Also accepted as | Condition |
+| --- | --- | --- |
+| `=` | `equals` | equal |
+| `!=` | `not_equals` | not equal |
+| `>`, `<` | `greater_than`, `less_than` | comparison |
+| `>=`, `<=` | | comparison |
+| `contains` | | `LIKE %value%` |
+| `in`, `not_in` | | `value` is an array |
+| `is_null` | `is_not_set` | `value` is ignored |
+| `is_not_null` | `is_set` | `value` is ignored |
 
 How `property` is resolved:
 
-- If it isn't a column on the contacts or companies table, it's matched against the custom property: `properties->{property}`.
-- If it's a column, the rule matches when either the column or a custom property with the same name matches. For example, `lead_score >= 50` also matches a contact whose `properties.lead_score` is 50 or more.
+- If it's a column on the contacts or companies table, the rule matches the column only.
+- Otherwise it's matched against the custom property: `properties->{property}`. With `>`, `>=`, `<`, and `<=` and a numeric value, the custom property is compared as a number on every database, whether it's stored as a number or as numeric text such as `"100"`. A value that isn't a number never matches.
 
-Two extra properties apply to contact lists when the Marketing package's tables exist:
+Two extra properties apply to contact lists. Without the Marketing package's tables, no contact has a download or an attended event, so `true` matches nobody and `false` matches everyone:
 
 - `has_downloaded_asset` (`true` or `false`): whether the contact has a row in the asset downloads table.
 - `has_attended_event` (`true` or `false`): whether the contact has an event registration with status `attended`.

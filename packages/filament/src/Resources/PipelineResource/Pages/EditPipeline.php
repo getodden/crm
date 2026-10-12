@@ -16,7 +16,9 @@ class EditPipeline extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            // A pipeline with deals or stage history can't be deleted (the model and database refuse it).
+            DeleteAction::make()
+                ->hidden(fn (Pipeline $record): bool => $record->isInUse()),
         ];
     }
 

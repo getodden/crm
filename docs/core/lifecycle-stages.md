@@ -3,7 +3,7 @@ title: Lifecycle stages
 description: Move contacts and companies through lifecycle stages with the state machine, record transitions, add guards, and measure funnel velocity.
 ---
 
-Contacts and companies have a `lifecycle_stage` column cast to `Odden\Core\Enums\LifecycleStage`. Change it with `TransitionLifecycleStageAction`, which validates the change against `LifecycleStateMachine`, stamps a `became_<stage>_at` column, records a `LifecycleStageTransition`, and dispatches `LifecycleStageChanged`.
+Contacts and companies have a `lifecycle_stage` column cast to `Odden\Core\Enums\LifecycleStage`. Change it with `TransitionLifecycleStageAction`, which validates the change against `LifecycleStateMachine`, stamps a `became_<stage>_at` column, records a `LifecycleStageTransition`, and dispatches `LifecycleStageChanged`. Saving `lifecycle_stage` directly (a form, an import) records the same history, see [Saving the stage directly](#saving-the-stage-directly).
 
 ## Stages
 
@@ -38,15 +38,25 @@ $contact->lifecycle_stage;                     // LifecycleStage::MarketingQuali
 $contact->became_marketing_qualified_lead_at;  // now
 ```
 
-`execute(Model $record, LifecycleStage $toStage, string $source = 'manual', ?int $userId = null, bool $force = false): LifecycleStageTransition`
+`execute(Model $record, LifecycleStage $toStage, string $source = 'manual', ?int $userId = null, bool $force = false): ?LifecycleStageTransition`
 
-1. Validates the transition (see below), unless `$force` is `true`.
+1. Validates the transition (see below), unless `$force` is `true`. If the record is already in `$toStage`, it returns `null` and changes nothing: no transition row, no event, and time in stage keeps counting.
 2. Sets `lifecycle_stage`, and sets `became_<stage>_at` to `now()` if it is still `null`, so it keeps the first time the record reached that stage.
 3. Saves normally, so model events fire and the change to `lifecycle_stage` (and `became_<stage>_at`) is written to the [property history](custom-properties.md#change-history).
 4. Creates a `LifecycleStageTransition` with `duration_seconds` set to the time since the previous transition, or since the record was created.
 5. Dispatches `LifecycleStageChanged`.
 
-Setting `lifecycle_stage` directly with `update()` bypasses all of this: no validation, no transition row, no event.
+The save and the transition row are written in one database transaction.
+
+### Saving the stage directly
+
+On models with the `HasLifecycleStageTransitions` trait (contacts and companies), saving a new `lifecycle_stage` any other way, such as `update()`, the Filament edit form, or an import:
+
+- stamps `became_<stage>_at` if it is still `null`, including the initial stage of a new record;
+- records a `LifecycleStageTransition` with source `manual` and the authenticated user, and dispatches `LifecycleStageChanged`;
+- in strict mode, validates the change like `execute()` with source `manual`, throwing before anything is saved. Outside strict mode a direct save is not validated, so use the action when you need the customer-regression rule or a specific source.
+
+Creating a record doesn't record a transition. Query-builder updates and `saveQuietly()` skip all of this.
 
 `$source` is a free-form string. It is stored on the transition and used by the customer-regression rule below.
 
@@ -56,7 +66,7 @@ Setting `lifecycle_stage` directly with `update()` bypasses all of this: no vali
 
 1. A record with no current stage, or a transition to its current stage, is always allowed.
 2. In strict mode, the transition must be in the allowed graph (below).
-3. A `Customer` cannot move back to `Subscriber`, `Lead`, `MarketingQualifiedLead`, `SalesQualifiedLead`, or `Opportunity` unless `$source` is one of `churn`, `recycle`, `downgrade`, `disqualified`, or `refund` (case-insensitive). This rule applies even when strict mode is off.
+3. A `Customer` or `Evangelist` cannot move back to `Subscriber`, `Lead`, `MarketingQualifiedLead`, `SalesQualifiedLead`, or `Opportunity` unless `$source` is one of `churn`, `recycle`, `downgrade`, `disqualified`, or `refund` (case-insensitive). This rule applies even when strict mode is off.
 4. Every registered guard must not return `false`.
 
 Passing `force: true` skips all of them.

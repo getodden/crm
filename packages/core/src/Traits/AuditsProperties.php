@@ -5,79 +5,104 @@ declare(strict_types=1);
 namespace Odden\Core\Traits;
 
 use BackedEnum;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Odden\Core\Models\PropertyHistory;
+use Odden\Core\Support\AuditSource;
 
 trait AuditsProperties
 {
     /**
-     * Boot the trait to track property updates.
+     * Columns the system maintains on its own; changes to them are not history.
+     *
+     * @var list<string>
+     */
+    protected static array $auditIgnoredAttributes = [
+        'updated_at',
+        'deleted_at',
+        'remember_token',
+        'email_checked_at',
+        'lead_score_updated_at',
+        'last_health_calculated_at',
+    ];
+
+    /**
+     * Boot the trait to track property updates. History is written once the update has been
+     * saved, so a failed save leaves none behind. Old and new values are both read through the
+     * model's casts and written the same way, so a date or a decimal reads alike on both sides.
      */
     public static function bootAuditsProperties(): void
     {
-        static::updating(function (Model $model): void {
-            $dirty = $model->getDirty();
-            $original = $model->getOriginal();
+        static::updated(function (Model $model): void {
             $userId = auth()->id();
+            $source = AuditSource::current();
 
-            // Ignored attributes from property change history
-            $ignored = ['updated_at', 'deleted_at', 'remember_token'];
+            $record = function (string $name, mixed $old, mixed $new) use ($model, $userId, $source): void {
+                PropertyHistory::create([
+                    'auditable_type' => $model->getMorphClass(),
+                    'auditable_id' => $model->getKey(),
+                    'property_name' => $name,
+                    'old_value' => self::auditValue($model, $old),
+                    'new_value' => self::auditValue($model, $new),
+                    'user_id' => $userId,
+                    'source' => $source,
+                    'created_at' => now(),
+                ]);
+            };
 
-            foreach ($dirty as $key => $newValue) {
-                if (in_array($key, $ignored, true)) {
+            foreach (array_keys($model->getChanges()) as $key) {
+                if (in_array($key, self::$auditIgnoredAttributes, true)) {
                     continue;
                 }
 
+                $oldValue = $model->getOriginal($key);
+                $newValue = $model->getAttribute($key);
+
                 if ($key === 'properties') {
                     // Diff the dynamic properties array
-                    /** @var array<string, mixed> $oldProperties */
-                    $oldProperties = is_string($original['properties'] ?? null)
-                        ? (json_decode((string) $original['properties'], true) ?? [])
-                        : ($original['properties'] ?? []);
+                    $oldProperties = self::auditProperties($oldValue);
+                    $newProperties = self::auditProperties($newValue);
 
-                    /** @var array<string, mixed> $newProperties */
-                    $newProperties = is_string($newValue)
-                        ? (json_decode((string) $newValue, true) ?? [])
-                        : (is_array($newValue) ? $newValue : []);
-
-                    $allPropertyKeys = array_unique(array_merge(array_keys($oldProperties), array_keys($newProperties)));
-
-                    foreach ($allPropertyKeys as $propKey) {
+                    foreach (array_unique(array_merge(array_keys($oldProperties), array_keys($newProperties))) as $propKey) {
                         $oldVal = $oldProperties[$propKey] ?? null;
                         $newVal = $newProperties[$propKey] ?? null;
 
                         if ($oldVal !== $newVal) {
-                            PropertyHistory::create([
-                                'auditable_type' => $model->getMorphClass(),
-                                'auditable_id' => $model->getKey(),
-                                'property_name' => (string) $propKey,
-                                'old_value' => is_scalar($oldVal) ? (string) $oldVal : json_encode($oldVal),
-                                'new_value' => is_scalar($newVal) ? (string) $newVal : json_encode($newVal),
-                                'user_id' => $userId,
-                                'source' => request()->header('X-Odden-Source', 'web'),
-                                'created_at' => now(),
-                            ]);
+                            $record((string) $propKey, $oldVal, $newVal);
                         }
                     }
 
                     continue;
                 }
 
-                $oldVal = $original[$key] ?? null;
-
-                PropertyHistory::create([
-                    'auditable_type' => $model->getMorphClass(),
-                    'auditable_id' => $model->getKey(),
-                    'property_name' => $key,
-                    'old_value' => is_scalar($oldVal) ? (string) $oldVal : ($oldVal instanceof BackedEnum ? (string) $oldVal->value : json_encode($oldVal)),
-                    'new_value' => is_scalar($newValue) ? (string) $newValue : ($newValue instanceof BackedEnum ? (string) $newValue->value : json_encode($newValue)),
-                    'user_id' => $userId,
-                    'source' => request()->header('X-Odden-Source', 'web'),
-                    'created_at' => now(),
-                ]);
+                $record($key, $oldValue, $newValue);
             }
         });
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private static function auditProperties(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        return is_array($value) ? $value : [];
+    }
+
+    private static function auditValue(Model $model, mixed $value): ?string
+    {
+        return match (true) {
+            $value === null => null,
+            $value instanceof BackedEnum => (string) $value->value,
+            $value instanceof DateTimeInterface => $model->fromDateTime($value),
+            is_bool($value) => $value ? '1' : '0',
+            is_scalar($value) => (string) $value,
+            default => (string) json_encode($value),
+        };
     }
 
     /**
