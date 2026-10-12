@@ -96,7 +96,9 @@ class PipelineResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                // A pipeline with deals or stage history can't be deleted (the model and database refuse it).
+                DeleteAction::make()
+                    ->hidden(fn (Pipeline $record): bool => $record->isInUse()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

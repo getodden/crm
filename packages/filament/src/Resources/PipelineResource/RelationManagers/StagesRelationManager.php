@@ -17,6 +17,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Odden\Sales\Enums\StageAutomationActionType;
+use Odden\Sales\Models\PipelineStage;
 
 class StagesRelationManager extends RelationManager
 {
@@ -136,7 +137,9 @@ class StagesRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                // A stage with deals or stage history can't be deleted (the model and database refuse it).
+                DeleteAction::make()
+                    ->hidden(fn (PipelineStage $record): bool => $record->isInUse()),
             ]);
     }
 }

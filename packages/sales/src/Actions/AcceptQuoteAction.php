@@ -9,6 +9,7 @@ use Odden\Core\Enums\ActivityType;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
+use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\PipelineStage;
 use Odden\Sales\Models\Quote;
 
@@ -48,27 +49,31 @@ class AcceptQuoteAction
             $locked = Quote::query()
                 ->whereKey($quote->getKey())
                 ->lockForUpdate()
-                ->with(['deal.pipeline.stages', 'deal.contacts'])
                 ->firstOrFail();
 
             // Re-check under the row lock so concurrent submissions cannot both accept.
             $this->ensureAcceptable($locked);
 
-            if ($locked->getRelation('deal') === null) {
+            // Lock the deal too: two different quotes on one deal accepted at the same moment must not both win it.
+            /** @var Deal|null $deal */
+            $deal = Deal::query()
+                ->whereKey($locked->deal_id)
+                ->lockForUpdate()
+                ->with(['pipeline.stages', 'contacts'])
+                ->first();
+
+            if ($deal === null) {
                 throw new QuoteNotAcceptableException('This proposal is no longer available.');
             }
+
+            $locked->setRelation('deal', $deal);
 
             // A deal that was closed as lost is not reopened by a signature on an old link.
             if ($locked->deal->status === DealStatus::Lost) {
                 throw new QuoteNotAcceptableException('This proposal is no longer open. Please contact us about it.');
             }
 
-            $locked->update([
-                'status' => QuoteStatus::Accepted,
-                'accepted_at' => now(),
-                'signed_by_name' => trim($signedByName),
-                'signed_by_email' => strtolower(trim($signedByEmail)),
-            ]);
+            $locked->accept(trim($signedByName), strtolower(trim($signedByEmail)));
 
             return $this->closeDealAsWon($locked);
         });
@@ -108,8 +113,13 @@ class AcceptQuoteAction
             /** @var PipelineStage|null $wonStage */
             $wonStage = $deal->pipeline->stages->firstWhere('is_closed_won', true);
 
-            // The amount first, so what listens for DealWon sees the signed total.
-            $deal->update(['amount' => (float) $quote->total_amount]);
+            // The amount first, so what listens for DealWon sees the signed figure. That is the net amount: tax is
+            // not revenue, and won value and quota attainment are counted without it. The deal takes the quote's
+            // currency, since that is what the customer signed.
+            $deal->update([
+                'amount' => $quote->netAmount(),
+                'currency' => $quote->currency,
+            ]);
 
             if ($wonStage !== null) {
                 // The move into a closed-won stage also sets the status and closing time.
