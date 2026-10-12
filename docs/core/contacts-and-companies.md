@@ -30,15 +30,17 @@ Helpers on `Contact`:
 - `markContacted(?CarbonInterface $at = null)`: sets `last_contacted_at` (default `now()`) with a normal `update()`, so model events fire and the change is written to the [property history](custom-properties.md#change-history).
 - `owner()`: `BelongsTo` your user model (see [the user model](integration.md#the-user-model)).
 - `companies()`: `BelongsToMany` companies through `odden_associations`, where the contact is the parent and the company the child, of any association type. The pivot includes `id` and `type`.
-- `whereEmail(string $email)` scope: lowercases and trims the value before matching. It compares the stored value exactly, so it won't find a contact saved with mixed case; use `ContactLookup` below for that.
+- `whereEmail(string $email)` scope: lowercases and trims the value before matching.
+
+A contact's `email` is lowercased and trimmed whenever it's saved, and a migration normalizes contacts saved before this was done, so an exact match on the normalized address finds every contact.
 
 ### Looking up contacts by email
 
 `Odden\Core\Support\ContactLookup` finds and creates contacts by email address, ignoring case and surrounding whitespace. The Service portal, chat widget, and inbound email, and Sales meeting booking all use it, so one person is one contact however they type their address.
 
 - `ContactLookup::normalizeEmail(string $email): string` lowercases and trims.
-- `ContactLookup::findByEmail(string $email): ?Contact` first looks for a contact stored with exactly the normalized address, which can use the `email` index. Only when there's none does it compare `LOWER(TRIM(email))`, which also matches older contacts saved with mixed case or spaces (this query can't use the index). Among several matches, the oldest wins. An empty address returns `null`.
-- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email.
+- `ContactLookup::findByEmail(string $email): ?Contact` looks for a contact stored with exactly the normalized address, which uses the `email` index. Among several matches, the oldest wins. An empty address returns `null`.
+- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email through `CreateContactAction`, so `ContactCreated` fires and the address is checked like any other new contact. Concurrent calls for the same address are serialized with a cache lock (when the cache store supports locks), so only one contact is created.
 
 ```php
 use Odden\Core\Support\ContactLookup;
@@ -92,7 +94,7 @@ Helpers on `Company`:
 - `isSurging()`: returns `intent_surge`.
 - `became_mql_at`, `became_sql_at`, `owner()`: as on `Contact`.
 - `contacts()`: the inverse of `Contact::companies()`.
-- `whereDomain(string $domain)` scope: lowercases and trims the value before matching.
+- `whereDomain(string $domain)` scope: normalizes the value with `Company::normalizeDomain()` before matching.
 
 Database defaults are not loaded into a model you just created. Call `fresh()` if you need `health_status` or `lifecycle_stage` right after `create()`.
 
@@ -136,7 +138,7 @@ $contact->companies()->first();      // Acme Corp, association type "primary"
 
 `CreateCompanyAction::execute(array $attributes, bool $enrich = false): Company`
 
-- lowercases and trims `domain`, and strips a leading `http://` or `https://` and any trailing `/`. It does not strip `www.` or a path.
+- normalizes `domain` with `Company::normalizeDomain()`: lowercased and trimmed, without the scheme, a leading `www.`, a port, or any path or query, so `https://www.Acme.com/about` is stored as `acme.com`.
 - creates the company and dispatches `CompanyCreated`.
 - runs [enrichment](#enrichment) when `$enrich` is `true` or `odden-core.enrichment.auto_enrich` is `true`.
 
@@ -161,7 +163,7 @@ $company->domain; // "globex-corp.com"
 
 1. Extracts the corporate domain with `ExtractCorporateDomainAction`. It returns `null` if the email is invalid or uses a freemail domain.
 2. Returns the company if the contact is already associated with a company that has this domain.
-3. Otherwise looks up a company by `domain`. If the contact has a `team_id`, only companies with the same `team_id` or no team match. If one is found, associates the contact (as parent) with it using the `primary` association type.
+3. Otherwise looks up a company by `domain`. If the contact has a `team_id`, only companies with the same `team_id` or no team match, and the team's own company is preferred. Among several matches the oldest wins. If one is found, associates the contact (as parent) with it using the `primary` association type.
 4. If no company is found and `$createCompanyIfMissing` is `true`, creates one through `CreateCompanyAction`, copying the contact's `team_id` and `owner_id`, and associates it. The name is derived from the domain: `globex-corp.com` becomes `Globex Corp`. Otherwise it returns `null`.
 
 Through `CreateContactAction` this runs with `createCompanyIfMissing` as passed to that action, which defaults to `false`.
@@ -190,7 +192,7 @@ $domains->execute('ann@www.initech.io'); // "initech.io"
 
 ## Enrichment
 
-`EnrichCompanyAction::execute(Company $company, ?string $driverName = null): Company` asks an enrichment driver about the company's `domain` and saves the result. It does nothing if the company has no domain or the driver returns `null`. Otherwise it:
+`EnrichCompanyAction::execute(Company $company, ?string $driverName = null): Company` asks an enrichment driver about the company's `domain` and saves the result. It does nothing if the company has no domain, or the driver returns `null` or nothing besides a `name`. Otherwise it:
 
 - sets `industry` if it is empty,
 - merges `logo_url`, `tech_stack`, `employee_count_range`, `description`, `city`, `country`, `linkedin_url` (whichever the driver returned) and `enriched_at` into `properties`,
@@ -203,11 +205,13 @@ $company = app(CreateCompanyAction::class)->execute(
     enrich: true,
 );
 
-$company->industry;                              // "Financial Services & FinTech"
-$company->getProperty('employee_count_range');   // "11-50"
+$company->industry;                              // whatever your driver returned
+$company->getProperty('employee_count_range');
 ```
 
-The default `heuristic` driver (`HeuristicEnrichmentDriver`) makes no HTTP requests. It guesses from the domain name alone: the industry and tech stack come from keywords in the domain, `employee_count_range` is always `11-50`, `logo_url` is a Google favicon URL, and `description` is generated text. Treat its output as placeholder data.
+The default `heuristic` driver (`HeuristicEnrichmentDriver`) makes no HTTP requests and guesses nothing: it returns a `name` derived from the domain, which `EnrichCompanyAction` doesn't use, so on its own it leaves companies unchanged. It returns a `logo_url` only when you set `odden-core.enrichment.logo_url` (env `ODDEN_ENRICHMENT_LOGO_URL`) to a logo service URL with a `{domain}` placeholder, such as `https://www.google.com/s2/favicons?domain={domain}&sz=128`; that sends each company's domain to the service, so it's off by default. For industry, size, and tech stack, register a driver backed by a real data source.
+
+Earlier versions guessed the industry from keywords in the domain and saved it to `industry`, and set `employee_count_range`, `tech_stack`, and `description` to placeholder values. Those values stay on companies enriched before; clear them if you don't want them.
 
 ### Custom drivers
 

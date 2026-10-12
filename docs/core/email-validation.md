@@ -21,7 +21,7 @@ Each status can carry a reason, stored in `email_status_reason`:
 | :--- | :--- | :--- |
 | `syntax` | invalid | Not a valid email address |
 | `no_mail_server` | invalid | No MX or address record, or a null MX (RFC 7505) |
-| `typo` | risky | The domain is one typo away from a well-known provider, such as `gmial.com` |
+| `typo` | risky | The domain is one typo away from a well-known provider, such as `gmial.com`. For short names (`aol`, `msn`, `live`) only a typo after the name counts (`aol.con`), because one letter away is usually another real domain (`aon.com`) |
 | `disposable` | risky | A throwaway-inbox provider, including its subdomains |
 | `role` | risky | A shared mailbox such as `info@` or `support@`; `support+billing@` counts as `support@` |
 | `dns_unavailable` | unknown | The lookup could not be completed; try again later |
@@ -71,7 +71,8 @@ Under `email_validation` in `config/odden-core.php`:
 | :--- | :--- | :--- |
 | `enabled` | `true` (`ODDEN_EMAIL_VALIDATION`) | Turn status recording off entirely |
 | `check_dns` | `true` (`ODDEN_EMAIL_CHECK_DNS`) | Run the DNS check inside `CreateContactAction`. Set to `false` to keep DNS out of the request and run `ValidateContactEmailAction` from a queue |
-| `dns_cache_minutes` | `1440` | How long a definite DNS answer is cached per domain. Failed lookups are never cached |
+| `dns_cache_minutes` | `1440` | How long a definite DNS answer is cached per domain |
+| `dns_failure_cache_minutes` | `5` | How long a failed lookup (resolver timeout or error) is remembered, so the domain isn't looked up again for every contact meanwhile. `0` disables it |
 | `disposable_domains` | `[]` | Extra disposable-provider domains to flag |
 | `role_local_parts` | `[]` | Extra shared-mailbox local parts to flag |
 
