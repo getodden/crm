@@ -21,8 +21,10 @@ use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Enums\LostReason;
 use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\PipelineStage;
 use Odden\Sales\Models\SalesPlaybook;
 use Odden\Sales\Support\Money;
+use RuntimeException;
 
 class ViewDeal extends ViewRecord
 {
@@ -145,6 +147,50 @@ class ViewDeal extends ViewRecord
                         ->send();
                 }),
 
+            Action::make('change_stage')
+                ->label('Change Stage')
+                ->icon(Heroicon::ArrowsRightLeft)
+                ->color('gray')
+                ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
+                ->form([
+                    Select::make('stage_id')
+                        ->label('Move to Stage')
+                        ->options(function (): array {
+                            /** @var Deal $record */
+                            $record = $this->getRecord();
+
+                            return PipelineStage::query()
+                                ->where('pipeline_id', $record->pipeline_id)
+                                ->whereKeyNot($record->stage_id)
+                                ->orderBy('sort_order')
+                                ->pluck('name', 'id')
+                                ->all();
+                        })
+                        ->live()
+                        ->required(),
+                    Select::make('lost_reason')
+                        ->label('Reason for Loss')
+                        ->options(collect(LostReason::cases())->mapWithKeys(
+                            fn (LostReason $reason) => [$reason->value => $reason->label()]
+                        ))
+                        ->visible(fn (callable $get): bool => self::isLostStage($get('stage_id')))
+                        ->required(fn (callable $get): bool => self::isLostStage($get('stage_id'))),
+                ])
+                ->action(function (array $data): void {
+                    /** @var Deal $record */
+                    $record = $this->getRecord();
+                    /** @var PipelineStage $stage */
+                    $stage = PipelineStage::query()
+                        ->where('pipeline_id', $record->pipeline_id)
+                        ->findOrFail($data['stage_id']);
+
+                    $this->runStageChange(
+                        fn (): Deal => $record->moveToStage($stage, OddenAuthorization::userId(), $stage->is_closed_lost ? ($data['lost_reason'] ?? null) : null),
+                        'Deal Moved',
+                        "Deal [{$record->name}] moved to [{$stage->name}].",
+                    );
+                }),
+
             Action::make('mark_won')
                 ->label('Mark Won')
                 ->icon(Heroicon::CheckCircle)
@@ -154,13 +200,12 @@ class ViewDeal extends ViewRecord
                 ->action(function (): void {
                     /** @var Deal $record */
                     $record = $this->getRecord();
-                    $record->markWon(OddenAuthorization::userId());
 
-                    Notification::make()
-                        ->title('Deal Won!')
-                        ->body("Deal [{$record->name}] has been marked as Closed Won.")
-                        ->success()
-                        ->send();
+                    $this->runStageChange(
+                        fn (): Deal => $record->markWon(OddenAuthorization::userId()),
+                        'Deal Won!',
+                        "Deal [{$record->name}] has been marked as Closed Won.",
+                    );
                 }),
 
             Action::make('mark_lost')
@@ -180,16 +225,48 @@ class ViewDeal extends ViewRecord
                 ->action(function (array $data): void {
                     /** @var Deal $record */
                     $record = $this->getRecord();
-                    $record->markLost($data['lost_reason'] ?? null, OddenAuthorization::userId());
 
-                    Notification::make()
-                        ->title('Deal Closed as Lost')
-                        ->body("Deal [{$record->name}] marked as Lost.")
-                        ->warning()
-                        ->send();
+                    $this->runStageChange(
+                        fn (): Deal => $record->markLost($data['lost_reason'] ?? null, OddenAuthorization::userId()),
+                        'Deal Closed as Lost',
+                        "Deal [{$record->name}] marked as Lost.",
+                        success: false,
+                    );
                 }),
 
             EditAction::make(),
         ];
+    }
+
+    /**
+     * Run a stage change and report the outcome. A stage requirement that is not met (or a pipeline without a won or
+     * lost stage) is shown to the user instead of failing the request; the deal is left as it was.
+     *
+     * @param  callable(): Deal  $change
+     */
+    protected function runStageChange(callable $change, string $title, string $body, bool $success = true): void
+    {
+        try {
+            $change();
+        } catch (RuntimeException $e) {
+            // StageRequirementException is a RuntimeException, as is markWon()/markLost()'s missing-stage error.
+            Notification::make()
+                ->title('Deal Not Moved')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->getRecord()->refresh();
+
+        $notification = Notification::make()->title($title)->body($body);
+        ($success ? $notification->success() : $notification->warning())->send();
+    }
+
+    protected static function isLostStage(mixed $stageId): bool
+    {
+        return filled($stageId) && PipelineStage::query()->whereKey($stageId)->where('is_closed_lost', true)->exists();
     }
 }

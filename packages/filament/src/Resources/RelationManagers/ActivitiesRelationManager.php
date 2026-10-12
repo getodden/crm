@@ -17,6 +17,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
+use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
@@ -107,13 +109,20 @@ class ActivitiesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label('Log Activity')
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['creator_id'] = auth()->id();
-                        if (($data['status'] ?? null) === ActivityStatus::Completed->value && empty($data['completed_at'])) {
-                            $data['completed_at'] = now();
-                        }
+                    // Through LogActivityAction, so ActivityLogged fires and completed_at is set as everywhere else.
+                    ->using(function (array $data): Activity {
+                        $userId = OddenAuthorization::userId();
+                        $dueAt = filled($data['due_at'] ?? null) ? Carbon::parse($data['due_at']) : null;
 
-                        return $data;
+                        return app(LogActivityAction::class)->execute(
+                            subject: $this->getOwnerRecord(),
+                            type: (string) $data['type'],
+                            title: (string) $data['title'],
+                            body: filled($data['body'] ?? null) ? (string) $data['body'] : null,
+                            status: (string) $data['status'],
+                            dueAt: $dueAt,
+                            creatorId: is_numeric($userId) ? (int) $userId : null,
+                        );
                     }),
             ])
             ->recordActions([

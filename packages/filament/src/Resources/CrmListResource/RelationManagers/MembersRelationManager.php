@@ -8,6 +8,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\ListMembership;
@@ -26,6 +27,7 @@ class MembersRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('member_id')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('member'))
             ->defaultSort('added_at', 'desc')
             ->columns([
                 TextColumn::make('member')

@@ -13,6 +13,19 @@ class EditQuote extends EditRecord
 {
     protected static string $resource = QuoteResource::class;
 
+    /**
+     * A quote moved to another deal takes that deal's currency.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['user_id'] = $this->getRecord()->getAttribute('user_id');
+
+        return QuoteResource::fillFromDeal($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

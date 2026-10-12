@@ -160,6 +160,29 @@ final class OddenAuthorization
     }
 
     /**
+     * Constrain a query on one of the panel's models to the records the user can see (see scoped()). A query on a
+     * model the panel has no resource for is returned unchanged.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public static function constrain(Builder $query): Builder
+    {
+        $model = $query->getModel();
+
+        if (! isset(self::RESOURCES[$model::class])) {
+            return $query;
+        }
+
+        return $query->whereIn(
+            $model->getQualifiedKeyName(),
+            self::scoped($model::class)->select($model->getQualifiedKeyName()),
+        );
+    }
+
+    /**
      * Activities whose subject (contact, company or deal) is visible to the panel user. Activities
      * on other subject types are not shown.
      *

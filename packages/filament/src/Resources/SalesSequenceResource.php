@@ -23,6 +23,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\CreateSalesSequence;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\EditSalesSequence;
@@ -126,9 +127,9 @@ class SalesSequenceResource extends Resource
                     ->getStateUsing(fn (SalesSequence $record): int => $record->totalSteps())
                     ->badge()
                     ->color('primary'),
-                TextColumn::make('enrolled_count')
+                TextColumn::make('enrollments_count')
                     ->label('Active Contacts')
-                    ->getStateUsing(fn (SalesSequence $record): int => $record->enrollments()->where('status', 'active')->count())
+                    ->counts(['enrollments' => fn (Builder $query): Builder => $query->where('status', 'active')])
                     ->badge()
                     ->color('success'),
                 IconColumn::make('is_active')
@@ -151,12 +152,9 @@ class SalesSequenceResource extends Resource
                     ->form([
                         Select::make('contact_id')
                             ->label('Select Contact')
-                            ->options(fn (): array => OddenAuthorization::query(ContactResource::class, Contact::class)->limit(100)->pluck('first_name', 'id')->map(function ($name, $id): string {
-                                $c = Contact::find($id);
-
-                                return "{$name} {$c?->last_name} ({$c?->email})";
-                            })->all())
                             ->searchable()
+                            ->getSearchResultsUsing(fn (string $search): array => ContactResource::searchContactOptions($search))
+                            ->getOptionLabelUsing(fn (mixed $value): ?string => ContactResource::contactOptionLabel($value))
                             ->required(),
                     ])
                     ->action(function (SalesSequence $record, array $data): void {

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\CalculatePipelineForecastAction;
+use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
@@ -122,7 +123,28 @@ class KanbanDeals extends Page
             return;
         }
 
-        $deal->moveToStage($stage, OddenAuthorization::userId());
+        // A lost deal needs a reason, which a drag-and-drop cannot ask for: send the user to Mark Lost instead.
+        if ($stage->is_closed_lost && ! $deal->status->isLost()) {
+            Notification::make()
+                ->title('Deal Not Moved')
+                ->body("Use Mark Lost on [{$deal->name}] to close it as lost and record the reason.")
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        try {
+            $deal->moveToStage($stage, OddenAuthorization::userId());
+        } catch (StageRequirementException $e) {
+            Notification::make()
+                ->title('Deal Not Moved')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         Notification::make()
             ->title('Deal Updated')

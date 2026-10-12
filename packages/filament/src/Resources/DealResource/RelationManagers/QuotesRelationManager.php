@@ -28,6 +28,7 @@ use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
+use Odden\Sales\Support\Money;
 
 class QuotesRelationManager extends RelationManager
 {
@@ -51,17 +52,21 @@ class QuotesRelationManager extends RelationManager
                 ->options(collect(QuoteStatus::cases())->mapWithKeys(
                     fn (QuoteStatus $s) => [$s->value => $s->label()]
                 ))
+                ->disableOptionWhen(QuoteResource::isAcceptedOption(...))
+                ->helperText('A quote becomes Accepted only through Accept & Sign.')
                 ->default(QuoteStatus::Draft->value)
                 ->required(),
             DatePicker::make('expires_at')
                 ->label('Expiration Date')
                 ->default(now()->addDays(30)),
             TextInput::make('discount_amount')
-                ->label('Discount ($)')
+                ->label('Discount')
+                ->prefix(fn (): string => $this->currencyPrefix())
                 ->numeric()
                 ->default(0.00),
             TextInput::make('tax_amount')
-                ->label('Tax ($)')
+                ->label('Tax')
+                ->prefix(fn (): string => $this->currencyPrefix())
                 ->numeric()
                 ->default(0.00),
             Textarea::make('terms')
@@ -90,7 +95,7 @@ class QuotesRelationManager extends RelationManager
                 TextColumn::make('total_amount')
                     ->label('Total')
                     ->weight('bold')
-                    ->money(fn (): string => $this->getOwnerRecord()->currency ?? 'USD'),
+                    ->money(fn (Quote $record): string => $record->currency),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -131,7 +136,15 @@ class QuotesRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                CreateAction::make()->label('New Blank Quote'),
+                CreateAction::make()
+                    ->label('New Blank Quote')
+                    // A quote is in its deal's currency, and belongs to the deal owner unless someone else creates it.
+                    ->mutateDataUsing(function (array $data): array {
+                        /** @var Deal $deal */
+                        $deal = $this->getOwnerRecord();
+
+                        return QuoteResource::fillFromDeal($data, $deal);
+                    }),
             ])
             ->recordActions([
                 Action::make('openPortal')
@@ -175,8 +188,19 @@ class QuotesRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                EditAction::make(),
-                DeleteAction::make(),
+                // A signed quote is read-only and is kept: the signature covers its items, discount and tax.
+                EditAction::make()
+                    ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
+                DeleteAction::make()
+                    ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
             ]);
+    }
+
+    protected function currencyPrefix(): string
+    {
+        /** @var Deal $deal */
+        $deal = $this->getOwnerRecord();
+
+        return Money::prefix($deal->currency);
     }
 }

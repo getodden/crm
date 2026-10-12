@@ -54,10 +54,11 @@ class PipelineResource extends Resource
                             ->label('Pipeline Code / Slug')
                             ->placeholder('e.g. sales_pipeline')
                             ->required()
+                            ->unique(ignoreRecord: true)
                             ->maxLength(100),
                         Toggle::make('is_default')
                             ->label('Default Pipeline')
-                            ->helperText('Used by default when new deals are created without a pipeline.'),
+                            ->helperText('Used by default when new deals are created without a pipeline. Making this the default unsets the previous one.'),
                         Toggle::make('is_active')
                             ->label('Active')
                             ->default(true),
@@ -105,6 +106,21 @@ class PipelineResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * There is one default pipeline: making this one the default unsets the others.
+     */
+    public static function keepSingleDefault(Pipeline $pipeline): void
+    {
+        if (! $pipeline->is_default) {
+            return;
+        }
+
+        static::getEloquentQuery()
+            ->whereKeyNot($pipeline->getKey())
+            ->where('is_default', true)
+            ->update(['is_default' => false]);
     }
 
     public static function getRelations(): array

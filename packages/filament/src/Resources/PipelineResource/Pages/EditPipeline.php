@@ -21,4 +21,12 @@ class EditPipeline extends EditRecord
                 ->hidden(fn (Pipeline $record): bool => $record->isInUse()),
         ];
     }
+
+    protected function afterSave(): void
+    {
+        /** @var Pipeline $record */
+        $record = $this->getRecord();
+
+        PipelineResource::keepSingleDefault($record);
+    }
 }

@@ -11,9 +11,13 @@ use Filament\Actions\Imports\Models\Import;
 use Filament\Forms\Components\Select;
 use Illuminate\Support\Number;
 use Illuminate\Validation\Rule;
+use Odden\Core\Actions\AutoAssociateContactCompanyAction;
+use Odden\Core\Actions\TransitionLifecycleStageAction;
 use Odden\Core\Enums\EmailStatus;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Events\ContactCreated;
+use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\ContactLookup;
 use Odden\Core\Support\EmailValidator;
@@ -151,6 +155,49 @@ class ContactImporter extends Importer
             'email_status_reason' => $check->reason,
             'email_checked_at' => now(),
         ]);
+    }
+
+    /**
+     * A changed lifecycle stage on an existing contact goes through TransitionLifecycleStageAction, which checks
+     * the lifecycle rules, records the transition and fires LifecycleStageChanged. A refused transition fails
+     * the row, and nothing in it is saved.
+     */
+    protected function beforeUpdate(): void
+    {
+        if (! $this->record instanceof Contact || ! $this->record->isDirty('lifecycle_stage')) {
+            return;
+        }
+
+        $raw = $this->record->getAttribute('lifecycle_stage');
+        $toStage = $raw instanceof LifecycleStage ? $raw : LifecycleStage::from((string) $raw);
+
+        // The action reads the current stage from the record, then saves it with the row's other changes.
+        $this->record->setAttribute('lifecycle_stage', $this->record->getOriginal('lifecycle_stage'));
+
+        $userId = $this->import->getAttribute('user_id');
+
+        try {
+            app(TransitionLifecycleStageAction::class)->execute($this->record, $toStage, 'import', is_numeric($userId) ? (int) $userId : null);
+        } catch (InvalidLifecycleStageTransitionException $e) {
+            throw new RowImportFailedException($e->getMessage());
+        }
+    }
+
+    /**
+     * What CreateContactAction does after creating a contact: announce it, and link it to its company when the
+     * installation has auto-association turned on. (The address check already ran in beforeSave().)
+     */
+    protected function afterCreate(): void
+    {
+        if (! $this->record instanceof Contact) {
+            return;
+        }
+
+        event(new ContactCreated($this->record));
+
+        if ((bool) config('odden-core.auto_associate_companies', false)) {
+            app(AutoAssociateContactCompanyAction::class)->execute($this->record);
+        }
     }
 
     public static function getCompletedNotificationBody(Import $import): string

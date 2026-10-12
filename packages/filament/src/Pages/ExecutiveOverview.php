@@ -53,8 +53,8 @@ class ExecutiveOverview extends Page
         return [
             ContactResource::class,
             CompanyResource::class,
-            DealResource::class,
-            SalesQuotaResource::class,
+            // Sales turned off on this panel: its permissions do not decide who sees the page.
+            ...(Modules::enabledOnCurrentPanel('sales') ? [DealResource::class, SalesQuotaResource::class] : []),
             ...Modules::authorizationResources(),
         ];
     }
@@ -96,7 +96,7 @@ class ExecutiveOverview extends Page
      */
     public function getReportingCurrencyProperty(): string
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return Money::defaultCurrency();
         }
 
@@ -118,7 +118,7 @@ class ExecutiveOverview extends Page
      */
     public function getOtherCurrencyTotalsProperty(): array
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return [];
         }
 
@@ -152,7 +152,7 @@ class ExecutiveOverview extends Page
 
     public function getActivePipelineProperty(): float
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return 0.0;
         }
 
@@ -163,7 +163,7 @@ class ExecutiveOverview extends Page
 
     public function getWeightedForecastProperty(): float
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return 0.0;
         }
 
@@ -184,7 +184,7 @@ class ExecutiveOverview extends Page
 
     public function getClosedWonRevenueProperty(): float
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return 0.0;
         }
 
@@ -196,30 +196,40 @@ class ExecutiveOverview extends Page
             ->sum('amount');
     }
 
-    public function getTotalRevenueQuotaProperty(): float
+    /**
+     * Quotas in the reporting currency whose period overlaps the selected range.
+     *
+     * @return Builder<SalesQuota>
+     */
+    protected function quotasInRange(): Builder
     {
-        if (! class_exists(SalesQuota::class)) {
-            return 0.0;
-        }
-
         [$start, $end] = $this->getDateRange();
 
-        $sum = (float) OddenAuthorization::scoped(SalesQuota::class)
+        return OddenAuthorization::scoped(SalesQuota::class)
             ->where('currency', $this->getReportingCurrencyProperty())
-            ->where(function (Builder $q) use ($start, $end): void {
-                $q->whereBetween('period_start', [$start, $end])
-                    ->orWhereBetween('period_end', [$start, $end]);
-            })
-            ->sum('target_amount');
-
-        return $sum > 0 ? $sum : 100000.0; // Sensible target benchmark if unconfigured
+            ->whereDate('period_start', '<=', $end)
+            ->whereDate('period_end', '>=', $start);
     }
 
-    public function getQuotaAttainmentRateProperty(): float
+    /**
+     * The summed targets of the quotas in the selected range, or null when no quota is set for it.
+     */
+    public function getTotalRevenueQuotaProperty(): ?float
+    {
+        if (! Modules::salesEnabled()) {
+            return null;
+        }
+
+        $sum = (float) $this->quotasInRange()->sum('target_amount');
+
+        return $sum > 0 ? $sum : null;
+    }
+
+    public function getQuotaAttainmentRateProperty(): ?float
     {
         $quota = $this->getTotalRevenueQuotaProperty();
-        if ($quota <= 0) {
-            return 0.0;
+        if ($quota === null) {
+            return null;
         }
 
         $won = $this->getClosedWonRevenueProperty();
@@ -227,11 +237,11 @@ class ExecutiveOverview extends Page
         return round(($won / $quota) * 100, 1);
     }
 
-    public function getPipelineCoverageRatioProperty(): float
+    public function getPipelineCoverageRatioProperty(): ?float
     {
         $quota = $this->getTotalRevenueQuotaProperty();
-        if ($quota <= 0) {
-            return 0.0;
+        if ($quota === null) {
+            return null;
         }
 
         return round($this->getActivePipelineProperty() / $quota, 2);
@@ -239,7 +249,7 @@ class ExecutiveOverview extends Page
 
     public function getWinRateProperty(): float
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return 0.0;
         }
 
@@ -265,7 +275,7 @@ class ExecutiveOverview extends Page
 
     public function getAvgDealSizeProperty(): float
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return 0.0;
         }
 
@@ -301,7 +311,7 @@ class ExecutiveOverview extends Page
         $sqls = OddenAuthorization::scoped(Contact::class)->where('lifecycle_stage', LifecycleStage::SalesQualifiedLead->value)->count();
         $customers = OddenAuthorization::scoped(Contact::class)->where('lifecycle_stage', LifecycleStage::Customer->value)->count();
 
-        $opps = class_exists(Deal::class) ? OddenAuthorization::scoped(Deal::class)->count() : 0;
+        $opps = Modules::salesEnabled() ? OddenAuthorization::scoped(Deal::class)->count() : 0;
 
         $leads = max(1, $totalContacts);
 
@@ -382,7 +392,7 @@ class ExecutiveOverview extends Page
      */
     public function getHighValueDealsProperty(): Collection
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return new Collection;
         }
 
@@ -416,14 +426,15 @@ class ExecutiveOverview extends Page
      */
     public function getStalledRottingDealsProperty(): Collection
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return new Collection;
         }
 
         /** @var Collection<int, Deal> $openDeals */
         $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', 'open')
-            ->with(['stage', 'owner'])
+            // isRotten() and daysInCurrentStage() read the stage history of every deal.
+            ->with(['stage', 'owner', 'stageHistory'])
             ->orderBy('amount', 'desc')
             ->get();
 
@@ -443,34 +454,25 @@ class ExecutiveOverview extends Page
      *     user_id: int,
      *     name: string,
      *     email: string,
-     *     quota: float,
+     *     quota: float|null,
      *     won: float,
-     *     attainment: float,
+     *     attainment: float|null,
      *     pipeline: float,
      *     deals_count: int
      * }>
      */
     public function getRepLeaderboardProperty(): array
     {
-        if (! class_exists(Deal::class)) {
+        if (! Modules::salesEnabled()) {
             return [];
         }
 
         [$start, $end] = $this->getDateRange();
 
+        // Every quota a rep has in the range counts: three monthly quotas make up a quarter.
         $quotasByUser = [];
-        if (class_exists(SalesQuota::class)) {
-            $quotas = OddenAuthorization::scoped(SalesQuota::class)
-                ->where('currency', $this->getReportingCurrencyProperty())
-                ->where(function (Builder $q) use ($start, $end): void {
-                    $q->whereBetween('period_start', [$start, $end])
-                        ->orWhereBetween('period_end', [$start, $end]);
-                })
-                ->get();
-
-            foreach ($quotas as $q) {
-                $quotasByUser[$q->user_id] = (float) $q->target_amount;
-            }
+        foreach ($this->quotasInRange()->get(['user_id', 'target_amount']) as $q) {
+            $quotasByUser[$q->user_id] = ($quotasByUser[$q->user_id] ?? 0.0) + (float) $q->target_amount;
         }
 
         $wonDeals = $this->reportingDeals()
@@ -517,9 +519,10 @@ class ExecutiveOverview extends Page
                 continue;
             }
 
-            $quota = $quotasByUser[$userId] ?? 50000.0;
+            // No quota set: there is nothing to measure attainment against.
+            $quota = isset($quotasByUser[$userId]) && $quotasByUser[$userId] > 0 ? $quotasByUser[$userId] : null;
             $won = $wonByUser[$userId] ?? 0.0;
-            $attainment = $quota > 0 ? round(($won / $quota) * 100, 1) : 0.0;
+            $attainment = $quota !== null ? round(($won / $quota) * 100, 1) : null;
 
             $leaderboard[] = [
                 'user_id' => (int) $userId,
@@ -533,7 +536,9 @@ class ExecutiveOverview extends Page
             ];
         }
 
-        usort($leaderboard, fn (array $a, array $b): int => $b['attainment'] <=> $a['attainment']);
+        // Reps with a quota first, by attainment; then reps without one, by revenue won.
+        usort($leaderboard, fn (array $a, array $b): int => [$b['attainment'] !== null, $b['attainment'] ?? 0.0, $b['won']]
+            <=> [$a['attainment'] !== null, $a['attainment'] ?? 0.0, $a['won']]);
 
         return array_slice($leaderboard, 0, 5);
     }

@@ -6,8 +6,10 @@ namespace Odden\Filament\Support;
 
 use Closure;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Resources\RelationManagers\RelationManager;
+use Odden\Filament\OddenPlugin;
 
 /**
  * Where separately installed Odden packages plug their screens into the panel.
@@ -89,37 +91,79 @@ final class Modules
     }
 
     /**
+     * The modules turned off with OddenPlugin::disableModules() on the panel being served (none outside a panel).
+     *
+     * @return list<string>
+     */
+    public static function disabledOnCurrentPanel(): array
+    {
+        $panel = Filament::getCurrentPanel();
+
+        if ($panel === null || ! $panel->hasPlugin('odden')) {
+            return [];
+        }
+
+        $plugin = $panel->getPlugin('odden');
+
+        return $plugin instanceof OddenPlugin ? $plugin->getDisabledModules() : [];
+    }
+
+    /**
+     * Whether a module is turned on for the panel being served. It says nothing about whether it is installed.
+     */
+    public static function enabledOnCurrentPanel(string $module): bool
+    {
+        return ! in_array($module, self::disabledOnCurrentPanel(), true);
+    }
+
+    /**
+     * Whether Sales is installed and turned on for the panel being served.
+     */
+    public static function salesEnabled(): bool
+    {
+        return OddenPackages::hasSales() && self::enabledOnCurrentPanel('sales');
+    }
+
+    /**
+     * The contact relation managers of the modules turned on for the panel being served.
+     *
      * @return list<class-string<RelationManager>>
      */
     public static function contactRelationManagers(): array
     {
-        return self::collect('contactRelationManagers');
+        return self::collect('contactRelationManagers', self::disabledOnCurrentPanel());
     }
 
     /**
+     * The company row actions of the modules turned on for the panel being served.
+     *
      * @return list<Action>
      */
     public static function companyActions(): array
     {
-        return array_map(static fn (Closure $make): Action => $make(), self::collect('companyActions'));
+        return array_map(static fn (Closure $make): Action => $make(), self::collect('companyActions', self::disabledOnCurrentPanel()));
     }
 
     /**
+     * The resources (of the modules turned on for the panel being served) that decide who sees the Executive Overview.
+     *
      * @return list<class-string<\Filament\Resources\Resource>>
      */
     public static function authorizationResources(): array
     {
-        return self::collect('authorizationResources');
+        return self::collect('authorizationResources', self::disabledOnCurrentPanel());
     }
 
     /**
+     * The Executive Overview cards of the modules turned on for the panel being served.
+     *
      * @return list<array{view: string, data: array<string, mixed>, position: 'before'|'after'}>
      */
     public static function executiveCards(): array
     {
         return array_map(
             static fn (array $card): array => ['view' => $card['view'], 'data' => $card['data'](), 'position' => $card['position']],
-            self::collect('executiveCards'),
+            self::collect('executiveCards', self::disabledOnCurrentPanel()),
         );
     }
 

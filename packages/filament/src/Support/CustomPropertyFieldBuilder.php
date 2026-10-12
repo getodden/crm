@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema as DbSchema;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\PropertyDefinition;
@@ -74,6 +75,28 @@ class CustomPropertyFieldBuilder
                 ->schema($fields)
                 ->collapsible(),
         ];
+    }
+
+    /**
+     * Merge the form's custom properties over the ones the record already has.
+     *
+     * The form only carries the keys that have a property definition, and saving it replaces the whole `properties`
+     * column. Keys written elsewhere (playbook answers, marketing and enrichment data) would be lost on the next save.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function mergeIntoRecord(Model $record, array $data): array
+    {
+        if (! array_key_exists('properties', $data) || ! is_array($data['properties'])) {
+            return $data;
+        }
+
+        $existing = $record->getAttribute('properties');
+
+        $data['properties'] = array_merge(is_array($existing) ? $existing : [], $data['properties']);
+
+        return $data;
     }
 
     /**

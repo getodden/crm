@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Odden\Core\Actions\AssociateRecordsAction;
 use Odden\Core\Exceptions\CardinalityViolationException;
+use Odden\Core\Exceptions\CrossTenantException;
 use Odden\Core\Exceptions\InvalidAssociationException;
 
 /**
@@ -36,7 +37,8 @@ final class AttachesThroughAssociations
     {
         $query->getQuery()->distinct = false;
 
-        return $query->groupBy($query->getModel()->getQualifiedKeyName());
+        // Offer only the records the user can see.
+        return OddenAuthorization::constrain($query)->groupBy($query->getModel()->getQualifiedKeyName());
     }
 
     /**
@@ -54,7 +56,15 @@ final class AttachesThroughAssociations
             return;
         }
 
-        $related = $relationship->getRelated()->newQuery()->whereKey($ids)->get();
+        // Only records the user can see can be linked, whatever ids the request carries.
+        $related = OddenAuthorization::constrain($relationship->getRelated()->newQuery())->whereKey($ids)->get();
+        if ($related->count() !== count(array_unique($ids))) {
+            Notification::make()->danger()->title('Could not link these records')->body('One or more of the selected records could not be found.')->send();
+            $action->failure();
+
+            return;
+        }
+
         $type = is_string($data['type'] ?? null) && $data['type'] !== '' ? $data['type'] : 'default';
 
         try {
@@ -65,6 +75,11 @@ final class AttachesThroughAssociations
             }
         } catch (CardinalityViolationException|InvalidAssociationException $e) {
             Notification::make()->danger()->title('Could not link these records')->body($e->getMessage())->send();
+            $action->failure();
+
+            return;
+        } catch (CrossTenantException) {
+            Notification::make()->danger()->title('Could not link these records')->body('These records belong to different teams.')->send();
             $action->failure();
 
             return;

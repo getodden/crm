@@ -101,6 +101,16 @@ class OddenPlugin implements Plugin
     }
 
     /**
+     * The modules left out with disableModules().
+     *
+     * @return list<string>
+     */
+    public function getDisabledModules(): array
+    {
+        return $this->disabledModules;
+    }
+
+    /**
      * Leave out specific resources or pages by class name.
      *
      * @param  class-string  ...$classes

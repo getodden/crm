@@ -46,8 +46,8 @@ class SalesCockpitTest extends TestCase
             'name' => 'Strategic Outreach',
             'is_active' => true,
             'steps' => [
-                ['step' => 1, 'type' => 'email', 'delay_days' => 0, 'title' => 'Initial pitch'],
-                ['step' => 2, 'type' => 'call', 'delay_days' => 2, 'title' => 'Follow up'],
+                ['step' => 1, 'type' => 'call', 'delay_days' => 0, 'title' => 'Intro call'],
+                ['step' => 2, 'type' => 'email', 'delay_days' => 2, 'title' => 'Follow up'],
             ],
         ]);
 

@@ -52,9 +52,7 @@ use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\OddenPackages;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\RouteLeadAction;
-use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\SalesPlaybook;
-use Odden\Sales\Models\SalesSequence;
 use UnitEnum;
 
 class ContactResource extends Resource
@@ -122,13 +120,18 @@ class ContactResource extends Resource
                         TextInput::make('lead_score')
                             ->label('Lead Score')
                             ->numeric()
+                            ->integer()
+                            ->required()
                             ->suffix('pts')
                             ->default(0),
+                        // These columns come with Odden Marketing; without it (or with it turned off here) they are not shown or saved.
                         DateTimePicker::make('marketing_email_verified_at')
                             ->label('Email Verified Date')
-                            ->helperText('Confirmed via double opt-in email verification'),
+                            ->helperText('Confirmed via double opt-in email verification')
+                            ->visible(fn (): bool => self::marketingEnabled()),
                         DateTimePicker::make('last_marketing_email_sent_at')
                             ->label('Last Marketing Email')
+                            ->visible(fn (): bool => self::marketingEnabled())
                             ->disabled(),
                     ])
                     ->columns(3),
@@ -144,7 +147,10 @@ class ContactResource extends Resource
                     ->label('Name')
                     ->description(fn (Contact $record): ?string => $record->job_title)
                     ->searchable(['first_name', 'last_name', 'email'])
-                    ->sortable(),
+                    // full_name is an accessor, not a column: sort by last name, then first name.
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
+                        ->orderBy('last_name', $direction === 'desc' ? 'desc' : 'asc')
+                        ->orderBy('first_name', $direction === 'desc' ? 'desc' : 'asc')),
                 TextColumn::make('email')
                     ->label('Email')
                     ->copyable()
@@ -246,7 +252,7 @@ class ContactResource extends Resource
                     ->label('Playbook')
                     ->icon(Heroicon::BookOpen)
                     ->color('primary')
-                    ->visible(fn (): bool => OddenPackages::hasSales())
+                    ->visible(fn (): bool => Modules::salesEnabled())
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->form(function (): array {
                         $playbooks = SalesPlaybook::query()->where('is_active', true)->get();
@@ -314,7 +320,7 @@ class ContactResource extends Resource
                     ->label('Auto-Route')
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('gray')
-                    ->visible(fn (): bool => OddenPackages::hasSales())
+                    ->visible(fn (): bool => Modules::salesEnabled())
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->requiresConfirmation()
                     ->modalHeading('Auto-Route Contact Owner')
@@ -364,14 +370,9 @@ class ContactResource extends Resource
                     ->form([
                         Select::make('secondary_contact_id')
                             ->label('Select Duplicate Contact to Merge into This Record')
-                            ->options(fn (Contact $record): array => OddenAuthorization::query(self::class, Contact::class)
-                                ->whereKeyNot($record->getKey())
-                                ->orderBy('last_name')
-                                ->limit(50)
-                                ->get()
-                                ->mapWithKeys(fn (Contact $c): array => [$c->id => "{$c->first_name} {$c->last_name} ({$c->email})"])
-                                ->all())
                             ->searchable()
+                            ->getSearchResultsUsing(fn (Contact $record, string $search): array => self::searchContactOptions($search, except: $record))
+                            ->getOptionLabelUsing(fn (mixed $value): ?string => self::contactOptionLabel($value))
                             ->required(),
                     ])
                     ->action(function (Contact $record, array $data): void {
@@ -400,17 +401,63 @@ class ContactResource extends Resource
             ]);
     }
 
+    protected static function marketingEnabled(): bool
+    {
+        return OddenPackages::hasMarketing() && Modules::enabledOnCurrentPanel('marketing');
+    }
+
+    /**
+     * Contacts matching a picker search (name or email), within the contacts the user can see. Searching on the
+     * server keeps every contact reachable, not just the first page of a preloaded list.
+     *
+     * @return array<int|string, string>
+     */
+    public static function searchContactOptions(string $search, ?Contact $except = null, int $limit = 50): array
+    {
+        $like = '%'.mb_strtolower(trim($search)).'%';
+
+        return OddenAuthorization::query(static::class, Contact::class)
+            ->when($except !== null, fn (Builder $query): Builder => $query->whereKeyNot($except?->getKey()))
+            ->where(fn (Builder $query): Builder => $query
+                ->whereRaw('lower(first_name) like ?', [$like])
+                ->orWhereRaw('lower(last_name) like ?', [$like])
+                ->orWhereRaw('lower(email) like ?', [$like]))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit($limit)
+            ->get()
+            ->mapWithKeys(fn (Contact $c): array => [$c->getKey() => self::formatContactOption($c)])
+            ->all();
+    }
+
+    /**
+     * The picker label of a selected contact, if the user can see it.
+     */
+    public static function contactOptionLabel(mixed $key): ?string
+    {
+        if (! is_int($key) && ! is_string($key)) {
+            return null;
+        }
+
+        /** @var Contact|null $contact */
+        $contact = OddenAuthorization::query(static::class, Contact::class)->find($key);
+
+        return $contact !== null ? self::formatContactOption($contact) : null;
+    }
+
+    protected static function formatContactOption(Contact $contact): string
+    {
+        return trim("{$contact->first_name} {$contact->last_name}")." ({$contact->email})";
+    }
+
     public static function getRelations(): array
     {
         $relations = [
             CompaniesRelationManager::class,
         ];
 
-        if (class_exists(Deal::class)) {
+        if (Modules::salesEnabled()) {
             $relations[] = DealsRelationManager::class;
-        }
-
-        if (class_exists(SalesSequence::class)) {
             $relations[] = SalesSequenceEnrollmentsRelationManager::class;
         }
 
