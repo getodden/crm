@@ -108,7 +108,7 @@ The `AuditsProperties` trait listens to the Eloquent `updated` event, so history
 | --- | --- |
 | `auditable_type`, `auditable_id` | The record. |
 | `property_name` | The column name. For the `properties` column, one row per changed key, named after the key. |
-| `old_value`, `new_value` | The stored (raw) value on both sides, so a date reads `2026-01-01 09:00:00` in both. Scalars cast to string, enums stored as their backing value, other values JSON-encoded, and `null` stays `null`. |
+| `old_value`, `new_value` | Both read through the model's casts and written the same way: dates in the database format (`2026-01-01 09:00:00`), enums as their backing value, booleans as `1` or `0`, other scalars as strings, other values JSON-encoded, and `null` stays `null`. |
 | `user_id` | `auth()->id()` at the time of the change, or `null`. |
 | `source` | Set by the server: `web` during an HTTP request, `console` in commands and queued jobs, or the value passed to `AuditSource::using()`. |
 | `created_at` | `now()`. |
