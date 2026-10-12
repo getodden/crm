@@ -35,6 +35,9 @@ class ContactAndCompanyLifecycleTest extends TestCase
 {
     use RefreshDatabase;
 
+    // The factory's random phone numbers do not all pass the form's tel() format, which would fail a save.
+    private const PHONE = '+1 555 0100';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,7 +54,7 @@ class ContactAndCompanyLifecycleTest extends TestCase
 
     public function test_changing_the_lifecycle_stage_on_the_edit_page_records_a_transition(): void
     {
-        $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
+        $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead, 'phone' => self::PHONE]);
         Event::fake([LifecycleStageChanged::class]);
 
         Livewire::actingAs(User::factory()->create())
@@ -69,7 +72,7 @@ class ContactAndCompanyLifecycleTest extends TestCase
 
     public function test_a_refused_lifecycle_transition_is_a_form_error_and_saves_nothing(): void
     {
-        $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer, 'job_title' => 'CTO']);
+        $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer, 'job_title' => 'CTO', 'phone' => self::PHONE]);
 
         Livewire::actingAs(User::factory()->create())
             ->test(EditContact::class, ['record' => $contact->id])
@@ -151,7 +154,7 @@ class ContactAndCompanyLifecycleTest extends TestCase
     public function test_saving_a_contact_keeps_properties_the_form_does_not_show(): void
     {
         PropertyDefinition::query()->create(['entity_type' => 'contact', 'name' => 'shoe_size', 'label' => 'Shoe size', 'type' => PropertyType::Text]);
-        $contact = Contact::factory()->create(['properties' => ['shoe_size' => '9', 'playbook_budget' => '50k']]);
+        $contact = Contact::factory()->create(['properties' => ['shoe_size' => '9', 'playbook_budget' => '50k'], 'phone' => self::PHONE]);
 
         Livewire::actingAs(User::factory()->create())
             ->test(EditContact::class, ['record' => $contact->id])
