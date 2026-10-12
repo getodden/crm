@@ -73,10 +73,18 @@ Under `email_validation` in `config/odden-core.php`:
 | `check_dns` | `true` (`ODDEN_EMAIL_CHECK_DNS`) | Run the DNS check inside `CreateContactAction`. Set to `false` to keep DNS out of the request and run `ValidateContactEmailAction` from a queue |
 | `dns_cache_minutes` | `1440` | How long a definite DNS answer is cached per domain |
 | `dns_failure_cache_minutes` | `5` | How long a failed lookup (resolver timeout or error) is remembered, so the domain isn't looked up again for every contact meanwhile. `0` disables it |
+| `dns_timeout_seconds` | `2` (`ODDEN_EMAIL_DNS_TIMEOUT`) | The most one DNS check may take. A slower answer counts as a failed lookup (`unknown`, `dns_unavailable`), never as `invalid`. `0` removes the limit and uses PHP's `dns_get_record()` |
+| `dns_nameservers` | `[]` | The nameservers to ask, such as `'10.0.0.2'` or `'10.0.0.2:5353'`. Empty uses the ones in `/etc/resolv.conf` |
 | `disposable_domains` | `[]` | Extra disposable-provider domains to flag |
 | `role_local_parts` | `[]` | Extra shared-mailbox local parts to flag |
 
 The bundled disposable list is a starter list of well-known providers, not an exhaustive one.
+
+## How long the DNS check takes
+
+PHP's `dns_get_record()` has no timeout: it waits as long as the system resolver does, which by default is several seconds per nameserver and attempt, and the resolver options that shorten it can't be set per call from PHP. So the default resolver asks the nameservers itself over UDP and gives up after `dns_timeout_seconds` (2 by default) for the whole check, MX and address records together. A nameserver that doesn't answer in time makes the result `unknown` with reason `dns_unavailable`, the failure is cached for `dns_failure_cache_minutes`, and the contact is created anyway.
+
+When no nameserver is configured and `/etc/resolv.conf` lists none, the check falls back to `dns_get_record()`. That call can't be interrupted, so a slow answer still delays the request, but an answer that took longer than `dns_timeout_seconds` is treated as a failed lookup and cached, so later contacts for the domain don't wait for it. To keep DNS out of the request entirely, set `check_dns` to `false` and run `ValidateContactEmailAction` from a queue.
 
 ## Replacing the DNS lookup
 
