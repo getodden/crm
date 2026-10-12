@@ -64,7 +64,7 @@ The sales package ships no view for this array, so it stays free of Filament. Th
 
 ## Pipeline forecast
 
-`$pipeline->forecast()` returns metrics for one pipeline; pass a team ID (`$pipeline->forecast($teamId)`) to count only that team's deals. Call `Odden\Sales\Actions\CalculatePipelineForecastAction::execute(?int $pipelineId = null, ?int $teamId = null)` directly with `null` to cover all pipelines.
+`$pipeline->forecast()` returns metrics for one pipeline; pass a team ID (`$pipeline->forecast($teamId)`) to count only that team's deals. Call `Odden\Sales\Actions\CalculatePipelineForecastAction::execute(?int $pipelineId = null, ?int $teamId = null, ?Builder $visibleDeals = null, ?string $currency = null)` directly with `null` to cover all pipelines.
 
 ```php
 use Odden\Sales\Actions\CalculatePipelineForecastAction;
@@ -76,7 +76,9 @@ $all = app(CalculatePipelineForecastAction::class)->execute();
 
 | Key | Meaning |
 | --- | --- |
-| `open_value` | Sum of `amount` for open deals. |
+| `currency` | The ISO code the figures below are in. Amounts are never added across currencies. |
+| `other_currencies` | Open and won totals and counts of deals in every other currency, keyed by ISO code. Empty when all deals share one currency. |
+| `open_value` | Sum of `amount` for open deals in `currency`. |
 | `open_count` | Number of open deals. |
 | `weighted_forecast` | Sum of each open deal's `amount × stage probability / 100`. |
 | `won_value` | Sum of `amount` for won deals. |
@@ -88,6 +90,8 @@ $all = app(CalculatePipelineForecastAction::class)->execute();
 | `stale_deals_count` | Number of open deals that are rotting. |
 
 All values are all-time; there is no date filter. Soft-deleted deals are excluded.
+
+The figures cover one currency. Pass `$currency` to choose it; otherwise `odden-sales.default_currency` is used, or, when no deal uses that, the currency used by the most deals. Deals in other currencies are left out of the figures above and totalled per currency in `other_currencies`. There is no currency conversion.
 
 ## Stage velocity
 
@@ -145,6 +149,8 @@ $attainment = app(CalculateQuotaAttainmentAction::class)->execute($quota);
 
 | Key | Meaning |
 | --- | --- |
+| `currency` | The quota's currency. Only deals in this currency count. |
+| `excluded_deal_count` | Number of the user's won or open deals in the period that were left out because they are in another currency. |
 | `target_amount` | The quota's target. |
 | `won_amount` | Sum of `amount` for won deals owned by the user with `closed_at` inside the period. |
 | `attainment_percent` | `won_amount / target × 100`, one decimal. |
@@ -152,4 +158,4 @@ $attainment = app(CalculateQuotaAttainmentAction::class)->execute($quota);
 | `open_pipeline_amount` | Sum of `amount` for the user's open deals with `expected_close_date` inside the period. |
 | `coverage_ratio` | `(won_amount + open_pipeline_amount) / target`, two decimals. |
 
-Deals count toward the user in `owner_id`. Amounts are summed without currency conversion. Quotas are also used by [quota-weighted lead routing](lead-routing.md#quota-weighted).
+Deals count toward the user in `owner_id`. There is no currency conversion: deals in a different currency from the quota are not counted (see `excluded_deal_count`). Quotas are also used by [quota-weighted lead routing](lead-routing.md#quota-weighted).
