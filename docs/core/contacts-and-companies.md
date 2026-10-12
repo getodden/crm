@@ -40,7 +40,9 @@ A contact's `email` is lowercased and trimmed whenever it's saved, and a migrati
 
 - `ContactLookup::normalizeEmail(string $email): string` lowercases and trims.
 - `ContactLookup::findByEmail(string $email): ?Contact` looks for a contact stored with exactly the normalized address, which uses the `email` index. Among several matches, the oldest wins. An empty address returns `null`.
-- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email through `CreateContactAction`, so `ContactCreated` fires and the address is checked like any other new contact. Concurrent calls for the same address are serialized with a cache lock (when the cache store supports locks), so only one contact is created.
+- `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email through `CreateContactAction`, so `ContactCreated` fires and the address is checked like any other new contact. Concurrent calls for the same address are serialized with a cache lock (when the cache store supports locks), and the lookup runs again once the lock is held, so only one contact is created. Called inside a database transaction, it keeps the lock until the transaction commits, because until then other connections can't see the new contact. If the lock store is unreachable, or the lock isn't released within 10 seconds, it looks again and creates the contact without the lock rather than fail.
+
+There is no unique index on `email`: contacts belong to teams, are soft-deleted, and existing data can already hold duplicates. So create contacts from an email address through `findOrCreate()` rather than `Contact::create()` or `CreateContactAction` when the address may already exist.
 
 ```php
 use Odden\Core\Support\ContactLookup;
