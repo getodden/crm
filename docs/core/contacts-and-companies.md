@@ -94,7 +94,7 @@ Helpers on `Company`:
 - `isSurging()`: returns `intent_surge`.
 - `became_mql_at`, `became_sql_at`, `owner()`: as on `Contact`.
 - `contacts()`: the inverse of `Contact::companies()`.
-- `whereDomain(string $domain)` scope: lowercases and trims the value before matching.
+- `whereDomain(string $domain)` scope: normalizes the value with `Company::normalizeDomain()` before matching.
 
 Database defaults are not loaded into a model you just created. Call `fresh()` if you need `health_status` or `lifecycle_stage` right after `create()`.
 
@@ -138,7 +138,7 @@ $contact->companies()->first();      // Acme Corp, association type "primary"
 
 `CreateCompanyAction::execute(array $attributes, bool $enrich = false): Company`
 
-- lowercases and trims `domain`, and strips a leading `http://` or `https://` and any trailing `/`. It does not strip `www.` or a path.
+- normalizes `domain` with `Company::normalizeDomain()`: lowercased and trimmed, without the scheme, a leading `www.`, a port, or any path or query, so `https://www.Acme.com/about` is stored as `acme.com`.
 - creates the company and dispatches `CompanyCreated`.
 - runs [enrichment](#enrichment) when `$enrich` is `true` or `odden-core.enrichment.auto_enrich` is `true`.
 
@@ -163,7 +163,7 @@ $company->domain; // "globex-corp.com"
 
 1. Extracts the corporate domain with `ExtractCorporateDomainAction`. It returns `null` if the email is invalid or uses a freemail domain.
 2. Returns the company if the contact is already associated with a company that has this domain.
-3. Otherwise looks up a company by `domain`. If the contact has a `team_id`, only companies with the same `team_id` or no team match. If one is found, associates the contact (as parent) with it using the `primary` association type.
+3. Otherwise looks up a company by `domain`. If the contact has a `team_id`, only companies with the same `team_id` or no team match, and the team's own company is preferred. Among several matches the oldest wins. If one is found, associates the contact (as parent) with it using the `primary` association type.
 4. If no company is found and `$createCompanyIfMissing` is `true`, creates one through `CreateCompanyAction`, copying the contact's `team_id` and `owner_id`, and associates it. The name is derived from the domain: `globex-corp.com` becomes `Globex Corp`. Otherwise it returns `null`.
 
 Through `CreateContactAction` this runs with `createCompanyIfMissing` as passed to that action, which defaults to `false`.
