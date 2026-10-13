@@ -16,6 +16,7 @@ An `Odden\Sales\Models\Quote` is a proposal attached to a deal. Each quote gets 
 | `subtotal`, `discount_amount`, `tax_amount`, `total_amount` | decimal | |
 | `currency` | string(3) | |
 | `terms`, `notes` | text, nullable | Shown on the public page. |
+| `internal_notes` | text, nullable | For your team only: never rendered on the public page. |
 | `public_token` | string | Generated with `Str::random(40)` if empty on create. |
 | `expires_at` | date, nullable | |
 | `accepted_at` | datetime, nullable | |
@@ -38,8 +39,11 @@ public function execute(
     ?string $notes = null,
     ?CarbonInterface $expiresAt = null,
     int|string|null $userId = null,
+    ?string $internalNotes = null,
 ): Quote
 ```
+
+`$notes` is shown to the customer on the quote page; `$internalNotes` is for your team and is never rendered publicly.
 
 ```php
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;

@@ -63,6 +63,7 @@ In the [Filament admin](../filament/resources.md#other-sales-resources), the mee
 - Within each window, slots start at the window's start and repeat every `duration_minutes + buffer_minutes`, as long as the meeting ends inside the window. A Monday `09:00-10:30` window with 30-minute meetings and a 15-minute buffer gives 09:00 and 09:45.
 - Slots that have already started, dates before today, and dates more than `odden-sales.meetings.booking_window_days` (default 60) ahead are left out.
 - A slot is left out if it overlaps one of the rep's active bookings on any of their meeting links, with this link's buffer kept clear before and after.
+- One email address can book `odden-sales.meetings.max_bookings_per_email_per_day` (default 3) meetings a day; the booker's name is printed as plain text without links or markup, since the confirmation goes to the address typed in.
 
 ```php
 use Odden\Sales\Services\MeetingAvailability;
