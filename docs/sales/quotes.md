@@ -39,8 +39,11 @@ public function execute(
     ?string $notes = null,
     ?CarbonInterface $expiresAt = null,
     int|string|null $userId = null,
+    ?string $internalNotes = null,
 ): Quote
 ```
+
+`$notes` is shown to the customer on the quote page; `$internalNotes` is for your team and is never rendered publicly.
 
 ```php
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
