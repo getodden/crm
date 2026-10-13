@@ -90,6 +90,8 @@ Sales sends two kinds of email: [sequence email steps](sequences.md#email-steps)
     ],
 
     'booking_window_days' => (int) env('ODDEN_SALES_BOOKING_WINDOW_DAYS', 60),
+
+    'max_bookings_per_email_per_day' => (int) env('ODDEN_SALES_MAX_BOOKINGS_PER_EMAIL_PER_DAY', 3),
 ],
 ```
 
@@ -97,6 +99,7 @@ Sales sends two kinds of email: [sequence email steps](sequences.md#email-steps)
 | --- | --- | --- | --- |
 | `meetings.default_working_hours` | | Monday to Friday, `09:00-17:00` | Used by meeting links whose `working_hours` is empty. Same shape as [working hours](meeting-links.md#working-hours), in each link's timezone. |
 | `meetings.booking_window_days` | `ODDEN_SALES_BOOKING_WINDOW_DAYS` | `60` | How many days ahead visitors can book. |
+| `meetings.max_bookings_per_email_per_day` | `ODDEN_SALES_MAX_BOOKINGS_PER_EMAIL_PER_DAY` | `3` | How many meetings one email address can book in a day, across every link. The booking page is public and the confirmation goes to the address typed in. `0` turns the limit off. |
 
 ### `routes`
 

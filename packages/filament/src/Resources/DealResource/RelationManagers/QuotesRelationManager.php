@@ -74,7 +74,12 @@ class QuotesRelationManager extends RelationManager
                 ->default('Payment due net 30 days from signature.')
                 ->columnSpanFull(),
             Textarea::make('notes')
+                ->label('Customer Facing Notes')
+                ->helperText('Shown to the customer on the quote page.')
+                ->columnSpanFull(),
+            Textarea::make('internal_notes')
                 ->label('Internal Notes')
+                ->helperText('For your team only: never shown to the customer.')
                 ->columnSpanFull(),
         ]);
     }

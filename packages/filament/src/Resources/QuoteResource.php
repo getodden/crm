@@ -156,6 +156,11 @@ class QuoteResource extends Resource
                             ->columnSpanFull(),
                         Textarea::make('notes')
                             ->label('Customer Facing Notes')
+                            ->helperText('Shown to the customer on the quote page.')
+                            ->columnSpanFull(),
+                        Textarea::make('internal_notes')
+                            ->label('Internal Notes')
+                            ->helperText('For your team only: never shown to the customer.')
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),

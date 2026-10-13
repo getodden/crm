@@ -16,6 +16,7 @@ An `Odden\Sales\Models\Quote` is a proposal attached to a deal. Each quote gets 
 | `subtotal`, `discount_amount`, `tax_amount`, `total_amount` | decimal | |
 | `currency` | string(3) | |
 | `terms`, `notes` | text, nullable | Shown on the public page. |
+| `internal_notes` | text, nullable | For your team only: never rendered on the public page. |
 | `public_token` | string | Generated with `Str::random(40)` if empty on create. |
 | `expires_at` | date, nullable | |
 | `accepted_at` | datetime, nullable | |
