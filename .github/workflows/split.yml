@@ -1,13 +1,16 @@
 name: split
 
-# Publishes each package to its read-only repository (getodden/crm-core, getodden/crm-sales, ...),
-# which Packagist reads. Pushes to main update each split's main branch; version tags are
-# mirrored to every split so a single tag releases all packages.
+# Keeps each package's read-only repository (getodden/crm-core, getodden/crm-sales, ...), which
+# Packagist reads, in step with main: a push to main updates each split's main branch.
+#
+# Releases do not come through here. scripts/release.sh tags the monorepo and pushes each split's
+# main and version tag itself, with no dependency on Actions. A tag trigger here would push the same
+# tag a moment later and lose the race ("reference already exists"), showing a failed run for a
+# release that went out correctly. workflow_dispatch can still split a given ref by hand.
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
