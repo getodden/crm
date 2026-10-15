@@ -36,22 +36,25 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 status="$(gh api "repos/$repo/commits/$sha/statuses" --jq '[.[] | select(.context=="local-ci")][0].state')"
 [ "$status" = "success" ] || { echo "HEAD has no successful local-ci status (run scripts/ci.sh --report). Got: ${status:-none}" >&2; exit 1; }
 
-# Split every package first, so a failure to split stops the release before anything is tagged or pushed.
-declare -A split
+# Split every package first, so a failure to split stops the release before anything is tagged or pushed. (Plain arrays: macOS ships
+# bash 3.2, which has no associative ones. SPLITS[i] is the split of PACKAGES[i].)
+SPLITS=()
 for package in "${PACKAGES[@]}"; do
-    split[$package]="$(git subtree split -q --prefix="packages/$package" HEAD)"
-    echo "packages/$package -> ${split[$package]:0:7}"
+    split="$(git subtree split -q --prefix="packages/$package" HEAD)"
+    [ -n "$split" ] || { echo "Could not split packages/$package." >&2; exit 1; }
+    SPLITS+=("$split")
+    echo "packages/$package -> ${split:0:7}"
 done
 
 push() {
-    local package="$1" ref="$2" flag="${3:-}"
-    git push $flag "git@github.com:getodden/crm-$package.git" "${split[$package]}:$ref"
+    local index="$1" ref="$2" flag="${3:-}"
+    git push $flag "git@github.com:getodden/crm-${PACKAGES[$index]}.git" "${SPLITS[$index]}:$ref"
 }
 
 if [ "$dry" -eq 1 ]; then
-    for package in "${PACKAGES[@]}"; do
-        push "$package" "refs/heads/main" --dry-run
-        push "$package" "refs/tags/$version" --dry-run
+    for index in "${!PACKAGES[@]}"; do
+        push "$index" "refs/heads/main" --dry-run
+        push "$index" "refs/tags/$version" --dry-run
     done
     echo "Dry run: $version would be tagged at $sha; nothing was changed."
     exit 0
@@ -60,9 +63,9 @@ fi
 git tag "$version" "$sha"
 git push -q origin "$version"
 
-for package in "${PACKAGES[@]}"; do
-    push "$package" "refs/heads/main"
-    push "$package" "refs/tags/$version"
+for index in "${!PACKAGES[@]}"; do
+    push "$index" "refs/heads/main"
+    push "$index" "refs/tags/$version"
 done
 
 echo "Released $version at $sha."
