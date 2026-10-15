@@ -28,17 +28,27 @@ final class AttachesThroughAssociations
      *
      * Filament selects `DISTINCT table.*` so a record linked twice shows once, but PostgreSQL cannot compare json
      * columns (these tables have a `properties` column), so the picker failed there. Grouping on the primary key
-     * does the same job on PostgreSQL, MySQL and SQLite.
+     * fixed that on PostgreSQL, MySQL and SQLite, but MariaDB (and MySQL before 5.7.5) does not know the other
+     * columns follow from the key and refuses `select table.* ... group by table.id`.
+     *
+     * So the picker asks for the keys only (DISTINCT over a key is valid everywhere) and offers the records with
+     * those keys. Filament adds its search and ordering to the query this returns, on the model's own table.
      *
      * @param  Builder<Model>  $query
      * @return Builder<Model>
      */
     public static function pickerQuery(Builder $query): Builder
     {
+        $model = $query->getModel();
+        $key = $model->getQualifiedKeyName();
+
         $query->getQuery()->distinct = false;
 
-        // Offer only the records the user can see.
-        return OddenAuthorization::constrain($query)->groupBy($query->getModel()->getQualifiedKeyName());
+        // Offer only the records the user can see. The ordering is Filament's for the outer query: DISTINCT over the key
+        // cannot be ordered by a column that is not selected.
+        $keys = OddenAuthorization::constrain($query)->reorder()->select($key)->distinct();
+
+        return $model->newQuery()->whereIn($key, $keys->toBase());
     }
 
     /**
