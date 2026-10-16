@@ -40,6 +40,14 @@ Link to other pages with relative paths to the Markdown file, so the links also 
 
 ## Publishing
 
+GitHub Actions has used up its included minutes, so nothing here runs automatically on a push at the moment. After merging a pull request that changes `packages/` or `docs/`, publish from `main` on your machine:
+
+```bash
+scripts/split.sh --website     # push each package's split to getodden/crm-<package>, then redeploy odden.io
+```
+
+`scripts/split.sh --dry-run` shows what would be pushed. `--website` needs `WEBSITE_DEPLOY_HOOK` in your environment (the hook URL below). Releases need none of this: `scripts/release.sh` pushes the splits and the tag itself.
+
 The `Docs` workflow (`.github/workflows/docs.yml`) checks the pages, navigation and links on every pull request that touches `docs/**`. On a push to `main` it then redeploys the website, because `odden.io/docs` is built from `main`.
 
 The redeploy is a `GET` request to a deploy hook URL stored in the `WEBSITE_DEPLOY_HOOK` repository secret (Settings → Secrets and variables → Actions). The website is hosted on Laravel Cloud, whose hook URLs look like `https://cloud.laravel.com/deploy/{id}/{token}`; a `POST` to one returns a 404. GitHub never shows a secret's value, so the URL has to come from the host: copy the deploy hook of the Laravel Cloud environment that serves `odden.io` (not the one for `app.odden.io`), then store it:
