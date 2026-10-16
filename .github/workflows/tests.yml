@@ -1,9 +1,9 @@
+# CI is run locally with scripts/ci.sh. This workflow no longer runs on pushes or pull requests, because the account's included Actions
+# minutes are used up and the job never starts; it is kept so the same jobs can be started by hand from the Actions tab if a hosted
+# run is ever wanted.
 name: tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
