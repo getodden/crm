@@ -3,13 +3,13 @@
 # The project's CI, run on this machine (GitHub Actions is not relied on: see .github/workflows/tests.yml for what it ran).
 #
 #   scripts/ci.sh                 everything below, in order, stopping at the first failure
-#   scripts/ci.sh --only pint     one step (pint, phpstan, workbench, sqlite, pgsql, mariadb)
+#   scripts/ci.sh --only pint     one step (pint, docs, phpstan, workbench, sqlite, pgsql, mariadb)
 #   scripts/ci.sh --keep-going    run every step and report all failures
 #   scripts/ci.sh --quick         while you work: Pint, PHPStan, the Workbench tests and the package suites on SQLite. Never the gate:
 #                                 it cannot --report.
 #   scripts/ci.sh --report        after a full pass, set the "local-ci" commit status on HEAD (needs gh, a clean tree)
 #
-# Steps: Pint, PHPStan and the Workbench tests at the root, then the suites of packages/core, packages/sales and packages/filament on
+# Steps: Pint, the docs check (pages, navigation and links), PHPStan and the Workbench tests at the root, then the suites of packages/core, packages/sales and packages/filament on
 # SQLite, on PostgreSQL and on MariaDB/MySQL. The two server databases use their own throwaway databases, dropped and created each
 # run; point them at your servers with the variables below. Nothing else on those servers is touched.
 #
@@ -119,6 +119,9 @@ step_setup() {
 
 step_pint() { vendor/bin/pint --test; }
 
+# The check .github/workflows/docs.yml ran on pull requests: every page in the navigation exists, every page is listed, every link resolves.
+step_docs() { php .github/scripts/check-docs.php docs; }
+
 step_phpstan() { vendor/bin/phpstan analyse --no-progress --memory-limit=2G; }
 
 step_workbench() { php artisan test; }
@@ -148,6 +151,7 @@ step_mariadb() {
 if ! step_setup >"$log/setup.log" 2>&1; then cat "$log/setup.log"; exit 1; fi
 
 run_step pint step_pint
+run_step docs step_docs
 run_step phpstan step_phpstan
 run_step workbench step_workbench
 run_step sqlite step_sqlite
