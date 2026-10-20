@@ -46,6 +46,16 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# --report is refused up front, not after the suites have run: a run that cannot be reported is a wasted run.
+if [ "$report" -eq 1 ]; then
+    if [ "$quick" -eq 1 ]; then echo "Not reporting: --quick is not the gate." >&2; exit 1; fi
+    if [ -n "$only" ]; then echo "Not reporting: --only ran part of the steps." >&2; exit 1; fi
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo "Cannot --report: the working tree has uncommitted changes, so HEAD is not what is tested. Commit or stash them first." >&2; exit 1; fi
+    command -v gh >/dev/null || { echo "Cannot --report: gh is not installed." >&2; exit 1; }
+    report_repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || { echo "Cannot --report: gh cannot tell which repository this is." >&2; exit 1; }
+    gh api "repos/$report_repo/commits/$(git rev-parse HEAD)" --silent 2>/dev/null || { echo "Cannot --report: HEAD $(git rev-parse --short HEAD) is not on GitHub yet, so it cannot carry a status. Push it first." >&2; exit 1; }
+fi
+
 PG_HOST="${CI_PG_HOST:-127.0.0.1}"; PG_PORT="${CI_PG_PORT:-5432}"; PG_USER="${CI_PG_USER:-postgres}"
 PG_PASSWORD="${CI_PG_PASSWORD:-}"; PG_DATABASE="${CI_PG_DATABASE:-odden_crm_pg_test}"
 MY_HOST="${CI_MY_HOST:-127.0.0.1}"; MY_PORT="${CI_MY_PORT:-3306}"; MY_USER="${CI_MY_USER:-root}"
@@ -154,11 +164,9 @@ printf '%s\n' "${results[@]}"
 if [ "$failed" -ne 0 ]; then exit 1; fi
 
 if [ "$report" -eq 1 ]; then
-    if [ "$quick" -eq 1 ]; then echo "Not reporting: --quick is not the gate." >&2; exit 1; fi
-    if [ -n "$only" ]; then echo "Not reporting: --only ran part of the steps." >&2; exit 1; fi
-    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo "Not reporting: the working tree has uncommitted changes, so HEAD is not what was tested." >&2; exit 1; fi
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo "Not reporting: the working tree has uncommitted changes, so HEAD is not what was tested (the run changed the tree)." >&2; exit 1; fi
     sha="$(git rev-parse HEAD)"
-    repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || exit 1
+    repo="$report_repo"
     gh api "repos/$repo/statuses/$sha" -f state=success -f context=local-ci \
         -f description="Pint, PHPStan, Workbench, three package suites on SQLite, PostgreSQL, MariaDB passed locally ($(date -u +%Y-%m-%dT%H:%MZ))" >/dev/null || exit 1
     echo "Set the local-ci status on $sha"
