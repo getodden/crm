@@ -40,7 +40,7 @@ Link to other pages with relative paths to the Markdown file, so the links also 
 
 ## Publishing
 
-GitHub Actions has used up its included minutes, so nothing here runs automatically on a push at the moment. After merging a pull request that changes `packages/` or `docs/`, publish from `main` on your machine:
+The `Split` and `Docs` workflows publish on a push to `main` while GitHub Actions has included minutes to run them. When it has not (the jobs never start), or when you want it done now, publish from `main` on your machine after merging a pull request that changes `packages/` or `docs/`:
 
 ```bash
 scripts/split.sh --website     # push each package's split to getodden/crm-<package>, then redeploy odden.io
