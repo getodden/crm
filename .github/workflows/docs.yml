@@ -1,7 +1,7 @@
 name: Docs
 
-# The docs check on pull requests is part of scripts/ci.sh now (the "docs" step); a pull request no longer starts this workflow, because the
-# account's included Actions minutes are used up. A push to main still runs it, and its publish job redeploys the website.
+# The docs check on pull requests is part of scripts/ci.sh now (the "docs" step); a pull request no longer starts this workflow, to spare the
+# account's included Actions minutes. A push to main still runs it, and its publish job redeploys the website.
 on:
   push:
     branches: [main]

@@ -8,7 +8,7 @@ name: split
 # tag a moment later and lose the race ("reference already exists"), showing a failed run for a
 # release that went out correctly. workflow_dispatch can still split a given ref by hand.
 #
-# While the account's Actions minutes are used up this does not run; scripts/split.sh does the same from a maintainer's machine.
+# If Actions is unavailable (for example, its included minutes are used up) this does not run; scripts/split.sh does the same from a maintainer's machine.
 
 on:
   push:
