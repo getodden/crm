@@ -56,7 +56,7 @@ graph TD
 
 ### Paid add-ons
 
-**Odden Marketing** (email campaigns, drip workflows, attribution, lead scoring, landing pages) and **Odden Service** (tickets, SLAs, knowledge base, customer portal) are paid add-ons, licensed separately and delivered as private packages (see [odden.io/pricing](https://odden.io/pricing)). They build on `getodden/crm-core` and add their screens to the Filament admin through [`Odden\Filament\Support\Modules`](docs/filament/modules.md), so nothing in this repository depends on them. Releases of Marketing and Service up to version 0.9 were published under the MIT license, and that license stays with those releases.
+**Odden Marketing** (email campaigns, drip workflows, attribution, lead scoring, landing pages) and **Odden Service** (tickets, SLAs, knowledge base, customer portal) are paid add-ons, licensed separately and delivered as private packages (see [odden.io/pricing](https://odden.io/pricing)). They build on `getodden/crm-core` and add their screens to the Filament admin through [`Odden\Filament\Support\Modules`](docs/filament/modules.md), so nothing in this repository depends on them. Releases of Marketing and Service up to version 0.9 were published under the MIT license, and that license stays with those releases. Version 0.9 is frozen and has known security issues that are fixed only in the paid add-ons, so do not run it on a public site or with real customer data.
 
 ---
 

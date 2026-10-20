@@ -126,7 +126,9 @@ Odden Marketing and Odden Service were released as open source under the MIT lic
 
 Version 0.9 is the last open release. It is frozen: we do not maintain it, and it will not get new features, bug fixes or security updates. It is available in the public [`getodden/crm`](https://github.com/getodden/crm) repository at the `v0.9.0` tag.
 
-The paid add-ons are the maintained versions. A license gives you every new version released while it is current, including fixes, the AI features, and support at support@odden.io. If you run 0.9 in production, plan to move to the paid add-on to receive security and compatibility updates.
+**Known security issues.** Since 0.9, security problems have been found and fixed in the paid add-ons. They affect parts of Marketing and Service that accept input from the public internet or send email, and they are not fixed in 0.9. We will not fix them there. Do not run 0.9 on a public site or with real customer data. Use it to evaluate the code, or on a private network at your own risk. The code is provided as is, as the MIT license says.
+
+The paid add-ons are the maintained versions. A license gives you every new version released while it is current, including security fixes, the AI features, and support at support@odden.io. If you run 0.9 in production, move to the paid add-on.
 
 ## Your license dashboard
 
