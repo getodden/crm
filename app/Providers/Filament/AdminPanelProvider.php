@@ -9,6 +9,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -33,7 +34,9 @@ class AdminPanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('brand/odden-logo-dark.svg'))
             ->brandLogoHeight('2rem')
             ->favicon(asset('brand/favicon.svg'))
-            // Explicit brand palette: Filament's Color::Violet is Tailwind v4's (600 = #7f22fe), not #7c3aed.
+            // Explicit brand palette (Filament's Color::Violet is Tailwind v4's, 600 = #7f22fe). Filament draws fills and light-mode text at
+            // shade 600 (hover 500) and dark-mode text at 400, so the scale is shifted one step: 600 is violet-700 #6d28d9, the brand colour,
+            // 500 is the old brand violet-600 as its hover, and 400 stays violet-400 #a78bfa for dark-mode text and links.
             ->colors([
                 'primary' => [
                     50 => '#f5f3ff',
@@ -41,14 +44,15 @@ class AdminPanelProvider extends PanelProvider
                     200 => '#ddd6fe',
                     300 => '#c4b5fd',
                     400 => '#a78bfa',
-                    500 => '#8b5cf6',
-                    600 => '#7c3aed',
-                    700 => '#6d28d9',
-                    800 => '#5b21b6',
-                    900 => '#4c1d95',
+                    500 => '#7c3aed',
+                    600 => '#6d28d9',
+                    700 => '#5b21b6',
+                    800 => '#4c1d95',
+                    900 => '#3d177d',
                     950 => '#2e1065',
                 ],
             ])
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.brand-styles'))
             ->plugins([
                 OddenPlugin::make(),
             ])
