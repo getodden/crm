@@ -4,6 +4,7 @@
   pages:
     - index
     - installation
+    - sample-data
     - paid-add-ons
     - configuration
 

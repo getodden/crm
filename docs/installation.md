@@ -26,6 +26,27 @@ php artisan migrate
 
 All Odden tables are prefixed with `odden_`. Table names are configurable per package (the `tables` key in each config file) if they would clash with your own.
 
+## Run the installer
+
+The quickest way to finish setting up is the installer, once the packages are required:
+
+```bash
+php artisan odden:install
+```
+
+It runs the migrations, offers [sample data](sample-data.md), shows the scheduled commands your modules need and offers to add them to `routes/console.php`, warns if mail or the queue are not set up for sending, and, with the Filament admin installed, checks that the plugin is registered and that someone can sign in. It only does what is still missing, so it is safe to run again.
+
+For a script or a Docker build, answer its questions with flags:
+
+| Flag | Effect |
+| :--- | :--- |
+| `--skip-migrate` | Do not run the migrations. |
+| `--force` | Run the migrations in production without asking. |
+| `--demo` / `--no-demo` | Load the sample data without asking, or do not offer it. |
+| `--schedule` / `--no-schedule` | Add the scheduled commands to `routes/console.php` without asking, or do not offer. |
+
+The rest of this page is what the installer does, step by step.
+
 ## Paid add-ons
 
 Odden Marketing, Odden Service, and Odden CRM Pro are private packages installed with a license key. See [Install a paid add-on](paid-add-ons.md).
