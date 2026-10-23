@@ -78,6 +78,12 @@ class ContactImporter extends Importer
                 ->rules(['nullable', 'url', 'max:255'])
                 ->guess(['linkedin', 'linkedin url', 'linkedin profile'])
                 ->example('https://linkedin.com/in/grace'),
+            ImportColumn::make('date_of_birth')
+                ->ignoreBlankState()
+                ->label('Date of birth')
+                ->rules(['nullable', 'date', 'before_or_equal:today'])
+                ->guess(['date of birth', 'dob', 'birthdate', 'birth date', 'birthday'])
+                ->example('1990-06-15'),
             ImportColumn::make('timezone')
                 ->ignoreBlankState()
                 ->label('Timezone')
