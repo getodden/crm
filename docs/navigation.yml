@@ -20,6 +20,7 @@
     - core/duplicates-and-merging
     - core/email-validation
     - core/events
+    - core/actions
     - core/integration
 
 - title: Sales
