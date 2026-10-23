@@ -70,6 +70,18 @@ class ContactAndCompanyLifecycleTest extends TestCase
         Event::assertDispatched(LifecycleStageChanged::class);
     }
 
+    public function test_the_date_of_birth_can_be_set_on_the_edit_page_but_not_in_the_future(): void
+    {
+        $contact = Contact::factory()->create(['phone' => self::PHONE]);
+        $page = Livewire::actingAs(User::factory()->create())->test(EditContact::class, ['record' => $contact->id]);
+
+        $page->set('data.date_of_birth', now()->addDay()->toDateString())->call('save')->assertHasFormErrors(['date_of_birth']);
+        $this->assertNull($contact->fresh()->date_of_birth);
+
+        $page->set('data.date_of_birth', '2013-08-20')->call('save')->assertHasNoFormErrors();
+        $this->assertSame('2013-08-20', $contact->fresh()->date_of_birth->toDateString());
+    }
+
     public function test_a_refused_lifecycle_transition_is_a_form_error_and_saves_nothing(): void
     {
         $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer, 'job_title' => 'CTO', 'phone' => self::PHONE]);

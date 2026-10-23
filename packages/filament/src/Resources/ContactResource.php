@@ -13,6 +13,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -88,6 +89,11 @@ class ContactResource extends Resource
                             ->label('Phone Number')
                             ->tel()
                             ->maxLength(50),
+                        DatePicker::make('date_of_birth')
+                            ->label('Date of birth')
+                            ->native(false)
+                            ->maxDate(now())
+                            ->helperText('Optional. Used to keep messages of the wrong kind from reaching a child. It is personal data: leave it empty if you do not need it.'),
                         TextInput::make('linkedin_url')
                             ->label('LinkedIn Profile URL')
                             ->url()

@@ -50,6 +50,21 @@ class ContactImporterTest extends TestCase
         $this->assertNotNull($contact->email_checked_at);
     }
 
+    public function test_it_imports_a_date_of_birth_and_rejects_one_in_the_future(): void
+    {
+        ContactImporter::test()
+            ->import(['email' => 'scout@troop12.org', 'date_of_birth' => '2012-04-09'])
+            ->assertImported();
+
+        $this->assertSame('2012-04-09', Contact::query()->where('email', 'scout@troop12.org')->firstOrFail()->date_of_birth->toDateString());
+
+        ContactImporter::test()
+            ->import(['email' => 'future@troop12.org', 'date_of_birth' => now()->addYear()->toDateString()])
+            ->assertHasErrors(['date_of_birth']);
+
+        $this->assertSame(1, Contact::query()->count());
+    }
+
     public function test_it_rejects_a_malformed_address_with_the_reason(): void
     {
         ContactImporter::test()
