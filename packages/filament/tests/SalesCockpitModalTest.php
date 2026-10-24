@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Enums\LeadStatus;
+use Odden\Core\Models\Activity;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Pages\SalesCockpit;
 use Odden\Filament\Tests\Fixtures\User;
@@ -50,12 +51,11 @@ class SalesCockpitModalTest extends TestCase
             'type' => ActivityType::Call->value,
         ]);
 
-        $this->assertDatabaseHas('odden_activities', [
+        $this->assertTrue(Activity::query()->where([
             'subject_type' => $contact->getMorphClass(),
             'subject_id' => $contact->id,
             'type' => ActivityType::Task->value,
-            'title' => 'Send revised quote proposal',
-        ]);
+        ])->get()->contains(fn (Activity $row): bool => $row->title == 'Send revised quote proposal'));
     }
 
     public function test_can_open_meeting_modal_and_schedule_meeting(): void
@@ -75,11 +75,10 @@ class SalesCockpitModalTest extends TestCase
             ->call('saveMeetingLog')
             ->assertSet('showMeetingModal', false);
 
-        $this->assertDatabaseHas('odden_activities', [
+        $this->assertTrue(Activity::query()->where([
             'subject_type' => $contact->getMorphClass(),
             'subject_id' => $contact->id,
             'type' => ActivityType::Meeting->value,
-            'title' => 'Quarterly Pipeline Sync',
-        ]);
+        ])->get()->contains(fn (Activity $row): bool => $row->title == 'Quarterly Pipeline Sync'));
     }
 }

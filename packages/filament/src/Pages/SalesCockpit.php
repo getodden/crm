@@ -19,6 +19,7 @@ use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Models\Activity;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Support\ActivityMarker;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Pages\Concerns\AuthorizesPageAccess;
 use Odden\Filament\Resources\CompanyResource;
@@ -668,8 +669,7 @@ class SalesCockpit extends Page
                 ->where('subject_type', $contact->getMorphClass())
                 ->where('subject_id', $contact->getKey())
                 ->where('status', ActivityStatus::Pending)
-                ->where('metadata->sequence_enrollment_id', $enrollment->id)
-                ->where('metadata->step', $step)
+                ->where('marker', ActivityMarker::cadenceStep($enrollment->id, $step))
                 ->latest('id')
                 ->first();
 

@@ -80,7 +80,6 @@ class ActivitiesRelationManager extends RelationManager
                     }),
                 TextColumn::make('title')
                     ->label('Subject')
-                    ->searchable()
                     ->weight('bold')
                     ->description(fn (Activity $record): ?string => $record->body),
                 TextColumn::make('status')
