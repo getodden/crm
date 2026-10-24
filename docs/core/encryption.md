@@ -97,7 +97,7 @@ Rules of an active list on an encrypted field use the index for equals, not equa
 
 That fallback, and sorting the contacts and companies tables by name, are limited to `odden-core.encryption.fallback_limit` records (`ODDEN_ENCRYPTION_FALLBACK_LIMIT`, 10,000 by default). Above it the list sync throws `TooManyToFilter` and the table keeps its natural order and says why. Put the other rules in front of the one that needs it (a lifecycle stage, an owner), or raise the limit. A host with a plan limit on contacts rebinds `Odden\Core\Encryption\Index\FallbackLimit`.
 
-On a laptop the fallback decrypts about 100,000 values a second; a `contains` rule over 50,000 contacts takes about a second. `tests/Benchmark` measures it on your own database.
+Measured on a laptop with 50,000 contacts: a `contains` rule over a text field takes 0.3 s on SQLite, 0.7 s on MariaDB and 1.0 s on PostgreSQL, and sorting the contacts by name takes 0.7 s, 0.8 s and 1.2 s. At 10,000 contacts each is about a fifth of that. Index lookups (an email, the start of a name) take milliseconds at any size. `tests/Benchmark` measures it on your own database (`ODDEN_BENCH_CONTACTS=10000,50000`).
 
 ## Plain values from before
 
