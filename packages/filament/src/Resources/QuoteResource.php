@@ -31,6 +31,7 @@ use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
 use Odden\Filament\Resources\QuoteResource\Pages\ViewQuote;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
@@ -154,11 +155,11 @@ class QuoteResource extends Resource
                         Textarea::make('terms')
                             ->label('Terms and Conditions')
                             ->columnSpanFull(),
-                        Textarea::make('notes')
+                        AreaGuard::field(Textarea::make('notes'), Quote::class)
                             ->label('Customer Facing Notes')
                             ->helperText('Shown to the customer on the quote page.')
                             ->columnSpanFull(),
-                        Textarea::make('internal_notes')
+                        AreaGuard::field(Textarea::make('internal_notes'), Quote::class)
                             ->label('Internal Notes')
                             ->helperText('For your team only: never shown to the customer.')
                             ->columnSpanFull(),

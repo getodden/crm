@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Odden\Core\Areas\DataArea;
 use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Core\Encryption\Index\TooManyToFilter;
 use Odden\Core\Models\Company;
@@ -29,7 +30,10 @@ final class EncryptedSearch
      */
     public static function contacts(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => (new Contact)->scopeSearchIdentity($query, $search);
+        // Searching reaches into the Identity area: without it a search finds nothing, so it cannot be used to read what is masked.
+        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Identity)
+            ? $query->whereRaw('1 = 0')
+            : (new Contact)->scopeSearchIdentity($query, $search);
     }
 
     /**
@@ -39,7 +43,9 @@ final class EncryptedSearch
      */
     public static function companies(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => self::companyMatches($query, $search);
+        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Identity)
+            ? $query->whereRaw('1 = 0')
+            : self::companyMatches($query, $search);
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Odden\Filament\Resources\CompanyResource\Pages;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Odden\Filament\Resources\CompanyResource;
+use Odden\Filament\Support\RevealAreaAction;
 
 class ViewCompany extends ViewRecord
 {
@@ -16,6 +17,7 @@ class ViewCompany extends ViewRecord
     {
         return [
             EditAction::make(),
+            RevealAreaAction::make(),
         ];
     }
 }

@@ -7,6 +7,8 @@ namespace Odden\Filament\Resources\RelationManagers;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Odden\Core\Models\PropertyHistory;
+use Odden\Filament\Support\AreaGuard;
 
 class PropertyHistoryRelationManager extends RelationManager
 {
@@ -29,11 +31,11 @@ class PropertyHistoryRelationManager extends RelationManager
                     ->badge()
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('old_value')
+                AreaGuard::column(TextColumn::make('old_value'), PropertyHistory::class)
                     ->label('Old Value')
                     ->limit(40)
                     ->placeholder('—'),
-                TextColumn::make('new_value')
+                AreaGuard::column(TextColumn::make('new_value'), PropertyHistory::class)
                     ->label('New Value')
                     ->limit(40)
                     ->placeholder('—'),
