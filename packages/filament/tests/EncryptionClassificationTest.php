@@ -104,7 +104,7 @@ function oddenColumnClassification(): array
         ],
         'odden_proposed_actions' => [
             'structural' => ['id', 'action', 'status', 'requested_by_kind', 'requested_by_user_id', 'via', 'idempotency_key', 'decided_by_user_id', 'decided_at', 'expires_at', ...$timestamps],
-            'pending' => ['input' => 'step 7: what an action was asked to do, can hold the values it changed', 'error' => 'step 7: error text can quote input'],
+            'pending' => ['input' => 'step 7: encrypted with the application key by Laravel\'s cast; move it to the workspace key', 'error' => 'step 7: error text can quote input'],
         ],
         'odden_quote_items' => [
             'structural' => ['id', 'quote_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', ...$timestamps],
