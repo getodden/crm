@@ -18,12 +18,18 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Odden\Core\Encryption\Casts\EncryptedCast;
+use Odden\Core\Encryption\Index\FallbackLimit;
+use Odden\Core\Encryption\Index\TooManyToFilter;
+use Odden\Core\Encryption\SensitiveProperties;
 use Odden\Core\Enums\ListType;
+use Odden\Core\Exceptions\InvalidListCriteriaException;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\CrmList;
@@ -93,6 +99,8 @@ class CrmListResource extends Resource
                                 TextInput::make('field')
                                     ->label('Property / Field')
                                     ->placeholder('e.g. lifecycle_stage, email, lead_score')
+                                    ->live(onBlur: true)
+                                    ->hint(fn (Get $get): ?string => self::ruleHint((string) $get('field'), (string) $get('../../entity_type')))
                                     ->required(),
                                 Select::make('operator')
                                     ->label('Condition')
@@ -117,6 +125,32 @@ class CrmListResource extends Resource
                             ->columnSpanFull(),
                     ]),
             ]);
+    }
+
+    /**
+     * What to tell the person about a rule on an encrypted field or a sensitive custom property: the database cannot compare it,
+     * so the rule is checked record by record, and refused above the limit.
+     */
+    private static function ruleHint(string $field, string $entityType): ?string
+    {
+        $field = trim($field);
+
+        if ($field === '') {
+            return null;
+        }
+
+        if (app(SensitiveProperties::class)->isSensitive($entityType, $field)) {
+            return 'Sensitive property: checked record by record (up to '.number_format(app(FallbackLimit::class)->records()).' records).';
+        }
+
+        $model = $entityType === (new Company)->getMorphClass() ? new Company : new Contact;
+        $cast = $model->getCasts()[$field] ?? null;
+
+        if (is_string($cast) && is_subclass_of(explode(':', $cast, 2)[0], EncryptedCast::class)) {
+            return 'Encrypted field: equals and starts-with use an index; other conditions are checked record by record (up to '.number_format(app(FallbackLimit::class)->records()).' records); greater/less than is not available.';
+        }
+
+        return null;
     }
 
     public static function table(Table $table): Table
@@ -164,7 +198,14 @@ class CrmListResource extends Resource
                     ->visible(fn (CrmList $record): bool => $record->type === ListType::Active)
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->action(function (CrmList $record): void {
-                        $count = $record->syncActiveMembers();
+                        try {
+                            $count = $record->syncActiveMembers();
+                        } catch (InvalidListCriteriaException|TooManyToFilter $e) {
+                            // A rule on an encrypted field is checked record by record, up to a limit: say so instead of failing.
+                            Notification::make()->title('This list cannot be synced')->body($e->getMessage())->danger()->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title('List Synchronized')

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Areas\Areas;
 use Odden\Core\Areas\DataArea;
 use Odden\Core\Areas\DataAreas;
+use Odden\Core\Encryption\SensitiveProperties;
 
 /**
  * What the panel shows of a field whose data area the signed-in person does not hold (PLAN-encryption-at-rest.md, section 5): a form
@@ -63,6 +64,41 @@ final class AreaGuard
         $attribute = $column->getName();
 
         return $column->formatStateUsing(static fn (mixed $state, ?Model $record): mixed => self::masked($model, $attribute, $record) ? Areas::MASK : $state);
+    }
+
+    /**
+     * Whether the person cannot see a custom property the workspace marked sensitive (on this record, when one is open).
+     */
+    public static function propertyMasked(string $entityType, string $property, ?Model $record = null): bool
+    {
+        $area = app(SensitiveProperties::class)->areaOf($entityType, $property);
+
+        return $area !== null && ! app(Areas::class)->canSee($area, $record?->exists ? $record : null);
+    }
+
+    /**
+     * A form field for a custom property: when the property is sensitive and the person cannot see its area, the field is disabled,
+     * empty and never saved. A sensitive property that they can see says so in its hint.
+     *
+     * @template TField of Field
+     *
+     * @param  TField  $field
+     * @return TField
+     */
+    public static function property(Field $field, string $entityType, string $property): Field
+    {
+        $area = app(SensitiveProperties::class)->areaOf($entityType, $property);
+
+        if ($area === null) {
+            return $field;
+        }
+
+        $masked = static fn (?Model $record): bool => self::propertyMasked($entityType, $property, $record);
+
+        return $field
+            ->disabled($masked)
+            ->dehydrated(static fn (?Model $record): bool => ! $masked($record))
+            ->hint(static fn (?Model $record): string => $masked($record) ? 'Hidden: outside your areas' : "Sensitive · {$area->label()} area · stored encrypted");
     }
 
     /**

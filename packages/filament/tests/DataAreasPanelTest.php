@@ -32,7 +32,7 @@ function panelAreas(array $held, array $mayReveal = []): void
 }
 
 it('masks the Sensitive date of birth in the form and never saves it when the person lacks the area', function (): void {
-    $contact = Contact::factory()->create(['date_of_birth' => '2011-03-02', 'job_title' => 'Analyst']);
+    $contact = Contact::factory()->create(['phone' => null, 'date_of_birth' => '2011-03-02', 'job_title' => 'Analyst']);
     $this->actingAs(User::factory()->create());
     panelAreas([DataArea::Identity]);
 

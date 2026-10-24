@@ -13,6 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Odden\Filament\Support\AmountSort;
 use Odden\Filament\Support\AttachesThroughAssociations;
 use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
@@ -55,7 +56,7 @@ class DealsRelationManager extends RelationManager
                 TextColumn::make('amount')
                     ->label('Amount')
                     ->money(fn (Deal $record): string => $record->currency)
-                    ->sortable(),
+                    ->sortable(query: AmountSort::query('amount')),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
