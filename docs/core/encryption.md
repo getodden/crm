@@ -5,7 +5,25 @@ description: How the CRM encrypts fields that hold personal data at rest, with a
 
 Fields that hold personal data can be stored encrypted, so a stolen database or backup is unreadable without the key. Each tenant has a key of its own, so one tenant's data cannot be read with another tenant's key, even by a query that reaches the wrong rows.
 
-This page describes the building blocks. Which built-in fields are encrypted is announced in the release notes as they are converted.
+This page describes the building blocks, and lists which built-in fields are encrypted.
+
+## What is encrypted
+
+| Where | Fields |
+|---|---|
+| Contacts | date of birth (the age is worked out in code, `Contact::age()`) |
+| Timeline (notes, calls, tasks, emails) | title, body and metadata of every activity |
+| Property history | old and new value |
+| Deals | the notes written when a deal is lost |
+| Quotes | the notes and the internal notes |
+
+Names, e-mail addresses, phone numbers and custom properties follow in later releases. Ids, stages, statuses, dates, amounts and other structure stay plain, so lists, filters, pipelines and reports keep working. An encrypted field cannot be searched or sorted with SQL: the activity timeline, for example, is no longer searchable by subject.
+
+Code that needs to find an activity again cannot look inside its (encrypted) metadata. It looks for the activity's plain `marker`, a short tag such as `cadence:12:3` that `ActivityMarker` builds from the metadata when the activity is saved.
+
+## Fields that already hold data
+
+The migrations that encrypt these fields also encrypt the rows already stored, with the key described below, so keep a copy of that key before you update. If you have changed the data between updates, or run several databases, `php artisan odden:encrypt-existing` encrypts whatever is still plain; it is safe to run again. A multi-tenant host sets `ODDEN_ENCRYPTION_CONVERT_ON_MIGRATE=false` and runs the command inside each tenant, so every tenant's rows are encrypted with that tenant's key.
 
 ## The key
 

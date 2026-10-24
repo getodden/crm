@@ -89,7 +89,7 @@ class TableQueryEfficiencyTest extends TestCase
             ])
             ->assertHasNoFormErrors();
 
-        $activity = Activity::query()->where('title', 'Discovery call')->firstOrFail();
+        $activity = Activity::query()->get()->firstWhere('title', 'Discovery call');
         $this->assertSame($contact->id, $activity->subject_id);
         $this->assertNotNull($activity->completed_at);
         Event::assertDispatched(ActivityLogged::class);
