@@ -113,7 +113,7 @@ What it costs:
 - A property cannot be renamed, moved to another entity or deleted while it is Sensitive. Turn the switch off first (the values are decrypted), then change it.
 - Its name and label are not encrypted. Do not put a secret in them.
 
-Measured on a laptop with SQLite, 50,000 contacts: encrypting every value of one property takes 2.1 s, and an `equals` rule on it takes 0.35 s. The benchmark (`ODDEN_BENCH_CONTACTS`, see above) measures it on your own database.
+Measured on a laptop with 50,000 contacts: encrypting every value of one property takes 2.1 s on SQLite, 6.0 s on MariaDB and 7.4 s on PostgreSQL, and an `equals` rule on it takes 0.35 s, 0.34 s and 1.5 s. The benchmark (`ODDEN_BENCH_CONTACTS`, see above) measures it on your own database.
 
 ## Business data: deal amounts and sales targets
 
@@ -134,7 +134,7 @@ All of it is limited to `odden-core.encryption.fallback_limit` deals. Above it t
 
 Code that adds up or sorts the amount column with SQL (`sum('amount')`, `orderBy('amount')`) gives a wrong answer once a workspace encrypts. Use `EncryptedAmounts` (the test suite has a guard that fails on the obvious forms). Code that reads a deal with a partial `select` must include `amount_encrypted` too: a read that would otherwise report 0.00 throws instead.
 
-Measured on a laptop with SQLite and 50,000 deals: the sum of all amounts takes 0.3 s encrypted (0.01 s plain), the whole pipeline forecast 1.2 s (0.06 s), the 25 largest deals 0.4 s (0.01 s), and converting all amounts takes 2.1 s to encrypt and 2.7 s to decrypt. `ODDEN_BENCH_DEALS=10000,50000 vendor/bin/pest tests/Benchmark` in `packages/sales` measures it on your own database.
+Measured on a laptop with 50,000 deals (SQLite, MariaDB, PostgreSQL): the sum of all amounts takes 0.3 s, 0.3 s and 1.0 s encrypted (0.01 s plain); the whole pipeline forecast 1.2 s, 2.2 s and 4.0 s (0.06 to 0.08 s plain); the 25 largest deals 0.4 s, 0.3 s and 1.0 s (0.01 s plain); converting all amounts takes 2.1 s, 5.9 s and 7.9 s to encrypt, and about the same to decrypt. At 10,000 deals each is about a fifth of that. `ODDEN_BENCH_DEALS=10000,50000 vendor/bin/pest tests/Benchmark` in `packages/sales` measures it on your own database.
 
 Not covered: quotes, quote items and deal products keep their prices in plain columns, and amounts that were once copied into the audit log or action log by other code paths are not rewritten. Backups and database logs written before the switch was turned on still hold the plain figures.
 
