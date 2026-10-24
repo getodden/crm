@@ -32,6 +32,7 @@ use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
 use Odden\Filament\Resources\QuoteResource\Pages\ViewQuote;
 use Odden\Filament\Support\AreaGuard;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
@@ -74,6 +75,11 @@ class QuoteResource extends Resource
                                 OddenAuthorization::scoped(Deal::class)->select((new Deal)->getQualifiedKeyName()),
                             ))
                             ->searchable()
+                            ->getSearchResultsUsing(fn (string $search): array => EncryptedSearch::limitedAndSorted(
+                                OddenAuthorization::scoped(Deal::class)->whereNameStartsWith($search),
+                                ['name'],
+                                50,
+                            )->pluck('name', 'id')->all())
                             ->live()
                             ->required(),
                         TextInput::make('title')
