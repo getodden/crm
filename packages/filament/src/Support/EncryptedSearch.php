@@ -14,6 +14,7 @@ use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Core\Encryption\Index\TooManyToFilter;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Sales\Models\Deal;
 
 /**
  * Searching and sorting the tables and pickers of contacts and companies, whose names, addresses and phone numbers are encrypted.
@@ -46,6 +47,18 @@ final class EncryptedSearch
         return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Identity)
             ? $query->whereRaw('1 = 0')
             : self::companyMatches($query, $search);
+    }
+
+    /**
+     * For `->searchable(query: ...)` on a deal column: the start of a word of the name. Names are in the Sales area.
+     *
+     * @return Closure(Builder<Deal>, string): Builder<Deal>
+     */
+    public static function deals(): Closure
+    {
+        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
+            ? $query->whereRaw('1 = 0')
+            : $query->whereNameStartsWith($search);
     }
 
     /**

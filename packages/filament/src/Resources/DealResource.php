@@ -48,6 +48,7 @@ use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\AmountSort;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\RecordMemo;
 use Odden\Sales\Actions\CalculateDealHealthScoreAction;
@@ -180,8 +181,8 @@ class DealResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Deal Name')
-                    ->searchable()
-                    ->sortable()
+                    ->searchable(query: EncryptedSearch::deals())
+                    ->sortable(query: EncryptedSearch::sortBy(['name']))
                     ->weight('bold'),
                 TextColumn::make('pipeline.name')
                     ->label('Pipeline')

@@ -39,7 +39,7 @@ function oddenColumnClassification(): array
     return [
         'odden_action_log' => [
             'structural' => ['id', 'action', 'actor_kind', 'actor_user_id', 'via', 'status', 'subject_type', 'subject_id', 'idempotency_key', 'proposal_id', 'created_at'],
-            'pending' => ['input' => 'step 7: what an action was asked to do, can hold the values it changed', 'error' => 'step 7: error text can quote input'],
+            'encrypted' => ['input' => 'action_log.input', 'error' => 'action_log.error'],
         ],
         'odden_activities' => [
             'structural' => ['id', 'subject_type', 'subject_id', 'type', 'status', 'due_at', 'completed_at', 'creator_id', 'marker', ...$timestamps],
@@ -70,7 +70,8 @@ function oddenColumnClassification(): array
         ],
         'odden_custom_object_records' => [
             'structural' => ['id', 'definition_id', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
-            'pending' => ['name' => 'step 7: a custom object can hold anything; the panel has no screen for them and the Sensitive switch is not offered for them yet', 'properties' => 'step 7: same'],
+            // A custom object can hold anything, so its name and all its values are encrypted whole (EncryptedJson, not CustomProperties).
+            'encrypted' => ['name' => 'custom_object_records.name', 'properties' => 'custom_object_records.properties'],
         ],
         'odden_deal_products' => [
             'structural' => ['id', 'deal_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', 'deleted_at', ...$timestamps],
@@ -82,10 +83,9 @@ function oddenColumnClassification(): array
             // lost_reason is picked from a list and counted by the forecast, so it stays plain; the free text beside it is encrypted.
             // amount stays plain unless the workspace turns on business-data encryption (step 6): then the value moves to amount_encrypted.
             'structural' => ['id', 'pipeline_id', 'stage_id', 'amount', 'currency', 'status', 'expected_close_date', 'closed_at', 'lost_reason', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
-            'encrypted' => ['lost_notes' => 'deals.lost_notes'],
+            'encrypted' => ['name' => 'deals.name', 'lost_notes' => 'deals.lost_notes'],
             'json' => ['properties' => 'custom properties of a deal'],
             'amount' => ['amount' => 'deals.amount'],
-            'pending' => ['name' => 'step 3 follow-up: deal names often carry a person or company name, and the list searches them (needs the same word and prefix index)'],
         ],
         'odden_demo_records' => [
             'structural' => ['id', 'model_type', 'model_id', 'created_at'],
@@ -98,7 +98,7 @@ function oddenColumnClassification(): array
         ],
         'odden_lists' => [
             'structural' => ['id', 'name', 'description', 'entity_type', 'type', 'created_by_id', ...$timestamps],
-            'pending' => ['criteria' => 'step 7: rule values can hold an email or a name; the rules themselves now run through the index'],
+            'encrypted' => ['criteria' => 'lists.criteria'],
         ],
         'odden_pipeline_stages' => [
             'structural' => ['id', 'pipeline_id', 'name', 'code', 'probability', 'sort_order', 'is_closed_won', 'is_closed_lost', 'rot_after_days', ...$timestamps],
@@ -115,7 +115,7 @@ function oddenColumnClassification(): array
         ],
         'odden_proposed_actions' => [
             'structural' => ['id', 'action', 'status', 'requested_by_kind', 'requested_by_user_id', 'via', 'idempotency_key', 'decided_by_user_id', 'decided_at', 'expires_at', ...$timestamps],
-            'pending' => ['input' => 'step 7: encrypted with the application key by Laravel\'s cast; move it to the workspace key', 'error' => 'step 7: error text can quote input'],
+            'encrypted' => ['input' => 'proposed_actions.input', 'error' => 'proposed_actions.error'],
         ],
         'odden_quote_items' => [
             'structural' => ['id', 'quote_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', ...$timestamps],
@@ -123,8 +123,7 @@ function oddenColumnClassification(): array
         'odden_quotes' => [
             // terms are the seller's standard wording, shown to the customer; the notes are written about the customer.
             'structural' => ['id', 'deal_id', 'quote_number', 'title', 'status', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'currency', 'terms', 'public_token', 'expires_at', 'accepted_at', 'user_id', 'deleted_at', ...$timestamps],
-            'encrypted' => ['notes' => 'quotes.notes', 'internal_notes' => 'quotes.internal_notes'],
-            'pending' => ['signed_by_name' => 'step 3 follow-up: identity copy, display only', 'signed_by_email' => 'step 3 follow-up: identity copy, display only'],
+            'encrypted' => ['notes' => 'quotes.notes', 'internal_notes' => 'quotes.internal_notes', 'signed_by_name' => 'quotes.signed_by_name', 'signed_by_email' => 'quotes.signed_by_email'],
         ],
         'odden_search_index' => [
             // Keyed hashes (HMAC-SHA-256 with a per-tenant key) of normalized values, and the record each belongs to: no value can be read back.
@@ -138,7 +137,7 @@ function oddenColumnClassification(): array
         ],
         'odden_sales_meeting_bookings' => [
             'structural' => ['id', 'uid', 'meeting_link_id', 'user_id', 'contact_id', 'activity_id', 'starts_at', 'ends_at', 'timezone', 'cancelled_at', ...$timestamps],
-            'pending' => ['invitee_name' => 'step 3 follow-up: identity copy, display only', 'invitee_email' => 'step 3 follow-up: identity copy, display only'],
+            'encrypted' => ['invitee_name' => 'meeting_bookings.invitee_name', 'invitee_email' => 'meeting_bookings.invitee_email'],
         ],
         'odden_sales_meeting_links' => [
             'structural' => ['id', 'user_id', 'slug', 'title', 'duration_minutes', 'description', 'working_hours', 'is_active', 'buffer_minutes', 'timezone', ...$timestamps],
@@ -315,9 +314,7 @@ it('uses the CustomProperties cast on every column classified as json, and on no
         }
     }
 
-    // A custom object's values are classified as pending (step 7) although its cast is already the safe one.
-    unset($withCast['odden_custom_object_records']);
-
+    // A custom object's values are encrypted whole (EncryptedJson), so it is classified as encrypted, not json.
     expect($withCast)->toBe($classified);
 });
 
@@ -346,5 +343,64 @@ it('stores no value of a sensitive property in plain text, on any record type th
     // The history of the change is encrypted too, and so is every other copy the tables hold.
     foreach (DB::table('odden_property_history')->get() as $history) {
         expect(implode(' ', array_map('strval', (array) $history)))->not->toContain('ZX-4417');
+    }
+});
+
+/*
+ * A new copy of customer content should not get in by being filed as "structural". A structural column whose name says it holds an
+ * address, a phone number, a name, a message or a payload has to be listed here with the reason it is safe in plain text; anything
+ * else must be encrypted (or this list reviewed).
+ */
+function oddenPlainByDecision(): array
+{
+    return [
+        'odden_contacts.email_status' => 'a verdict (valid, bounced, ...), not an address',
+        'odden_contacts.email_status_reason' => 'a provider code for the verdict, not an address',
+        'odden_contacts.email_checked_at' => 'a time',
+        'odden_sales_email_templates.subject' => "the seller's own template wording, written once for everyone",
+        'odden_sales_email_templates.body_html' => "the seller's own template wording, written once for everyone",
+        'odden_sales_lead_routing_rules.criteria' => 'routing conditions on plain fields (amount, time zone), no personal values',
+        'odden_quotes.terms' => "the seller's standard wording, shown to the customer",
+        'odden_sales_meeting_links.description' => 'the host\'s public booking page text',
+        'odden_deal_products.description' => 'the product catalogue, not about a person',
+        'odden_quote_items.description' => 'the product catalogue, not about a person',
+        'odden_custom_object_definitions.description' => 'the schema description, not a record',
+        'odden_properties.description' => 'the property definition, not a record',
+        'odden_lists.description' => 'what the list is for, written by the workspace (reviewed: names a segment, not a person)',
+        'odden_pipelines.name' => 'configuration',
+        'odden_sales_playbooks.description' => "the seller's own playbook wording",
+        'odden_sales_sequences.description' => "the seller's own sequence wording",
+        'odden_stage_automations.action_payload' => 'what the automation does (a task title, a template id), written once for every deal in the stage',
+    ];
+}
+
+it('keeps every structural column that looks like personal data on the reviewed list', function (): void {
+    $pattern = '/(mail|phone|first_name|last_name|full_name|address|ip_address|user_agent|referer|message|payload|feedback|transcript|recording|signed_by|invitee|comment|body|subject(?!_)|note|criteria|description)/';
+    $decided = oddenPlainByDecision();
+    $unexplained = [];
+
+    foreach (oddenColumnClassification() as $table => $groups) {
+        foreach ($groups['structural'] ?? [] as $column) {
+            if (preg_match($pattern, $column) === 1 && ! array_key_exists("{$table}.{$column}", $decided)) {
+                $unexplained[] = "{$table}.{$column}";
+            }
+        }
+    }
+
+    expect($unexplained)->toBe([], 'structural columns that look like personal data: encrypt them, or list them in oddenPlainByDecision() with the reason');
+
+    // And the list names nothing that is gone.
+    $classified = oddenColumnClassification();
+
+    foreach (array_keys($decided) as $key) {
+        [$table, $column] = explode('.', $key, 2);
+
+        expect(in_array($column, $classified[$table]['structural'] ?? [], true))->toBeTrue("{$key} is on the reviewed list but is not a structural column");
+    }
+});
+
+it('has no pending column: every column is plain on purpose or encrypted', function (): void {
+    foreach (oddenColumnClassification() as $table => $groups) {
+        expect($groups['pending'] ?? [])->toBe([], "{$table} still has a column pending encryption");
     }
 });
