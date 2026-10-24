@@ -45,6 +45,7 @@ use Odden\Filament\Resources\DealResource\RelationManagers\QuotesRelationManager
 use Odden\Filament\Resources\DealResource\RelationManagers\StageHistoryRelationManager;
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
+use Odden\Filament\Support\AmountSort;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\OddenAuthorization;
@@ -192,7 +193,7 @@ class DealResource extends Resource
                 TextColumn::make('amount')
                     ->label('Amount')
                     ->money(fn (Deal $record): string => $record->currency)
-                    ->sortable()
+                    ->sortable(query: AmountSort::query('amount'))
                     ->weight('bold'),
                 TextColumn::make('days_in_stage')
                     ->label('In Stage')

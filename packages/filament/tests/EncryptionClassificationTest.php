@@ -6,11 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Odden\Core\Encryption\BusinessDataColumns;
+use Odden\Core\Encryption\Casts\CustomProperties;
+use Odden\Core\Encryption\Casts\EncryptedAmount;
 use Odden\Core\Encryption\Casts\EncryptedCast;
 use Odden\Core\Encryption\FieldEncrypter;
+use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
+use Odden\Core\Models\PropertyDefinition;
 use Odden\Core\Support\ModelRegistry;
+use Odden\Sales\Models\Deal;
 
 uses(RefreshDatabase::class);
 
@@ -20,6 +26,8 @@ uses(RefreshDatabase::class);
  *
  *   structural  stays plain on purpose: ids, foreign keys, timestamps, enums, counters, configuration, and text that is not about a person
  *   encrypted   has an encrypted cast under the given field name, and a text column to hold the longer stored form
+ *   json        a JSON column of custom property values: the values of properties the workspace marks sensitive are encrypted one by
+ *               one (the CustomProperties cast, PLAN-encryption-at-rest.md section 6), the rest is structural
  *   pending     personal or free text that is not encrypted yet, with the step of the plan that does it
  *
  * Moving a column from pending to encrypted means adding the cast and a migration and changing one line here.
@@ -46,7 +54,7 @@ function oddenColumnClassification(): array
         'odden_companies' => [
             'structural' => ['id', 'industry', 'owner_id', 'team_id', 'health_score', 'health_status', 'last_health_calculated_at', 'lifecycle_stage', 'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at', 'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at', 'account_tier', 'intent_score', 'intent_surge', 'buying_committee_size', 'last_intent_activity_at', 'deleted_at', ...$timestamps],
             'encrypted' => ['name' => 'companies.name', 'domain' => 'companies.domain', 'phone' => 'companies.phone'],
-            'pending' => ['properties' => 'step 6: custom properties marked sensitive'],
+            'json' => ['properties' => 'custom properties of a company'],
         ],
         'odden_contacts' => [
             'structural' => ['id', 'lifecycle_stage', 'owner_id', 'team_id', 'lead_status', 'last_contacted_at', 'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at', 'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at', 'lead_score', 'lead_score_updated_at', 'email_status', 'email_status_reason', 'email_checked_at', 'deleted_at', ...$timestamps],
@@ -55,14 +63,14 @@ function oddenColumnClassification(): array
                 'email' => 'contacts.email', 'phone' => 'contacts.phone', 'job_title' => 'contacts.job_title',
                 'linkedin_url' => 'contacts.linkedin_url', 'timezone' => 'contacts.timezone',
             ],
-            'pending' => ['properties' => 'step 6: custom properties marked sensitive'],
+            'json' => ['properties' => 'custom properties of a contact'],
         ],
         'odden_custom_object_definitions' => [
             'structural' => ['id', 'name', 'singular_label', 'plural_label', 'description', 'primary_display_property', 'secondary_display_properties', 'icon', 'team_id', ...$timestamps],
         ],
         'odden_custom_object_records' => [
             'structural' => ['id', 'definition_id', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
-            'pending' => ['name' => 'step 6: a custom object can hold anything, so its name and values follow the sensitive switch', 'properties' => 'step 6: same'],
+            'pending' => ['name' => 'step 7: a custom object can hold anything; the panel has no screen for them and the Sensitive switch is not offered for them yet', 'properties' => 'step 7: same'],
         ],
         'odden_deal_products' => [
             'structural' => ['id', 'deal_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', 'deleted_at', ...$timestamps],
@@ -72,10 +80,12 @@ function oddenColumnClassification(): array
         ],
         'odden_deals' => [
             // lost_reason is picked from a list and counted by the forecast, so it stays plain; the free text beside it is encrypted.
-            // amount stays plain unless the workspace turns on business-data encryption (step 6).
+            // amount stays plain unless the workspace turns on business-data encryption (step 6): then the value moves to amount_encrypted.
             'structural' => ['id', 'pipeline_id', 'stage_id', 'amount', 'currency', 'status', 'expected_close_date', 'closed_at', 'lost_reason', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
             'encrypted' => ['lost_notes' => 'deals.lost_notes'],
-            'pending' => ['name' => 'step 3 follow-up: deal names often carry a person or company name, and the list searches them (needs the same word and prefix index)', 'properties' => 'step 6: custom properties marked sensitive'],
+            'json' => ['properties' => 'custom properties of a deal'],
+            'amount' => ['amount' => 'deals.amount'],
+            'pending' => ['name' => 'step 3 follow-up: deal names often carry a person or company name, and the list searches them (needs the same word and prefix index)'],
         ],
         'odden_demo_records' => [
             'structural' => ['id', 'model_type', 'model_id', 'created_at'],
@@ -97,7 +107,7 @@ function oddenColumnClassification(): array
             'structural' => ['id', 'name', 'code', 'is_default', 'is_active', 'team_id', ...$timestamps],
         ],
         'odden_properties' => [
-            'structural' => ['id', 'entity_type', 'name', 'label', 'type', 'group_name', 'options', 'description', 'is_required', 'is_searchable', 'sort_order', ...$timestamps],
+            'structural' => ['id', 'entity_type', 'name', 'label', 'type', 'group_name', 'options', 'description', 'is_required', 'is_searchable', 'is_sensitive', 'data_area', 'sort_order', ...$timestamps],
         ],
         'odden_property_history' => [
             'structural' => ['id', 'auditable_type', 'auditable_id', 'property_name', 'user_id', 'source', 'created_at'],
@@ -138,6 +148,7 @@ function oddenColumnClassification(): array
         ],
         'odden_sales_quotas' => [
             'structural' => ['id', 'user_id', 'pipeline_id', 'period_type', 'period_start', 'period_end', 'target_amount', 'currency', ...$timestamps],
+            'amount' => ['target_amount' => 'sales_quotas.target_amount'],
         ],
         'odden_sales_sequence_enrollments' => [
             'structural' => ['id', 'sequence_id', 'contact_id', 'current_step', 'status', 'next_step_due_at', 'enrolled_by_id', 'enrolled_at', ...$timestamps],
@@ -170,6 +181,8 @@ it('classifies every column of every Odden table, and nothing that does not exis
             ...($classified[$table]['structural'] ?? []),
             ...array_keys($classified[$table]['encrypted'] ?? []),
             ...array_keys($classified[$table]['pending'] ?? []),
+            ...array_keys($classified[$table]['json'] ?? []),
+            ...array_map(fn (string $column): string => EncryptedAmount::companion($column), array_keys($classified[$table]['amount'] ?? [])),
         ];
 
         expect(array_diff($columns, $listed))->toBe([], "{$table}: columns with no classification")
@@ -198,6 +211,29 @@ it('encrypts every column classified as encrypted: a text column, an encrypted c
 
             expect(is_string($cast) && is_subclass_of(explode(':', $cast, 2)[0], EncryptedCast::class))->toBeTrue("{$table}.{$column} needs an encrypted cast")
                 ->and(explode(':', $cast, 2)[1] ?? null)->toBe($field, "{$table}.{$column} cast field name");
+        }
+    }
+});
+
+it('keeps every business-data figure behind the EncryptedAmount cast with a text companion column', function (): void {
+    $models = [];
+
+    foreach (app(ModelRegistry::class)->models() as $class) {
+        $models[(new $class)->getTable()] = new $class;
+    }
+
+    foreach (oddenColumnClassification() as $table => $groups) {
+        foreach ($groups['amount'] ?? [] as $column => $field) {
+            $companion = EncryptedAmount::companion($column);
+            $type = collect(Schema::getColumns($table))->firstWhere('name', $companion)['type_name'] ?? null;
+
+            expect($type)->toBeIn(['text', 'longtext', 'mediumtext'], "{$table}.{$companion} must be a text column");
+
+            $cast = $models[$table]->getCasts()[$column] ?? '';
+
+            expect(is_string($cast) && explode(':', $cast, 2)[0] === EncryptedAmount::class)->toBeTrue("{$table}.{$column} needs the EncryptedAmount cast")
+                ->and(explode(':', $cast, 2)[1] ?? null)->toBe($field);
+            expect(collect(app(BusinessDataColumns::class)->all())->contains(fn (array $entry): bool => $entry['table'] === $table && $entry['column'] === $column && $entry['field'] === $field))->toBeTrue("{$table}.{$column} must be registered for conversion");
         }
     }
 });
@@ -254,4 +290,61 @@ it('stores no Identity value in plain text', function (): void {
     $index = DB::table('odden_search_index')->get();
     expect($index->count())->toBeGreaterThan(10)
         ->and($index->pluck('token')->every(fn (string $token): bool => preg_match('/^[0-9a-f]{64}$/', $token) === 1))->toBeTrue();
+});
+
+/*
+ * The custom property columns (PLAN-encryption-at-rest.md, section 6): a property the workspace marks sensitive is stored encrypted.
+ * Every JSON column of property values is classified, uses the CustomProperties cast, and keeps no sensitive value in plain text.
+ */
+it('uses the CustomProperties cast on every column classified as json, and on no other', function (): void {
+    $withCast = [];
+
+    foreach (app(ModelRegistry::class)->models() as $class) {
+        $cast = (new $class)->getCasts()['properties'] ?? null;
+
+        if ($cast === CustomProperties::class) {
+            $withCast[(new $class)->getTable()] = 'properties';
+        }
+    }
+
+    $classified = [];
+
+    foreach (oddenColumnClassification() as $table => $groups) {
+        foreach (array_keys($groups['json'] ?? []) as $column) {
+            $classified[$table] = $column;
+        }
+    }
+
+    // A custom object's values are classified as pending (step 7) although its cast is already the safe one.
+    unset($withCast['odden_custom_object_records']);
+
+    expect($withCast)->toBe($classified);
+});
+
+it('stores no value of a sensitive property in plain text, on any record type that has custom properties', function (): void {
+    $secret = 'ZX-4417-SECRET';
+
+    foreach (['contact', 'company', 'deal'] as $entity) {
+        PropertyDefinition::query()->create(['entity_type' => $entity, 'name' => 'tax_id', 'label' => 'Tax ID', 'type' => PropertyType::Text, 'is_sensitive' => true]);
+    }
+
+    $records = [
+        'odden_contacts' => Contact::factory()->create(['properties' => ['tax_id' => $secret, 'nickname' => 'open']]),
+        'odden_companies' => Company::factory()->create(['properties' => ['tax_id' => $secret, 'nickname' => 'open']]),
+        'odden_deals' => Deal::factory()->create(['properties' => ['tax_id' => $secret, 'nickname' => 'open']]),
+    ];
+
+    foreach ($records as $table => $record) {
+        $record->update(['properties' => ['tax_id' => $secret.'-2', 'nickname' => 'open']]);
+        $row = (array) DB::table($table)->where('id', $record->id)->first();
+
+        expect(implode(' ', array_map('strval', $row)))->not->toContain('ZX-4417')
+            ->and(json_decode((string) $row['properties'], true)['nickname'])->toBe('open')
+            ->and(app(FieldEncrypter::class)->isEncrypted(json_decode((string) $row['properties'], true)['tax_id']))->toBeTrue("{$table}: a sensitive property is stored in plain text");
+    }
+
+    // The history of the change is encrypted too, and so is every other copy the tables hold.
+    foreach (DB::table('odden_property_history')->get() as $history) {
+        expect(implode(' ', array_map('strval', (array) $history)))->not->toContain('ZX-4417');
+    }
 });

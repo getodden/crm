@@ -58,6 +58,10 @@ class CustomPropertyFieldBuilder
 
             $field->label($definition->label);
 
+            if ($definition->is_sensitive) {
+                AreaGuard::property($field, $entityType, $definition->name);
+            }
+
             if ($definition->is_required) {
                 $field->required();
             }
@@ -114,7 +118,7 @@ class CustomPropertyFieldBuilder
 
         $columns = [];
 
-        foreach (PropertyDefinition::forEntity($entityType)->where('is_searchable', true)->get() as $definition) {
+        foreach (PropertyDefinition::forEntity($entityType)->where('is_searchable', true)->where('is_sensitive', false)->get() as $definition) {
             $columns[] = TextColumn::make("properties.{$definition->name}")
                 ->label($definition->label)
                 ->toggleable()

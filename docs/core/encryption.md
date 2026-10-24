@@ -99,6 +99,45 @@ That fallback, and sorting the contacts and companies tables by name, are limite
 
 Measured on a laptop with 50,000 contacts: a `contains` rule over a text field takes 0.3 s on SQLite, 0.7 s on MariaDB and 1.0 s on PostgreSQL, and sorting the contacts by name takes 0.7 s, 0.8 s and 1.2 s. At 10,000 contacts each is about a fifth of that. Index lookups (an email, the start of a name) take milliseconds at any size. `tests/Benchmark` measures it on your own database (`ODDEN_BENCH_CONTACTS=10000,50000`).
 
+## Sensitive custom properties
+
+A custom property can be marked **Sensitive** (Settings, Property definitions, "Sensitive data"). Its values are then stored encrypted inside the record's `properties` JSON, one value at a time, under the field name `properties.<entity>.<name>`, and so is every change recorded for it in the property history. Turning the switch on or off queues `ConvertSensitiveProperty`, which converts the stored values in either direction. It can be run again at any time: a value already in the right form is left alone, and a value that does not decrypt is never overwritten. `php artisan odden:convert-sensitive-properties` does the same for every property (`--check` only counts what is left).
+
+A sensitive property belongs to a data area (Sensitive unless you choose another), so the data-area rules apply: a person without the area sees it masked, cannot save over it, and can open it for a record with a reason; the assistant never sees it.
+
+What it costs:
+
+- It cannot be searched. A property marked searchable loses that when it turns Sensitive, and it is left out of the global search and of Filament's table search.
+- `whereProperty()` refuses it with `SensitivePropertyNotQueryable`.
+- A rule on it in an active list is checked in PHP, like the other encrypted fields (up to the fallback limit above). Every operator works, `>`, `>=`, `<` and `<=` compare numbers. The list editor says so.
+- A property cannot be renamed, moved to another entity or deleted while it is Sensitive. Turn the switch off first (the values are decrypted), then change it.
+- Its name and label are not encrypted. Do not put a secret in them.
+
+Measured on a laptop with SQLite, 50,000 contacts: encrypting every value of one property takes 2.1 s, and an `equals` rule on it takes 0.35 s. The benchmark (`ODDEN_BENCH_CONTACTS`, see above) measures it on your own database.
+
+## Business data: deal amounts and sales targets
+
+Off by default. With `ODDEN_ENCRYPT_BUSINESS_DATA=true` (`odden-core.encryption.business_data`; a host with workspaces binds `Odden\Core\Contracts\BusinessData` to a per-workspace setting) deal amounts and sales targets are stored encrypted in a companion text column (`amount_encrypted`, `target_amount_encrypted`) and the plain column is left at 0.00. A row is read correctly in either form, so the time between flipping the setting and converting the stored rows is safe. Run `php artisan odden:convert-business-data --to=encrypted` (or `--to=plain` to go back; `--check` counts what is left). It can be run again and again, converts in chunks inside transactions and leaves rows that are already in the right form alone.
+
+The database can no longer add, average or sort what it cannot read. Everything in the application that did so goes through `Odden\Core\Encryption\EncryptedAmounts`, which adds up the plain rows in SQL, and reads and decrypts only the encrypted ones:
+
+| Where | Behaviour with the setting on |
+| --- | --- |
+| Pipeline forecast, weighted forecast, averages, per-currency totals | Computed in PHP over the deals of the report. |
+| Quota attainment and the executive overview | The same. |
+| Kanban column totals | The same. |
+| Sorting the deals table by amount | The ids are sorted in PHP and handed to the query. |
+| "Largest deals" | Ordered in PHP, cut to the top few. |
+| History | Records the real old and new figure, encrypted like every other history value. |
+
+All of it is limited to `odden-core.encryption.fallback_limit` deals. Above it the page shows a message (or keeps its natural order) and does not guess; narrow the report with a filter, or raise the limit. A workspace that does not use the setting pays for one extra `exists` query per sort and nothing else.
+
+Code that adds up or sorts the amount column with SQL (`sum('amount')`, `orderBy('amount')`) gives a wrong answer once a workspace encrypts. Use `EncryptedAmounts` (the test suite has a guard that fails on the obvious forms). Code that reads a deal with a partial `select` must include `amount_encrypted` too: a read that would otherwise report 0.00 throws instead.
+
+Measured on a laptop with SQLite and 50,000 deals: the sum of all amounts takes 0.3 s encrypted (0.01 s plain), the whole pipeline forecast 1.2 s (0.06 s), the 25 largest deals 0.4 s (0.01 s), and converting all amounts takes 2.1 s to encrypt and 2.7 s to decrypt. `ODDEN_BENCH_DEALS=10000,50000 vendor/bin/pest tests/Benchmark` in `packages/sales` measures it on your own database.
+
+Not covered: quotes, quote items and deal products keep their prices in plain columns, and amounts that were once copied into the audit log or action log by other code paths are not rewritten. Backups and database logs written before the switch was turned on still hold the plain figures.
+
 ## Plain values from before
 
 While `odden-core.encryption.allow_plaintext` is on (the default), a value that is not encrypted is read as it is and is encrypted the next time the record is saved. Turn it off after every row has been converted, so a plain value where an encrypted one belongs is an error.

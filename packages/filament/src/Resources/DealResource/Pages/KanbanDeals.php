@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
+use Odden\Core\Encryption\EncryptedAmounts;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\CalculateDealHealthScoreAction;
@@ -92,11 +93,10 @@ class KanbanDeals extends Page
             return 0.0;
         }
 
-        return (float) OddenAuthorization::query(DealResource::class, Deal::class)
+        return app(EncryptedAmounts::class)->sum(OddenAuthorization::query(DealResource::class, Deal::class)
             ->where('pipeline_id', $this->pipelineId)
             ->where('status', 'open')
-            ->where('currency', $this->getForecastProperty()['currency'])
-            ->sum('amount');
+            ->where('currency', $this->getForecastProperty()['currency']), 'amount');
     }
 
     /**

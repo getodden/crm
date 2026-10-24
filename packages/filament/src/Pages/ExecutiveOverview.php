@@ -10,6 +10,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Odden\Core\Encryption\EncryptedAmounts;
 use Odden\Core\Enums\CustomerHealthStatus;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Models\Company;
@@ -125,7 +126,7 @@ class ExecutiveOverview extends Page
         $reporting = $this->getReportingCurrencyProperty();
         $totals = [];
 
-        foreach (OddenAuthorization::scoped(Deal::class)->where('currency', '!=', $reporting)->whereIn('status', ['open', 'won'])->get(['currency', 'amount', 'status']) as $deal) {
+        foreach (OddenAuthorization::scoped(Deal::class)->where('currency', '!=', $reporting)->whereIn('status', ['open', 'won'])->get(['currency', 'amount', 'amount_encrypted', 'status']) as $deal) {
             $code = strtoupper((string) $deal->currency);
             $totals[$code] = ($totals[$code] ?? 0.0) + (float) $deal->amount;
         }
@@ -156,9 +157,7 @@ class ExecutiveOverview extends Page
             return 0.0;
         }
 
-        return (float) $this->reportingDeals()
-            ->where('status', 'open')
-            ->sum('amount');
+        return app(EncryptedAmounts::class)->sum($this->reportingDeals()->where('status', 'open'), 'amount');
     }
 
     public function getWeightedForecastProperty(): float
@@ -190,10 +189,9 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return (float) $this->reportingDeals()
+        return app(EncryptedAmounts::class)->sum($this->reportingDeals()
             ->where('status', 'won')
-            ->whereBetween('closed_at', [$start, $end])
-            ->sum('amount');
+            ->whereBetween('closed_at', [$start, $end]), 'amount');
     }
 
     /**
@@ -220,7 +218,7 @@ class ExecutiveOverview extends Page
             return null;
         }
 
-        $sum = (float) $this->quotasInRange()->sum('target_amount');
+        $sum = app(EncryptedAmounts::class)->sum($this->quotasInRange(), 'target_amount');
 
         return $sum > 0 ? $sum : null;
     }
@@ -281,10 +279,9 @@ class ExecutiveOverview extends Page
 
         [$start, $end] = $this->getDateRange();
 
-        return round((float) ($this->reportingDeals()
+        return round(app(EncryptedAmounts::class)->average($this->reportingDeals()
             ->where('status', 'won')
-            ->whereBetween('closed_at', [$start, $end])
-            ->avg('amount') ?? 0), 2);
+            ->whereBetween('closed_at', [$start, $end]), 'amount'), 2);
     }
 
     // ==========================================
@@ -396,12 +393,8 @@ class ExecutiveOverview extends Page
             return new Collection;
         }
 
-        return $this->reportingDeals()
-            ->where('status', 'open')
-            ->where('amount', '>=', 10000)
-            ->with('stage')
-            ->orderBy('amount', 'desc')
-            ->limit(5)
+        return app(EncryptedAmounts::class)
+            ->top($this->reportingDeals()->where('status', 'open')->with('stage'), 'amount', limit: 5, atLeast: 10000)
             ->get();
     }
 
@@ -435,8 +428,9 @@ class ExecutiveOverview extends Page
             ->where('status', 'open')
             // isRotten() and daysInCurrentStage() read the stage history of every deal.
             ->with(['stage', 'owner', 'stageHistory'])
-            ->orderBy('amount', 'desc')
-            ->get();
+            ->get()
+            ->sortByDesc(fn (Deal $deal): float => (float) $deal->amount)
+            ->values();
 
         return $openDeals->filter(function (Deal $deal): bool {
             if ($deal->isRotten()) {
@@ -471,7 +465,7 @@ class ExecutiveOverview extends Page
 
         // Every quota a rep has in the range counts: three monthly quotas make up a quarter.
         $quotasByUser = [];
-        foreach ($this->quotasInRange()->get(['user_id', 'target_amount']) as $q) {
+        foreach ($this->quotasInRange()->get(['user_id', 'target_amount', 'target_amount_encrypted']) as $q) {
             $quotasByUser[$q->user_id] = ($quotasByUser[$q->user_id] ?? 0.0) + (float) $q->target_amount;
         }
 
@@ -479,7 +473,7 @@ class ExecutiveOverview extends Page
             ->where('status', 'won')
             ->whereBetween('closed_at', [$start, $end])
             ->whereNotNull('owner_id')
-            ->get(['owner_id', 'amount']);
+            ->get(['owner_id', 'amount', 'amount_encrypted']);
 
         $wonByUser = [];
         foreach ($wonDeals as $d) {
@@ -490,7 +484,7 @@ class ExecutiveOverview extends Page
         $openDeals = $this->reportingDeals()
             ->where('status', 'open')
             ->whereNotNull('owner_id')
-            ->get(['owner_id', 'amount']);
+            ->get(['owner_id', 'amount', 'amount_encrypted']);
 
         $pipelineByUser = [];
         $dealCountByUser = [];
