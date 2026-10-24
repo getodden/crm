@@ -14,13 +14,13 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Models\Contact;
 use Odden\Filament\Support\AttachesThroughAssociations;
+use Odden\Filament\Support\EncryptedSearch;
 
 class ContactsRelationManager extends RelationManager
 {
     protected static string $relationship = 'contacts';
-
-    protected static ?string $recordTitleAttribute = 'email';
 
     protected static bool $isLazy = false;
 
@@ -36,11 +36,11 @@ class ContactsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('email')
+            ->recordTitle(fn (Contact $record): string => (string) $record->email)
             ->columns([
                 TextColumn::make('full_name')
                     ->label('Contact Name')
-                    ->searchable(['first_name', 'last_name', 'email']),
+                    ->searchable(query: EncryptedSearch::contacts()),
                 TextColumn::make('email')
                     ->label('Email')
                     ->copyable(),
@@ -56,7 +56,7 @@ class ContactsRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
-                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => AttachesThroughAssociations::pickerQuery($query))
+                    ->recordSelectOptionsQuery(fn (Builder $query, ?string $search = null): Builder => AttachesThroughAssociations::pickerQuery($query, $search, EncryptedSearch::contacts()))
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')

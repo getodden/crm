@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Support;
 
+use Closure;
 use Filament\Actions\AttachAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
@@ -32,12 +33,13 @@ final class AttachesThroughAssociations
      * columns follow from the key and refuses `select table.* ... group by table.id`.
      *
      * So the picker asks for the keys only (DISTINCT over a key is valid everywhere) and offers the records with
-     * those keys. Filament adds its search and ordering to the query this returns, on the model's own table.
+     * those keys. Filament adds its search and ordering to the query this returns, on the model's own table; a picker whose title
+     * column is encrypted gives `$searchUsing` instead and leaves the record title attribute off the table (Filament would LIKE it).
      *
      * @param  Builder<Model>  $query
      * @return Builder<Model>
      */
-    public static function pickerQuery(Builder $query): Builder
+    public static function pickerQuery(Builder $query, ?string $search = null, ?Closure $searchUsing = null): Builder
     {
         $model = $query->getModel();
         $key = $model->getQualifiedKeyName();
@@ -48,7 +50,14 @@ final class AttachesThroughAssociations
         // cannot be ordered by a column that is not selected.
         $keys = OddenAuthorization::constrain($query)->reorder()->select($key)->distinct();
 
-        return $model->newQuery()->whereIn($key, $keys->toBase());
+        $picker = $model->newQuery()->whereIn($key, $keys->toBase());
+
+        // Encrypted columns cannot be searched with LIKE, so a picker over them searches through the model's own search.
+        if ($searchUsing !== null && filled($search)) {
+            $searchUsing($picker, $search);
+        }
+
+        return $picker;
     }
 
     /**

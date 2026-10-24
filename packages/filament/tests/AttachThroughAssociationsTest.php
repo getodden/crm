@@ -77,4 +77,29 @@ class AttachThroughAssociationsTest extends TestCase
 
         $this->assertSame(1, Association::query()->where('type', 'billing')->count(), 'The second link broke the one-to-one rule');
     }
+
+    public function test_the_attach_pickers_search_encrypted_names_through_the_index(): void
+    {
+        $contact = Contact::factory()->create();
+        $acme = Company::factory()->create(['name' => 'Acme Corp']);
+        $zed = Company::factory()->create(['name' => 'Zed Works']);
+        $ann = Contact::factory()->create(['first_name' => 'Annie', 'last_name' => 'Lee', 'email' => 'annie@example.test']);
+        $company = Company::factory()->create();
+
+        $results = function (string $manager, $owner, string $page, string $search): array {
+            $component = Livewire::actingAs(User::factory()->create())
+                ->test($manager, ['ownerRecord' => $owner, 'pageClass' => $page]);
+
+            return $component->instance()->getTable()->getAction('attach')->getRecordSelect()->getSearchResults($search);
+        };
+
+        $found = $results(CompaniesRelationManager::class, $contact, EditContact::class, 'acm');
+        $this->assertSame([$acme->id], array_keys($found));
+        $this->assertSame('Acme Corp', array_values($found)[0]);
+        $this->assertSame([], $results(CompaniesRelationManager::class, $contact, EditContact::class, 'cme'));
+
+        $this->assertSame([$ann->id], array_keys($results(ContactsRelationManager::class, $company, EditCompany::class, 'ann le')));
+        $this->assertSame([$ann->id], array_keys($results(ContactsRelationManager::class, $company, EditCompany::class, 'ANNIE@example.test')));
+        $this->assertNotContains($zed->id, array_keys($found));
+    }
 }

@@ -27,6 +27,7 @@ use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\QuoteResource;
 use Odden\Filament\Resources\SalesSequenceResource;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Enums\CallDisposition;
 use Odden\Sales\Enums\DealStatus;
@@ -937,14 +938,10 @@ class SalesCockpit extends Page
         $query = OddenAuthorization::scoped(Contact::class);
 
         if ($search !== '') {
-            $like = '%'.mb_strtolower($search).'%';
-            $query->where(fn ($q) => $q
-                ->whereRaw('lower(first_name) like ?', [$like])
-                ->orWhereRaw('lower(last_name) like ?', [$like])
-                ->orWhereRaw('lower(email) like ?', [$like]));
+            $query->searchIdentity($search);
         }
 
-        $options = $query->orderBy('last_name')->orderBy('first_name')->limit(25)->get()
+        $options = EncryptedSearch::limitedAndSorted($query, ['last_name', 'first_name'], 25)
             ->mapWithKeys(fn (Contact $c): array => [$c->id => trim("{$c->full_name} ({$c->email})")])
             ->all();
 

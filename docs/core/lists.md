@@ -82,7 +82,7 @@ Each rule is an array with `property` (or `field`, the name the Filament panel s
 | `!=` | `not_equals` | not equal |
 | `>`, `<` | `greater_than`, `less_than` | comparison |
 | `>=`, `<=` | | comparison |
-| `contains` | | `LIKE %value%` |
+| `contains` | | `LIKE %value%` (checked in PHP on an encrypted field) |
 | `in`, `not_in` | | `value` is an array |
 | `is_null` | `is_not_set` | `value` is ignored |
 | `is_not_null` | `is_set` | `value` is ignored |
@@ -90,6 +90,7 @@ Each rule is an array with `property` (or `field`, the name the Filament panel s
 How `property` is resolved:
 
 - If it's a column on the contacts or companies table, the rule matches the column only.
+- Names, email, phone and the other identifying fields of contacts and companies are encrypted, so the database cannot compare them. Equals, not equals, in and not in use the search index on `email`, `phone`, `first_name`, `last_name`, `job_title` (contacts) and `name`, `domain` (companies); `contains`, and equals on the other encrypted fields, are checked in PHP on the records the other rules left, up to `odden-core.encryption.fallback_limit`; `>`, `>=`, `<` and `<=` throw `InvalidListCriteriaException`. See [Encrypting personal data](encryption.md).
 - Otherwise it's matched against the custom property: `properties->{property}`. With `>`, `>=`, `<`, and `<=` and a numeric value, the custom property is compared as a number on every database, whether it's stored as a number or as numeric text such as `"100"`. A value that isn't a number never matches.
 
 Two extra properties apply to contact lists. Without the Marketing package's tables, no contact has a download or an attended event, so `true` matches nobody and `false` matches everyone:

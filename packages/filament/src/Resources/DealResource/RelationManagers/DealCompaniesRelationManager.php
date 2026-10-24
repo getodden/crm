@@ -13,13 +13,13 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Odden\Core\Models\Company;
 use Odden\Filament\Support\AttachesThroughAssociations;
+use Odden\Filament\Support\EncryptedSearch;
 
 class DealCompaniesRelationManager extends RelationManager
 {
     protected static string $relationship = 'companies';
-
-    protected static ?string $recordTitleAttribute = 'name';
 
     protected static ?string $title = 'Associated Companies';
 
@@ -37,12 +37,12 @@ class DealCompaniesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name')
+            ->recordTitle(fn (Company $record): string => (string) $record->name)
             ->columns([
                 TextColumn::make('name')
                     ->label('Company')
-                    ->searchable()
-                    ->sortable()
+                    ->searchable(query: EncryptedSearch::companies())
+                    ->sortable(query: EncryptedSearch::sortBy(['name']))
                     ->weight('bold'),
                 TextColumn::make('domain')
                     ->label('Domain')
@@ -58,7 +58,7 @@ class DealCompaniesRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
-                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => AttachesThroughAssociations::pickerQuery($query))
+                    ->recordSelectOptionsQuery(fn (Builder $query, ?string $search = null): Builder => AttachesThroughAssociations::pickerQuery($query, $search, EncryptedSearch::companies()))
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')

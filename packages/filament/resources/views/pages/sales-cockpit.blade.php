@@ -1267,7 +1267,7 @@
                 <form wire:submit="saveMeetingLog" style="padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.875rem;">
                     <div>
                         <label style="font-size: 0.8125rem; font-weight: 600; color: #334155; display: block; margin-bottom: 0.25rem;">Contact</label>
-                        <input type="search" wire:model.live.debounce.300ms="meetingContactSearch" placeholder="Search by name or email..." style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none; margin-bottom: 0.375rem;">
+                        <input type="search" wire:model.live.debounce.300ms="meetingContactSearch" placeholder="Start of a name, or a full email address..." style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none; margin-bottom: 0.375rem;">
                         <select wire:model="meetingContactId" style="width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; font-size: 0.875rem; outline: none;" required>
                             <option value="">Choose a contact...</option>
                             @foreach ($this->meetingContactOptions as $optionId => $optionLabel)

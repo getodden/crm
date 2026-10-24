@@ -48,6 +48,7 @@ use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\OddenPackages;
@@ -152,15 +153,15 @@ class ContactResource extends Resource
                 TextColumn::make('full_name')
                     ->label('Name')
                     ->description(fn (Contact $record): ?string => $record->job_title)
-                    ->searchable(['first_name', 'last_name', 'email'])
+                    // The names are encrypted: a search matches the start of a name (or a whole address or phone number) through the
+                    // search index, and sorting decrypts the records in view and sorts them here, last name first.
+                    ->searchable(query: EncryptedSearch::contacts())
                     // full_name is an accessor, not a column: sort by last name, then first name.
-                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
-                        ->orderBy('last_name', $direction === 'desc' ? 'desc' : 'asc')
-                        ->orderBy('first_name', $direction === 'desc' ? 'desc' : 'asc')),
+                    ->sortable(query: EncryptedSearch::keepsOrder()),
                 TextColumn::make('email')
                     ->label('Email')
                     ->copyable()
-                    ->searchable(),
+                    ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('email_status')
                     ->label('Email Status')
                     ->badge()
@@ -172,7 +173,7 @@ class ContactResource extends Resource
                     ->toggleable(),
                 TextColumn::make('phone')
                     ->label('Phone')
-                    ->searchable(),
+                    ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('lead_status')
                     ->label('Lead Status')
                     ->badge()
@@ -420,18 +421,11 @@ class ContactResource extends Resource
      */
     public static function searchContactOptions(string $search, ?Contact $except = null, int $limit = 50): array
     {
-        $like = '%'.mb_strtolower(trim($search)).'%';
-
-        return OddenAuthorization::query(static::class, Contact::class)
+        $query = OddenAuthorization::query(static::class, Contact::class)
             ->when($except !== null, fn (Builder $query): Builder => $query->whereKeyNot($except?->getKey()))
-            ->where(fn (Builder $query): Builder => $query
-                ->whereRaw('lower(first_name) like ?', [$like])
-                ->orWhereRaw('lower(last_name) like ?', [$like])
-                ->orWhereRaw('lower(email) like ?', [$like]))
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->limit($limit)
-            ->get()
+            ->searchIdentity($search);
+
+        return EncryptedSearch::limitedAndSorted($query, ['last_name', 'first_name'], $limit)
             ->mapWithKeys(fn (Contact $c): array => [$c->getKey() => self::formatContactOption($c)])
             ->all();
     }

@@ -29,7 +29,7 @@ It matches on:
 2. `phone`: the same digits, ignoring formatting, so `(555) 010-1234` and `555.010.1234` match. `match_value` is the digits only.
 3. `name`: the same first and last name, ignoring case and surrounding whitespace. Contacts missing either name are never matched on name. `match_value` is the lowercased `first last`.
 
-Fields are checked in that order, and a group of exactly the same contacts is reported once, under the first field that matched. The action takes no arguments, so you can't scope it to one contact or one team.
+The values are encrypted, so the groups are found from the search index (records that share a keyed hash); nothing is decrypted. Fields are checked in that order, and a group of exactly the same contacts is reported once, under the first field that matched. The action takes no arguments, so you can't scope it to one contact or one team.
 
 ## Finding duplicate companies
 

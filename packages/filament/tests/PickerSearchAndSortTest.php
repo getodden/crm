@@ -86,4 +86,66 @@ class PickerSearchAndSortTest extends TestCase
             ->sortTable('full_name', 'desc')
             ->assertCanSeeTableRecords([$c, $b, $a], inOrder: true);
     }
+
+    public function test_the_contacts_list_sorts_across_pages_and_keeps_the_page_size(): void
+    {
+        Contact::factory()->count(30)->sequence(fn ($s) => ['first_name' => 'Pat', 'last_name' => 'L'.str_pad((string) (30 - $s->index), 2, '0', STR_PAD_LEFT)])->create();
+
+        $component = Livewire::actingAs(User::factory()->create())
+            ->test(ListContacts::class)
+            ->set('tableRecordsPerPage', 10)
+            ->sortTable('full_name');
+
+        $first = $component->instance()->getTableRecords();
+        $this->assertSame(30, $first->total());
+        $this->assertSame(['L01', 'L02', 'L03', 'L04', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10'], $first->getCollection()->pluck('last_name')->all());
+
+        $component->call('gotoPage', 3, $component->instance()->getTablePaginationPageName());
+        $this->assertSame(['L21', 'L22', 'L23', 'L24', 'L25', 'L26', 'L27', 'L28', 'L29', 'L30'], $component->instance()->getTableRecords()->getCollection()->pluck('last_name')->all());
+    }
+
+    public function test_sorting_names_is_refused_above_the_fallback_limit_and_the_list_still_loads(): void
+    {
+        config(['odden-core.encryption.fallback_limit' => 2]);
+        Contact::factory()->count(3)->create();
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListContacts::class)
+            ->sortTable('full_name')
+            ->assertCountTableRecords(3);
+    }
+
+    public function test_the_contacts_list_searches_the_start_of_a_name_and_a_whole_email_address(): void
+    {
+        $ann = Contact::factory()->create(['first_name' => 'Annie', 'last_name' => 'Lee', 'email' => 'annie@acme.example']);
+        $bob = Contact::factory()->create(['first_name' => 'Bob', 'last_name' => 'Day', 'email' => 'bob@acme.example']);
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListContacts::class)
+            ->searchTable('ann le')
+            ->assertCanSeeTableRecords([$ann])
+            ->assertCanNotSeeTableRecords([$bob])
+            ->searchTable('BOB@acme.example')
+            ->assertCanSeeTableRecords([$bob])
+            ->assertCanNotSeeTableRecords([$ann])
+            ->searchTable('nnie')
+            ->assertCanNotSeeTableRecords([$ann, $bob]);
+    }
+
+    public function test_the_companies_list_searches_a_name_start_or_a_domain_and_sorts_by_name(): void
+    {
+        $zed = Company::factory()->create(['name' => 'Zed Works', 'domain' => 'zed.example']);
+        $acme = Company::factory()->create(['name' => 'Acme Corp', 'domain' => 'acme.example']);
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListCompanies::class)
+            ->sortTable('name')
+            ->assertCanSeeTableRecords([$acme, $zed], inOrder: true)
+            ->searchTable('acm')
+            ->assertCanSeeTableRecords([$acme])
+            ->assertCanNotSeeTableRecords([$zed])
+            ->searchTable('https://www.zed.example/about')
+            ->assertCanSeeTableRecords([$zed])
+            ->assertCanNotSeeTableRecords([$acme]);
+    }
 }

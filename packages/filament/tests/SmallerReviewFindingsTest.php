@@ -197,7 +197,7 @@ class SmallerReviewFindingsTest extends TestCase
     {
         // A model scope stands in for the scoping a host applies in the resource's getEloquentQuery(); the picker's
         // own query does not carry it (the relationship builds it), so the constraint must come from the resource.
-        Company::addGlobalScope('attach-scoping-test', fn (Builder $query) => $query->where('name', '!=', 'Hidden Co'));
+        Company::addGlobalScope('attach-scoping-test', fn (Builder $query) => $query->whereBlindExactNotIn('name', ['Hidden Co']));
         $visible = Company::factory()->create(['name' => 'Visible Co']);
         $hidden = Company::factory()->create(['name' => 'Hidden Co']);
 

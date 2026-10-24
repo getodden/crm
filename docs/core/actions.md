@@ -28,7 +28,7 @@ $result->data;   // what the action returned
 
 | Name | Risk | What it does |
 | :--- | :--- | :--- |
-| `contacts.search` | read | Find contacts by name, email or phone (25 at most) |
+| `contacts.search` | read | Find contacts by the start of a name, or a whole email address or phone number (25 at most) |
 | `contacts.create` | write | Add a contact; returns the existing one if the email is already there |
 | `contacts.update` | write | Change name, job title, phone or timezone |
 | `notes.add` | write | Add a note to a contact's timeline |
