@@ -145,7 +145,7 @@ class ContactAndCompanyLifecycleTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $this->assertTrue(Contact::query()->where('email', 'grace@navy.mil')->exists());
+        $this->assertTrue(Contact::query()->whereEmail('grace@navy.mil')->exists());
         Event::assertDispatched(ContactCreated::class);
     }
 

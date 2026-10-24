@@ -39,6 +39,7 @@ use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
 use UnitEnum;
@@ -105,11 +106,11 @@ class CompanyResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Company Name')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(query: EncryptedSearch::companies())
+                    ->sortable(query: EncryptedSearch::keepsOrder()),
                 TextColumn::make('domain')
                     ->label('Domain')
-                    ->searchable()
+                    ->searchable(query: EncryptedSearch::companies(), isIndividual: true, isGlobal: false)
                     ->copyable(),
                 TextColumn::make('industry')
                     ->label('Industry')
@@ -206,14 +207,11 @@ class CompanyResource extends Resource
                             ->label('Select Duplicate Company to Merge into This Record')
                             ->searchable()
                             // Searched on the server, within the companies the user can see, so every company is reachable.
-                            ->getSearchResultsUsing(fn (Company $record, string $search): array => OddenAuthorization::query(self::class, Company::class)
-                                ->whereKeyNot($record->getKey())
-                                ->where(fn (Builder $query): Builder => $query
-                                    ->whereRaw('lower(name) like ?', ['%'.mb_strtolower(trim($search)).'%'])
-                                    ->orWhereRaw('lower(domain) like ?', ['%'.mb_strtolower(trim($search)).'%']))
-                                ->orderBy('name')
-                                ->limit(50)
-                                ->get()
+                            ->getSearchResultsUsing(fn (Company $record, string $search): array => EncryptedSearch::limitedAndSorted(
+                                EncryptedSearch::companyMatches(OddenAuthorization::query(self::class, Company::class)->whereKeyNot($record->getKey()), $search),
+                                ['name'],
+                                50,
+                            )
                                 ->mapWithKeys(fn (Company $c): array => [$c->getKey() => "{$c->name} ({$c->domain})"])
                                 ->all())
                             ->getOptionLabelUsing(function (mixed $value): ?string {

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Odden\Core\Encryption\Casts\EncryptedCast;
 use Odden\Core\Encryption\FieldEncrypter;
+use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\ModelRegistry;
 
@@ -44,17 +45,17 @@ function oddenColumnClassification(): array
         ],
         'odden_companies' => [
             'structural' => ['id', 'industry', 'owner_id', 'team_id', 'health_score', 'health_status', 'last_health_calculated_at', 'lifecycle_stage', 'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at', 'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at', 'account_tier', 'intent_score', 'intent_surge', 'buying_committee_size', 'last_intent_activity_at', 'deleted_at', ...$timestamps],
-            'pending' => ['name' => 'step 3: identity, with a search index', 'domain' => 'step 3: identity, exact index', 'phone' => 'step 3: identity, exact index', 'properties' => 'step 6: custom properties marked sensitive'],
+            'encrypted' => ['name' => 'companies.name', 'domain' => 'companies.domain', 'phone' => 'companies.phone'],
+            'pending' => ['properties' => 'step 6: custom properties marked sensitive'],
         ],
         'odden_contacts' => [
             'structural' => ['id', 'lifecycle_stage', 'owner_id', 'team_id', 'lead_status', 'last_contacted_at', 'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at', 'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at', 'lead_score', 'lead_score_updated_at', 'email_status', 'email_status_reason', 'email_checked_at', 'deleted_at', ...$timestamps],
-            'encrypted' => ['date_of_birth' => 'contacts.date_of_birth'],
-            'pending' => [
-                'first_name' => 'step 3: identity, word and prefix index', 'last_name' => 'step 3: identity, word and prefix index',
-                'email' => 'step 3: identity, exact index', 'phone' => 'step 3: identity, exact index',
-                'job_title' => 'step 3: identity', 'linkedin_url' => 'step 3: identity', 'timezone' => 'step 3: identity',
-                'properties' => 'step 6: custom properties marked sensitive',
+            'encrypted' => [
+                'date_of_birth' => 'contacts.date_of_birth', 'first_name' => 'contacts.first_name', 'last_name' => 'contacts.last_name',
+                'email' => 'contacts.email', 'phone' => 'contacts.phone', 'job_title' => 'contacts.job_title',
+                'linkedin_url' => 'contacts.linkedin_url', 'timezone' => 'contacts.timezone',
             ],
+            'pending' => ['properties' => 'step 6: custom properties marked sensitive'],
         ],
         'odden_custom_object_definitions' => [
             'structural' => ['id', 'name', 'singular_label', 'plural_label', 'description', 'primary_display_property', 'secondary_display_properties', 'icon', 'team_id', ...$timestamps],
@@ -74,7 +75,7 @@ function oddenColumnClassification(): array
             // amount stays plain unless the workspace turns on business-data encryption (step 6).
             'structural' => ['id', 'pipeline_id', 'stage_id', 'amount', 'currency', 'status', 'expected_close_date', 'closed_at', 'lost_reason', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
             'encrypted' => ['lost_notes' => 'deals.lost_notes'],
-            'pending' => ['name' => 'step 3: deal names often carry a person or company name, and the list searches them', 'properties' => 'step 6: custom properties marked sensitive'],
+            'pending' => ['name' => 'step 3 follow-up: deal names often carry a person or company name, and the list searches them (needs the same word and prefix index)', 'properties' => 'step 6: custom properties marked sensitive'],
         ],
         'odden_demo_records' => [
             'structural' => ['id', 'model_type', 'model_id', 'created_at'],
@@ -87,7 +88,7 @@ function oddenColumnClassification(): array
         ],
         'odden_lists' => [
             'structural' => ['id', 'name', 'description', 'entity_type', 'type', 'created_by_id', ...$timestamps],
-            'pending' => ['criteria' => 'step 3: rules can hold an email or a name, and become index lookups'],
+            'pending' => ['criteria' => 'step 7: rule values can hold an email or a name; the rules themselves now run through the index'],
         ],
         'odden_pipeline_stages' => [
             'structural' => ['id', 'pipeline_id', 'name', 'code', 'probability', 'sort_order', 'is_closed_won', 'is_closed_lost', 'rot_after_days', ...$timestamps],
@@ -113,7 +114,11 @@ function oddenColumnClassification(): array
             // terms are the seller's standard wording, shown to the customer; the notes are written about the customer.
             'structural' => ['id', 'deal_id', 'quote_number', 'title', 'status', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'currency', 'terms', 'public_token', 'expires_at', 'accepted_at', 'user_id', 'deleted_at', ...$timestamps],
             'encrypted' => ['notes' => 'quotes.notes', 'internal_notes' => 'quotes.internal_notes'],
-            'pending' => ['signed_by_name' => 'step 3: identity', 'signed_by_email' => 'step 3: identity'],
+            'pending' => ['signed_by_name' => 'step 3 follow-up: identity copy, display only', 'signed_by_email' => 'step 3 follow-up: identity copy, display only'],
+        ],
+        'odden_search_index' => [
+            // Keyed hashes (HMAC-SHA-256 with a per-tenant key) of normalized values, and the record each belongs to: no value can be read back.
+            'structural' => ['field', 'token', 'record_id'],
         ],
         'odden_sales_email_templates' => [
             'structural' => ['id', 'name', 'subject', 'body_html', 'category', 'user_id', 'is_shared', ...$timestamps],
@@ -123,7 +128,7 @@ function oddenColumnClassification(): array
         ],
         'odden_sales_meeting_bookings' => [
             'structural' => ['id', 'uid', 'meeting_link_id', 'user_id', 'contact_id', 'activity_id', 'starts_at', 'ends_at', 'timezone', 'cancelled_at', ...$timestamps],
-            'pending' => ['invitee_name' => 'step 3: identity', 'invitee_email' => 'step 3: identity'],
+            'pending' => ['invitee_name' => 'step 3 follow-up: identity copy, display only', 'invitee_email' => 'step 3 follow-up: identity copy, display only'],
         ],
         'odden_sales_meeting_links' => [
             'structural' => ['id', 'user_id', 'slug', 'title', 'duration_minutes', 'description', 'working_hours', 'is_active', 'buffer_minutes', 'timezone', ...$timestamps],
@@ -205,4 +210,48 @@ it('stores the date of birth encrypted and still reads it as a date', function (
     expect(app(FieldEncrypter::class)->isEncrypted($stored))->toBeTrue()
         ->and($stored)->not->toContain('2011')
         ->and($contact->fresh()->date_of_birth->toDateString())->toBe('2011-03-02');
+});
+
+/*
+ * The Identity area (PLAN-encryption-at-rest.md, section 3): who a contact or company is. These columns can only ever be classified
+ * as encrypted, and a record saved through the model must keep none of their values in plain text.
+ */
+function oddenIdentityColumns(): array
+{
+    return [
+        'odden_contacts' => ['first_name', 'last_name', 'email', 'phone', 'job_title', 'linkedin_url', 'timezone'],
+        'odden_companies' => ['name', 'domain', 'phone'],
+    ];
+}
+
+it('classifies every Identity column as encrypted', function (): void {
+    foreach (oddenIdentityColumns() as $table => $columns) {
+        expect(array_keys(oddenColumnClassification()[$table]['encrypted'] ?? []))->toEqualCanonicalizing(
+            array_values(array_unique([...$columns, ...array_intersect(['date_of_birth'], array_keys(oddenColumnClassification()[$table]['encrypted']))])),
+            "{$table}: an Identity column is not classified as encrypted",
+        );
+    }
+});
+
+it('stores no Identity value in plain text', function (): void {
+    $contact = Contact::factory()->create([
+        'first_name' => 'Zebulon', 'last_name' => 'Quillfeather', 'email' => 'zeb.quill@identity-test.example', 'phone' => '+1 555 019 7788',
+        'job_title' => 'Chief Wombat', 'linkedin_url' => 'https://linkedin.com/in/zebulon-q', 'timezone' => 'America/Denver',
+    ]);
+    $company = Company::factory()->create(['name' => 'Wombat Holdings', 'domain' => 'wombat-holdings.example', 'phone' => '+1 555 019 0000']);
+
+    foreach ([['odden_contacts', $contact->id, $contact->getAttributes()], ['odden_companies', $company->id, $company->getAttributes()]] as [$table, $id, $plain]) {
+        $row = (array) DB::table($table)->where('id', $id)->first();
+
+        foreach (oddenIdentityColumns()[$table] as $column) {
+            expect(app(FieldEncrypter::class)->isEncrypted($row[$column]))->toBeTrue("{$table}.{$column} is stored in plain text");
+        }
+
+        expect(implode(' ', array_map('strval', $row)))->not->toContain('Zebulon')->not->toContain('Wombat')->not->toContain('identity-test')->not->toContain('555');
+    }
+
+    // And the search index holds only keyed hashes.
+    $index = DB::table('odden_search_index')->get();
+    expect($index->count())->toBeGreaterThan(10)
+        ->and($index->pluck('token')->every(fn (string $token): bool => preg_match('/^[0-9a-f]{64}$/', $token) === 1))->toBeTrue();
 });

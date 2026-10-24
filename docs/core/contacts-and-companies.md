@@ -11,9 +11,9 @@ The `odden_contacts` table has these columns:
 
 | Column | Type | Default |
 | --- | --- | --- |
-| `first_name`, `last_name`, `job_title` | string, nullable | |
-| `email` | string, required, indexed | |
-| `phone`, `linkedin_url`, `timezone` | string, nullable | |
+| `first_name`, `last_name`, `job_title` | text, nullable, encrypted | |
+| `email` | text, required, encrypted, searchable by the whole address | |
+| `phone`, `linkedin_url`, `timezone` | text, nullable, encrypted | |
 | `lifecycle_stage` | `LifecycleStage` enum | `lead` |
 | `became_<stage>_at` | datetime, one per stage | `null` |
 | `lead_status` | `LeadStatus` enum | `new` |
@@ -30,7 +30,9 @@ Helpers on `Contact`:
 - `markContacted(?CarbonInterface $at = null)`: sets `last_contacted_at` (default `now()`) with a normal `update()`, so model events fire and the change is written to the [property history](custom-properties.md#change-history).
 - `owner()`: `BelongsTo` your user model (see [the user model](integration.md#the-user-model)).
 - `companies()`: `BelongsToMany` companies through `odden_associations`, where the contact is the parent and the company the child, of any association type. The pivot includes `id` and `type`.
-- `whereEmail(string $email)` scope: lowercases and trims the value before matching.
+- `whereEmail(string $email)` scope: lowercases and trims the value before matching (through the search index).
+- `whereNameStartsWith(string $text)` scope: contacts where a word of the first or last name starts with each word typed.
+- `searchIdentity(string $text)` scope: what a search box does: the start of names, or a whole email address or phone number.
 
 A contact's `email` is lowercased and trimmed whenever it's saved, and a migration normalizes contacts saved before this was done, so an exact match on the normalized address finds every contact.
 
@@ -39,7 +41,7 @@ A contact's `email` is lowercased and trimmed whenever it's saved, and a migrati
 `Odden\Core\Support\ContactLookup` finds and creates contacts by email address, ignoring case and surrounding whitespace. The Service portal, chat widget, and inbound email, and Sales meeting booking all use it, so one person is one contact however they type their address.
 
 - `ContactLookup::normalizeEmail(string $email): string` lowercases and trims.
-- `ContactLookup::findByEmail(string $email): ?Contact` looks for a contact stored with exactly the normalized address, which uses the `email` index. Among several matches, the oldest wins. An empty address returns `null`.
+- `ContactLookup::findByEmail(string $email): ?Contact` looks for a contact stored with exactly the normalized address, through the search index (the column itself is encrypted). Among several matches, the oldest wins. An empty address returns `null`.
 - `ContactLookup::findOrCreate(string $email, array $attributes = []): Contact` returns the match, or creates a contact with the given attributes and the normalized email through `CreateContactAction`, so `ContactCreated` fires and the address is checked like any other new contact. Concurrent calls for the same address are serialized with a cache lock (when the cache store supports locks), and the lookup runs again once the lock is held, so only one contact is created. Called inside a database transaction, it keeps the lock until the transaction commits, because until then other connections can't see the new contact. If the lock store is unreachable, or the lock isn't released within 10 seconds, it looks again and creates the contact without the lock rather than fail.
 
 There is no unique index on `email`: contacts belong to teams, are soft-deleted, and existing data can already hold duplicates. So create contacts from an email address through `findOrCreate()` rather than `Contact::create()` or `CreateContactAction` when the address may already exist.
@@ -75,8 +77,9 @@ The `odden_companies` table has these columns:
 
 | Column | Type | Default |
 | --- | --- | --- |
-| `name` | string, required | |
-| `domain`, `phone`, `industry` | string, nullable | |
+| `name` | text, required, encrypted | |
+| `domain`, `phone` | text, nullable, encrypted | |
+| `industry` | string, nullable | |
 | `lifecycle_stage` | `LifecycleStage` enum, nullable | `lead` |
 | `became_<stage>_at` | datetime, one per stage | `null` |
 | `account_tier` | string, nullable | `null` |
@@ -96,7 +99,8 @@ Helpers on `Company`:
 - `isSurging()`: returns `intent_surge`.
 - `became_mql_at`, `became_sql_at`, `owner()`: as on `Contact`.
 - `contacts()`: the inverse of `Contact::companies()`.
-- `whereDomain(string $domain)` scope: normalizes the value with `Company::normalizeDomain()` before matching.
+- `whereDomain(string $domain)` scope: normalizes the value with `Company::normalizeDomain()` before matching (through the search index).
+- `whereNameStartsWith(string $text)` scope: companies where a word of the name starts with each word typed.
 
 Database defaults are not loaded into a model you just created. Call `fresh()` if you need `health_status` or `lifecycle_stage` right after `create()`.
 

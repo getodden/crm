@@ -43,7 +43,7 @@ class ContactImporterTest extends TestCase
             ->import(['email' => 'Grace@Navy.mil', 'first_name' => 'Grace', 'last_name' => 'Hopper'])
             ->assertImported();
 
-        $contact = Contact::query()->where('email', 'grace@navy.mil')->firstOrFail();
+        $contact = Contact::query()->whereEmail('grace@navy.mil')->firstOrFail();
 
         $this->assertSame('Grace', $contact->first_name);
         $this->assertSame(EmailStatus::Valid, $contact->email_status);
@@ -56,7 +56,7 @@ class ContactImporterTest extends TestCase
             ->import(['email' => 'scout@troop12.org', 'date_of_birth' => '2012-04-09'])
             ->assertImported();
 
-        $this->assertSame('2012-04-09', Contact::query()->where('email', 'scout@troop12.org')->firstOrFail()->date_of_birth->toDateString());
+        $this->assertSame('2012-04-09', Contact::query()->whereEmail('scout@troop12.org')->firstOrFail()->date_of_birth->toDateString());
 
         ContactImporter::test()
             ->import(['email' => 'future@troop12.org', 'date_of_birth' => now()->addYear()->toDateString()])
@@ -88,8 +88,8 @@ class ContactImporterTest extends TestCase
         ContactImporter::test()->import(['email' => 'info@acme.com'])->assertImported();
         ContactImporter::test()->import(['email' => 'grace@gmial.com'])->assertImported();
 
-        $role = Contact::query()->where('email', 'info@acme.com')->firstOrFail();
-        $typo = Contact::query()->where('email', 'grace@gmial.com')->firstOrFail();
+        $role = Contact::query()->whereEmail('info@acme.com')->firstOrFail();
+        $typo = Contact::query()->whereEmail('grace@gmial.com')->firstOrFail();
 
         $this->assertSame(EmailStatus::Risky, $role->email_status);
         $this->assertSame(EmailStatusReason::Role, $role->email_status_reason);
@@ -248,7 +248,7 @@ class ContactImporterTest extends TestCase
             ])
             ->assertHasNoActionErrors();
 
-        $this->assertSame(['already@here.com', 'grace@navy.mil', 'info@acme.com'], Contact::query()->orderBy('email')->pluck('email')->all());
+        $this->assertSame(['already@here.com', 'grace@navy.mil', 'info@acme.com'], Contact::query()->pluck('email')->sort()->values()->all());
 
         $import = Import::query()->firstOrFail();
 

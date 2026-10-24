@@ -11,13 +11,14 @@ This page describes the building blocks, and lists which built-in fields are enc
 
 | Where | Fields |
 |---|---|
-| Contacts | date of birth (the age is worked out in code, `Contact::age()`) |
+| Contacts | first and last name, email address, phone number, job title, LinkedIn address, time zone, and date of birth (the age is worked out in code, `Contact::age()`) |
+| Companies | name, domain, phone number |
 | Timeline (notes, calls, tasks, emails) | title, body and metadata of every activity |
 | Property history | old and new value |
 | Deals | the notes written when a deal is lost |
 | Quotes | the notes and the internal notes |
 
-Names, e-mail addresses, phone numbers and custom properties follow in later releases. Ids, stages, statuses, dates, amounts and other structure stay plain, so lists, filters, pipelines and reports keep working. An encrypted field cannot be searched or sorted with SQL: the activity timeline, for example, is no longer searchable by subject.
+Custom properties follow in a later release. Ids, stages, statuses, dates, amounts and other structure stay plain, so lists, filters, pipelines and reports keep working. An encrypted field cannot be searched or sorted with SQL: the activity timeline, for example, is no longer searchable by subject. Contacts and companies are found through a search index, described below.
 
 Code that needs to find an activity again cannot look inside its (encrypted) metadata. It looks for the activity's plain `marker`, a short tag such as `cadence:12:3` that `ActivityMarker` builds from the metadata when the activity is saved.
 
@@ -60,19 +61,43 @@ Name the field after the colon. The name is part of what is protected: a value c
 
 An encrypted column cannot be searched or sorted with SQL.
 
-## Finding records by exact value
+## Finding records: the search index
 
-To look up a record by an encrypted value (an email address, a phone number), store a keyed hash beside it and search that:
+Contacts and companies must still be found by who they are, so each keeps keyed hashes of its identifying values in a side table (`odden_search_index`: the field, a hash, the record id). The hash is an HMAC made with a key derived from the tenant's key, the field and the kind of match, so the table shows only how many records share a value, and nothing can be compared across tenants or fields. It holds no names and no addresses.
+
+| Field | What can be asked |
+|---|---|
+| Contact email | the whole address (ignoring case) |
+| Contact phone | the whole number (ignoring punctuation) |
+| Contact first and last name | equal to, a word of, or the start of a word (two to 24 letters) |
+| Contact job title | equal to, or a word of |
+| Company domain | the whole domain |
+| Company name | equal to, a word of, or the start of a word |
+
+Everything else is not indexed. Searching for a part from the middle of a name or an address (`nnie`, `@gmail`), or sorting, cannot use the index (see the fallback below).
+
+A model that has `HasBlindIndexes` keeps its rows up to date when it is saved or deleted for good, and has the scopes that use them:
 
 ```php
-use Odden\Core\Encryption\FieldEncrypter;
-
-$hash = app(FieldEncrypter::class)->blindIndex(strtolower($email), 'contacts.email');
-
-Contact::where('email_index', $hash)->first();
+Contact::query()->whereEmail('Dana@Example.com');          // the whole address
+Contact::query()->whereNameStartsWith('ann le');           // Annie Lee
+Contact::query()->searchIdentity($typedInSearchBox);        // names, or a whole address or phone number
+Company::query()->whereDomain('https://www.acme.com/');
+Company::query()->whereNameStartsWith('acm');
+Contact::query()->whereBlindExactIn('last_name', ['Lee', 'Day']);
 ```
 
-Normalize the value first so equal values give equal hashes. The hash uses the tenant's key and the field's name, so the same address has a different hash in another tenant and in another field.
+Code that writes the columns without the model (a bulk `update()`, a raw insert) skips the index. Call `SearchIndex::replace()` for those records, or run `php artisan odden:encrypt-existing`, which rewrites the index for every contact and company.
+
+To add the index to your own model, implement `BlindIndexed`, use `HasBlindIndexes` and declare the columns in `blindIndexedColumns()`. Register the model with `EncryptedColumns::addIndexed()` so the command rebuilds it.
+
+### When the index cannot answer
+
+Rules of an active list on an encrypted field use the index for equals, not equals, in and not in (where the field has a whole-value index), and the database for is set and is not set. Anything else (`contains`, or equals on a field without a whole-value index) is checked in PHP: the records every other rule left are read, decrypted and tested one by one. Greater than and less than are not available on encrypted fields.
+
+That fallback, and sorting the contacts and companies tables by name, are limited to `odden-core.encryption.fallback_limit` records (`ODDEN_ENCRYPTION_FALLBACK_LIMIT`, 10,000 by default). Above it the list sync throws `TooManyToFilter` and the table keeps its natural order and says why. Put the other rules in front of the one that needs it (a lifecycle stage, an owner), or raise the limit. A host with a plan limit on contacts rebinds `Odden\Core\Encryption\Index\FallbackLimit`.
+
+On a laptop the fallback decrypts about 100,000 values a second; a `contains` rule over 50,000 contacts takes about a second. `tests/Benchmark` measures it on your own database.
 
 ## Plain values from before
 

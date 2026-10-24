@@ -11,10 +11,18 @@ use Odden\Core\Models\Contact;
 use Odden\Filament\Imports\ContactImporter;
 use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Filament\Support\SortsEncryptedColumns;
 
 class ListContacts extends ListRecords
 {
+    use SortsEncryptedColumns;
+
     protected static string $resource = ContactResource::class;
+
+    protected function encryptedSortColumns(): array
+    {
+        return ['full_name' => ['last_name', 'first_name']];
+    }
 
     protected function getHeaderActions(): array
     {

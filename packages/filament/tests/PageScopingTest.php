@@ -31,7 +31,7 @@ class PageScopingTest extends TestCase
         // Registered per test: the framework clears booted models (and their scopes) between tests.
         Contact::addGlobalScope('page-scoping-test', function (Builder $query): void {
             if (config('page-scoping-test.enabled')) {
-                $query->where('last_name', '!=', 'Hidden');
+                $query->whereBlindExactNotIn('last_name', ['Hidden']);
             }
         });
 
