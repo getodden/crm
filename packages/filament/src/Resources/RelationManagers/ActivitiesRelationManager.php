@@ -22,6 +22,7 @@ use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\OddenAuthorization;
 
 class ActivitiesRelationManager extends RelationManager
@@ -42,11 +43,11 @@ class ActivitiesRelationManager extends RelationManager
                 ))
                 ->default(ActivityType::Note->value)
                 ->required(),
-            TextInput::make('title')
+            AreaGuard::field(TextInput::make('title'), Activity::class)
                 ->label('Subject / Title')
                 ->required()
                 ->maxLength(255),
-            Textarea::make('body')
+            AreaGuard::field(Textarea::make('body'), Activity::class)
                 ->label('Details / Body')
                 ->rows(3),
             Select::make('status')
@@ -78,10 +79,10 @@ class ActivitiesRelationManager extends RelationManager
                         ActivityType::Meeting => 'success',
                         default => 'gray',
                     }),
-                TextColumn::make('title')
+                AreaGuard::column(TextColumn::make('title'), Activity::class)
                     ->label('Subject')
                     ->weight('bold')
-                    ->description(fn (Activity $record): ?string => $record->body),
+                    ->description(fn (Activity $record): ?string => AreaGuard::masked(Activity::class, 'body', $record) ? null : $record->body),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()

@@ -16,12 +16,33 @@ use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Resources\ContactResource;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Filament\Support\RevealAreaAction;
 
 class EditContact extends EditRecord
 {
     protected static string $resource = ContactResource::class;
+
+    /**
+     * The date of birth is hidden from arrays and JSON, which is what the form is filled from; without this, saving any other change
+     * would send the field empty and erase it. A person who cannot see the Sensitive area gets it empty, and the field is never saved.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        /** @var Contact $record */
+        $record = $this->getRecord();
+
+        if (! AreaGuard::masked(Contact::class, 'date_of_birth', $record)) {
+            $data['date_of_birth'] = $record->date_of_birth?->toDateString();
+        }
+
+        return $data;
+    }
 
     /**
      * @param  array<string, mixed>  $data
@@ -71,6 +92,7 @@ class EditContact extends EditRecord
     {
         return [
             ViewAction::make(),
+            RevealAreaAction::make(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

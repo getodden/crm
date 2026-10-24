@@ -7,6 +7,7 @@ namespace Odden\Filament\Resources\ContactResource\Pages;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Odden\Filament\Resources\ContactResource;
+use Odden\Filament\Support\RevealAreaAction;
 
 class ViewContact extends ViewRecord
 {
@@ -16,6 +17,7 @@ class ViewContact extends ViewRecord
     {
         return [
             EditAction::make(),
+            RevealAreaAction::make(),
         ];
     }
 }

@@ -16,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\View\View;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Filament\Support\RevealAreaAction;
 use Odden\Sales\Actions\ExecuteSalesPlaybookAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Enums\DealStatus;
@@ -33,6 +34,7 @@ class ViewDeal extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            RevealAreaAction::make(),
             Action::make('health_analysis')
                 ->label(function (): string {
                     /** @var Deal $record */

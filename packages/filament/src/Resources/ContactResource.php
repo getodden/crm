@@ -31,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\MergeContactsAction;
+use Odden\Core\Areas\Areas;
 use Odden\Core\Contracts\SummarizesTimeline;
 use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\EmailStatus;
@@ -47,6 +48,7 @@ use Odden\Filament\Resources\ContactResource\RelationManagers\SalesSequenceEnrol
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
@@ -71,31 +73,31 @@ class ContactResource extends Resource
             ->components([
                 Section::make('Contact Details')
                     ->schema([
-                        TextInput::make('first_name')
+                        AreaGuard::field(TextInput::make('first_name'), Contact::class)
                             ->label('First Name')
                             ->maxLength(255),
-                        TextInput::make('last_name')
+                        AreaGuard::field(TextInput::make('last_name'), Contact::class)
                             ->label('Last Name')
                             ->maxLength(255),
-                        TextInput::make('job_title')
+                        AreaGuard::field(TextInput::make('job_title'), Contact::class)
                             ->label('Job Title')
                             ->placeholder('e.g. VP of Sales')
                             ->maxLength(255),
-                        TextInput::make('email')
+                        AreaGuard::field(TextInput::make('email'), Contact::class)
                             ->label('Email Address')
                             ->email()
-                            ->required()
+                            ->required(fn (?Contact $record): bool => ! AreaGuard::masked(Contact::class, 'email', $record))
                             ->maxLength(255),
-                        TextInput::make('phone')
+                        AreaGuard::field(TextInput::make('phone'), Contact::class)
                             ->label('Phone Number')
                             ->tel()
                             ->maxLength(50),
-                        DatePicker::make('date_of_birth')
+                        AreaGuard::field(DatePicker::make('date_of_birth'), Contact::class)
                             ->label('Date of birth')
                             ->native(false)
                             ->maxDate(now())
                             ->helperText('Optional. Used to keep messages of the wrong kind from reaching a child. It is personal data: leave it empty if you do not need it.'),
-                        TextInput::make('linkedin_url')
+                        AreaGuard::field(TextInput::make('linkedin_url'), Contact::class)
                             ->label('LinkedIn Profile URL')
                             ->url()
                             ->placeholder('https://linkedin.com/in/...'),
@@ -152,15 +154,16 @@ class ContactResource extends Resource
             ->columns([
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->description(fn (Contact $record): ?string => $record->job_title)
+                    ->description(fn (Contact $record): ?string => AreaGuard::masked(Contact::class, 'job_title', $record) ? null : $record->job_title)
+                    ->formatStateUsing(fn (mixed $state, Contact $record): mixed => AreaGuard::masked(Contact::class, 'first_name', $record) ? Areas::MASK : $state)
                     // The names are encrypted: a search matches the start of a name (or a whole address or phone number) through the
                     // search index, and sorting decrypts the records in view and sorts them here, last name first.
                     ->searchable(query: EncryptedSearch::contacts())
                     // full_name is an accessor, not a column: sort by last name, then first name.
                     ->sortable(query: EncryptedSearch::keepsOrder()),
-                TextColumn::make('email')
+                AreaGuard::column(TextColumn::make('email'), Contact::class)
                     ->label('Email')
-                    ->copyable()
+                    ->copyable(fn (Contact $record): bool => ! AreaGuard::masked(Contact::class, 'email', $record))
                     ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('email_status')
                     ->label('Email Status')
@@ -171,7 +174,7 @@ class ContactResource extends Resource
                     ->placeholder('Not checked')
                     ->sortable()
                     ->toggleable(),
-                TextColumn::make('phone')
+                AreaGuard::column(TextColumn::make('phone'), Contact::class)
                     ->label('Phone')
                     ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('lead_status')

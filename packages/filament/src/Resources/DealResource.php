@@ -45,6 +45,7 @@ use Odden\Filament\Resources\DealResource\RelationManagers\QuotesRelationManager
 use Odden\Filament\Resources\DealResource\RelationManagers\StageHistoryRelationManager;
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\RecordMemo;
@@ -158,7 +159,7 @@ class DealResource extends Resource
                             ))
                             ->placeholder('Select a reason...')
                             ->visible(fn (callable $get): bool => $get('status') === DealStatus::Lost->value),
-                        Textarea::make('lost_notes')
+                        AreaGuard::field(Textarea::make('lost_notes'), Deal::class)
                             ->label('Loss Retrospective Notes')
                             ->placeholder('Key takeaways, competitor feedback, follow-up timeline...')
                             ->visible(fn (callable $get): bool => $get('status') === DealStatus::Lost->value)

@@ -9,6 +9,7 @@ use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\RevealAreaAction;
 
 class EditDeal extends EditRecord
 {
@@ -32,6 +33,7 @@ class EditDeal extends EditRecord
     {
         return [
             ViewAction::make(),
+            RevealAreaAction::make(),
             DeleteAction::make(),
         ];
     }

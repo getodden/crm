@@ -38,6 +38,7 @@ use Odden\Filament\Resources\CompanyResource\RelationManagers\ContactsRelationMa
 use Odden\Filament\Resources\RelationManagers\ActivitiesRelationManager;
 use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
+use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
@@ -58,11 +59,11 @@ class CompanyResource extends Resource
             ->components([
                 Section::make('Company Details')
                     ->schema([
-                        TextInput::make('name')
+                        AreaGuard::field(TextInput::make('name'), Company::class)
                             ->label('Company Name')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('domain')
+                        AreaGuard::field(TextInput::make('domain'), Company::class)
                             ->label('Domain')
                             ->placeholder('acme.com')
                             ->maxLength(255),
@@ -104,11 +105,11 @@ class CompanyResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')
+                AreaGuard::column(TextColumn::make('name'), Company::class)
                     ->label('Company Name')
                     ->searchable(query: EncryptedSearch::companies())
                     ->sortable(query: EncryptedSearch::keepsOrder()),
-                TextColumn::make('domain')
+                AreaGuard::column(TextColumn::make('domain'), Company::class)
                     ->label('Domain')
                     ->searchable(query: EncryptedSearch::companies(), isIndividual: true, isGlobal: false)
                     ->copyable(),
@@ -151,7 +152,7 @@ class CompanyResource extends Resource
                     ->formatStateUsing(fn (int $state): string => "{$state}/100")
                     ->color(fn (int $state): string => $state >= 70 ? 'success' : ($state >= 40 ? 'warning' : 'danger'))
                     ->sortable(),
-                TextColumn::make('phone')
+                AreaGuard::column(TextColumn::make('phone'), Company::class)
                     ->label('Phone'),
                 TextColumn::make('created_at')
                     ->label('Created')
