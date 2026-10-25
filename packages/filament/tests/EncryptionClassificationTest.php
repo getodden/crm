@@ -74,16 +74,17 @@ function oddenColumnClassification(): array
             'encrypted' => ['name' => 'custom_object_records.name', 'properties' => 'custom_object_records.properties'],
         ],
         'odden_deal_products' => [
-            'structural' => ['id', 'deal_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', 'deleted_at', ...$timestamps],
+            'structural' => ['id', 'deal_id', 'sku', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', 'deleted_at', ...$timestamps],
+            'encrypted' => ['name' => 'deal_products.name', 'description' => 'deal_products.description'],
         ],
         'odden_deal_stage_history' => [
             'structural' => ['id', 'deal_id', 'from_stage_id', 'to_stage_id', 'user_id', 'duration_in_stage_seconds', 'entered_at', 'exited_at', ...$timestamps],
         ],
         'odden_deals' => [
-            // lost_reason is picked from a list and counted by the forecast, so it stays plain; the free text beside it is encrypted.
+            // The lost reason is encrypted too (it accepts any text); the forecast counts the reasons in PHP.
             // amount stays plain unless the workspace turns on business-data encryption (step 6): then the value moves to amount_encrypted.
-            'structural' => ['id', 'pipeline_id', 'stage_id', 'amount', 'currency', 'status', 'expected_close_date', 'closed_at', 'lost_reason', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
-            'encrypted' => ['name' => 'deals.name', 'lost_notes' => 'deals.lost_notes'],
+            'structural' => ['id', 'pipeline_id', 'stage_id', 'amount', 'currency', 'status', 'expected_close_date', 'closed_at', 'owner_id', 'team_id', 'deleted_at', ...$timestamps],
+            'encrypted' => ['name' => 'deals.name', 'lost_reason' => 'deals.lost_reason', 'lost_notes' => 'deals.lost_notes'],
             'json' => ['properties' => 'custom properties of a deal'],
             'amount' => ['amount' => 'deals.amount'],
         ],
@@ -118,12 +119,13 @@ function oddenColumnClassification(): array
             'encrypted' => ['input' => 'proposed_actions.input', 'error' => 'proposed_actions.error'],
         ],
         'odden_quote_items' => [
-            'structural' => ['id', 'quote_id', 'name', 'sku', 'description', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', ...$timestamps],
+            'structural' => ['id', 'quote_id', 'sku', 'unit_price', 'quantity', 'discount_percent', 'total_price', 'sort_order', ...$timestamps],
+            'encrypted' => ['name' => 'quote_items.name', 'description' => 'quote_items.description'],
         ],
         'odden_quotes' => [
             // terms are the seller's standard wording, shown to the customer; the notes are written about the customer.
-            'structural' => ['id', 'deal_id', 'quote_number', 'title', 'status', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'currency', 'terms', 'public_token', 'expires_at', 'accepted_at', 'user_id', 'deleted_at', ...$timestamps],
-            'encrypted' => ['notes' => 'quotes.notes', 'internal_notes' => 'quotes.internal_notes', 'signed_by_name' => 'quotes.signed_by_name', 'signed_by_email' => 'quotes.signed_by_email'],
+            'structural' => ['id', 'deal_id', 'quote_number', 'status', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'currency', 'terms', 'public_token', 'expires_at', 'accepted_at', 'user_id', 'deleted_at', ...$timestamps],
+            'encrypted' => ['title' => 'quotes.title', 'notes' => 'quotes.notes', 'internal_notes' => 'quotes.internal_notes', 'signed_by_name' => 'quotes.signed_by_name', 'signed_by_email' => 'quotes.signed_by_email'],
         ],
         'odden_search_index' => [
             // Keyed hashes (HMAC-SHA-256 with a per-tenant key) of normalized values, and the record each belongs to: no value can be read back.
@@ -133,7 +135,8 @@ function oddenColumnClassification(): array
             'structural' => ['id', 'name', 'subject', 'body_html', 'category', 'user_id', 'is_shared', ...$timestamps],
         ],
         'odden_sales_lead_routing_rules' => [
-            'structural' => ['id', 'name', 'strategy', 'criteria', 'assigned_user_ids', 'last_assigned_index', 'is_active', 'sort_order', ...$timestamps],
+            'structural' => ['id', 'name', 'strategy', 'assigned_user_ids', 'last_assigned_index', 'is_active', 'sort_order', ...$timestamps],
+            'encrypted' => ['criteria' => 'lead_routing_rules.criteria'],
         ],
         'odden_sales_meeting_bookings' => [
             'structural' => ['id', 'uid', 'meeting_link_id', 'user_id', 'contact_id', 'activity_id', 'starts_at', 'ends_at', 'timezone', 'cancelled_at', ...$timestamps],
@@ -156,7 +159,8 @@ function oddenColumnClassification(): array
             'structural' => ['id', 'name', 'description', 'steps', 'is_active', 'user_id', ...$timestamps],
         ],
         'odden_stage_automations' => [
-            'structural' => ['id', 'stage_id', 'name', 'event_trigger', 'action_type', 'action_payload', 'is_active', 'sort_order', ...$timestamps],
+            'structural' => ['id', 'stage_id', 'name', 'event_trigger', 'action_type', 'is_active', 'sort_order', ...$timestamps],
+            'encrypted' => ['action_payload' => 'stage_automations.action_payload'],
         ],
     ];
 }
@@ -359,18 +363,14 @@ function oddenPlainByDecision(): array
         'odden_contacts.email_checked_at' => 'a time',
         'odden_sales_email_templates.subject' => "the seller's own template wording, written once for everyone",
         'odden_sales_email_templates.body_html' => "the seller's own template wording, written once for everyone",
-        'odden_sales_lead_routing_rules.criteria' => 'routing conditions on plain fields (amount, time zone), no personal values',
         'odden_quotes.terms' => "the seller's standard wording, shown to the customer",
         'odden_sales_meeting_links.description' => 'the host\'s public booking page text',
-        'odden_deal_products.description' => 'the product catalogue, not about a person',
-        'odden_quote_items.description' => 'the product catalogue, not about a person',
         'odden_custom_object_definitions.description' => 'the schema description, not a record',
         'odden_properties.description' => 'the property definition, not a record',
         'odden_lists.description' => 'what the list is for, written by the workspace (reviewed: names a segment, not a person)',
         'odden_pipelines.name' => 'configuration',
         'odden_sales_playbooks.description' => "the seller's own playbook wording",
         'odden_sales_sequences.description' => "the seller's own sequence wording",
-        'odden_stage_automations.action_payload' => 'what the automation does (a task title, a template id), written once for every deal in the stage',
     ];
 }
 
