@@ -15,6 +15,7 @@ use Odden\Core\Encryption\Index\TooManyToFilter;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\Quote;
 
 /**
  * Searching and sorting the tables and pickers of contacts and companies, whose names, addresses and phone numbers are encrypted.
@@ -59,6 +60,30 @@ final class EncryptedSearch
         return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
             ? $query->whereRaw('1 = 0')
             : $query->whereNameStartsWith($search);
+    }
+
+    /**
+     * For `->searchable(query: ...)` on a quote's title column: the start of a word of the title. Quotes are in the Sales area.
+     *
+     * @return Closure(Builder<Quote>, string): Builder<Quote>
+     */
+    public static function quotes(): Closure
+    {
+        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
+            ? $query->whereRaw('1 = 0')
+            : $query->whereTitleStartsWith($search);
+    }
+
+    /**
+     * For `->searchable(query: ...)` on a column of a table of quotes that shows the deal's name.
+     *
+     * @return Closure(Builder<Quote>, string): Builder<Quote>
+     */
+    public static function quotesOfDeals(): Closure
+    {
+        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
+            ? $query->whereRaw('1 = 0')
+            : $query->whereIn('deal_id', Deal::query()->whereNameStartsWith($search)->select((new Deal)->getQualifiedKeyName()));
     }
 
     /**

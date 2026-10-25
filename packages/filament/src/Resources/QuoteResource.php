@@ -204,12 +204,11 @@ class QuoteResource extends Resource
                     ->badge(),
                 TextColumn::make('title')
                     ->label('Title')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(query: EncryptedSearch::quotes())
+                    ->sortable(query: EncryptedSearch::sortBy(['title'])),
                 TextColumn::make('deal.name')
                     ->label('Deal')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(query: EncryptedSearch::quotesOfDeals()),
                 TextColumn::make('total_amount')
                     ->label('Total')
                     ->money(fn (Quote $record): string => $record->currency)

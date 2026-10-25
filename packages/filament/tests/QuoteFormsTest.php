@@ -76,7 +76,7 @@ class QuoteFormsTest extends TestCase
             ->callAction(TestAction::make('create')->table(), ['title' => 'Euro proposal', 'status' => QuoteStatus::Draft->value])
             ->assertHasNoFormErrors();
 
-        $quote = Quote::query()->where('title', 'Euro proposal')->firstOrFail();
+        $quote = Quote::query()->whereTitleStartsWith('Euro proposal')->firstOrFail();
         $this->assertSame('EUR', $quote->currency);
         $this->assertSame($owner->id, $quote->user_id);
     }
@@ -92,7 +92,7 @@ class QuoteFormsTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $quote = Quote::query()->where('title', 'Sterling proposal')->firstOrFail();
+        $quote = Quote::query()->whereTitleStartsWith('Sterling proposal')->firstOrFail();
         $this->assertSame('GBP', $quote->currency);
         $this->assertSame($owner->id, $quote->user_id);
     }

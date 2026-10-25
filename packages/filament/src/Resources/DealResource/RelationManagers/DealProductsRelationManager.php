@@ -13,6 +13,8 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Sales\Support\Money;
 
 class DealProductsRelationManager extends RelationManager
@@ -72,7 +74,10 @@ class DealProductsRelationManager extends RelationManager
                 TextColumn::make('name')
                     ->label('Product')
                     ->weight('bold')
-                    ->searchable(),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereKey(
+                        // The names are encrypted: the deal has a few lines, so they are decrypted here and matched in PHP.
+                        app(DecryptedFilter::class)->ids(clone $query, ['name'], fn (array $values): bool => mb_stripos((string) $values['name'], $search) !== false),
+                    )),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->badge()

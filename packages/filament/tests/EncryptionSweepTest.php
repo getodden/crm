@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Odden\Core\Encryption\ColumnConverter;
 use Odden\Core\Encryption\EncryptedColumns;
 use Odden\Core\Encryption\FieldEncrypter;
+use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Core\Encryption\Index\SearchIndex;
 use Odden\Core\Models\ActionLogEntry;
 use Odden\Core\Models\CrmList;
@@ -21,8 +22,12 @@ use Odden\Core\Registry\Actions\BaseAction;
 use Odden\Core\Registry\Actor;
 use Odden\Core\Registry\Risk;
 use Odden\Filament\Tests\Fixtures\User;
+use Odden\Sales\Enums\LeadRoutingStrategy;
 use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\DealProduct;
+use Odden\Sales\Models\LeadRoutingRule;
 use Odden\Sales\Models\Quote;
+use Odden\Sales\Models\QuoteItem;
 use Odden\Sales\Models\SalesMeetingBooking;
 use Odden\Sales\Models\SalesMeetingLink;
 
@@ -170,4 +175,76 @@ it('stores who signed a quote and who booked a meeting encrypted', function (): 
         ->and(sweepRow('odden_sales_meeting_bookings'))->not->toContain('Marplethorpe')->not->toContain('marplethorpe')
         ->and($quote->fresh()->signed_by_email)->toBe('quentin@marplethorpe.example')
         ->and($booking->fresh()->invitee_name)->toBe('Quentin Marplethorpe');
+});
+
+/*
+ * The follow-up round: quote and product text, the lost reason, rule JSON.
+ */
+
+it('stores quote titles, quote lines and deal products encrypted, finds quotes by title and still totals them', function (): void {
+    $deal = Deal::factory()->create(['name' => 'Marplethorpe Holdings renewal']);
+    $quote = Quote::factory()->create(['deal_id' => $deal->id, 'title' => 'Quote for Marplethorpe Holdings']);
+    Quote::factory()->create(['deal_id' => $deal->id, 'title' => 'Something else']);
+    $item = QuoteItem::query()->create(['quote_id' => $quote->id, 'name' => 'Marplethorpe rollout', 'description' => 'For Quentin', 'unit_price' => 10, 'quantity' => 3]);
+    $product = DealProduct::query()->create(['deal_id' => $deal->id, 'name' => 'Marplethorpe seats', 'description' => 'For Quentin', 'unit_price' => 5, 'quantity' => 2]);
+
+    foreach (['odden_quotes', 'odden_quote_items', 'odden_deal_products'] as $table) {
+        expect(sweepRow($table))->not->toContain('Marplethorpe')->not->toContain('Quentin');
+    }
+
+    expect(sweepEncrypted((string) DB::table('odden_quotes')->where('id', $quote->id)->value('title')))->toBeTrue()
+        ->and($item->fresh()->name)->toBe('Marplethorpe rollout')
+        ->and($product->fresh()->description)->toBe('For Quentin')
+        ->and((float) $quote->fresh()->subtotal)->toBe(30.0)
+        ->and(Quote::query()->whereTitleStartsWith('marple')->pluck('id')->all())->toBe([$quote->id])
+        ->and(Quote::query()->whereTitleStartsWith('zebra')->count())->toBe(0);
+
+    $quote->update(['title' => 'Renewal for Quillfeather']);
+    expect(Quote::query()->whereTitleStartsWith('marple')->count())->toBe(0)
+        ->and(Quote::query()->whereTitleStartsWith('quillf')->pluck('id')->all())->toBe([$quote->id]);
+
+    $quote->forceDelete();
+    expect(DB::table(app(SearchIndex::class)->table())->where('field', 'like', 'quotes.%')->where('record_id', $quote->id)->count())->toBe(0);
+});
+
+it('stores the lost reason encrypted and still reports the reasons and filters by them', function (): void {
+    $lost = Deal::factory()->count(2)->lost('Chose Marplethorpe Holdings')->create();
+    Deal::factory()->lost('price')->create();
+
+    foreach (DB::table('odden_deals')->pluck('lost_reason')->filter() as $stored) {
+        expect(sweepEncrypted($stored))->toBeTrue()->and($stored)->not->toContain('Marplethorpe');
+    }
+
+    $reasons = app(DecryptedFilter::class)->tally(Deal::query()->where('status', 'lost'), 'lost_reason');
+    expect($reasons)->toBe(['Chose Marplethorpe Holdings' => 2, 'price' => 1])
+        ->and($lost->first()->fresh()->lost_reason)->toBe('Chose Marplethorpe Holdings');
+});
+
+it('stores routing rules and stage automations encrypted and still applies them', function (): void {
+    $rule = LeadRoutingRule::query()->create([
+        'name' => 'Berlin', 'strategy' => LeadRoutingStrategy::Territory, 'criteria' => ['city' => 'Marplethorpe-on-Sea'], 'assigned_user_ids' => [1],
+    ]);
+
+    $raw = (string) DB::table('odden_sales_lead_routing_rules')->where('id', $rule->id)->value('criteria');
+    expect(sweepEncrypted($raw))->toBeTrue()->and($raw)->not->toContain('Marplethorpe')
+        ->and($rule->fresh()->criteria)->toBe(['city' => 'Marplethorpe-on-Sea']);
+});
+
+it('converts plain rows of the follow-up columns when existing data is converted, and a second run changes nothing', function (): void {
+    $deal = Deal::factory()->lost('Chose Marplethorpe Holdings')->create();
+    $quote = Quote::factory()->create(['deal_id' => $deal->id, 'title' => 'Quote for Marplethorpe']);
+
+    // The way they were stored before.
+    DB::table('odden_deals')->where('id', $deal->id)->update(['lost_reason' => 'Chose Marplethorpe Holdings']);
+    DB::table('odden_quotes')->where('id', $quote->id)->update(['title' => 'Quote for Marplethorpe']);
+    DB::table(app(SearchIndex::class)->table())->where('field', 'like', 'quotes.%')->delete();
+
+    $first = app(EncryptedColumns::class)->convert(app(ColumnConverter::class));
+    $second = app(EncryptedColumns::class)->convert(app(ColumnConverter::class));
+
+    expect($first['deals.lost_reason'])->toBe(1)->and($first['quotes.title'])->toBe(1)
+        ->and($second['deals.lost_reason'])->toBe(0)->and($second['quotes.title'])->toBe(0)
+        ->and(sweepRow('odden_quotes'))->not->toContain('Marplethorpe')
+        ->and($deal->fresh()->lost_reason)->toBe('Chose Marplethorpe Holdings')
+        ->and(Quote::query()->whereTitleStartsWith('marple')->pluck('id')->all())->toBe([$quote->id]);
 });

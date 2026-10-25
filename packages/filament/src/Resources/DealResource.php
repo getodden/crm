@@ -32,6 +32,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
+use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\DealResource\Pages\CreateDeal;
 use Odden\Filament\Resources\DealResource\Pages\EditDeal;
@@ -250,7 +251,15 @@ class DealResource extends Resource
                     ->label('Loss Reason')
                     ->options(collect(LostReason::cases())->mapWithKeys(
                         fn (LostReason $r) => [$r->value => $r->label()]
-                    )),
+                    ))
+                    // The reason is stored encrypted: among the lost deals the table shows, the ones with this reason are found in PHP.
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? $query->whereKey(app(DecryptedFilter::class)->ids(
+                            (clone $query)->where($query->getModel()->qualifyColumn('status'), DealStatus::Lost->value),
+                            ['lost_reason'],
+                            fn (array $values): bool => $values['lost_reason'] === $data['value'],
+                        ))
+                        : $query),
                 TrashedFilter::make(),
             ])
             ->recordActions([

@@ -20,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\QuoteResource;
+use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
@@ -96,7 +97,7 @@ class QuotesRelationManager extends RelationManager
                     ->badge(),
                 TextColumn::make('title')
                     ->label('Title')
-                    ->searchable(),
+                    ->searchable(query: EncryptedSearch::quotes()),
                 TextColumn::make('total_amount')
                     ->label('Total')
                     ->weight('bold')
