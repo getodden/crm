@@ -131,7 +131,8 @@ it('masks a sensitive property on the form, never saves it, and keeps the others
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect($contact->fresh()->properties)->toBe(['tax_id' => 'A-1', 'nick' => 'Ann']);
+    // toEqual: MySQL's JSON type does not keep the order of an object's keys.
+    expect($contact->fresh()->properties)->toEqual(['tax_id' => 'A-1', 'nick' => 'Ann']);
 });
 
 it('opens a sensitive property for one record with a reason', function (): void {
