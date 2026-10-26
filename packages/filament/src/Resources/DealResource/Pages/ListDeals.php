@@ -19,7 +19,7 @@ class ListDeals extends ListRecords
     {
         return [
             Action::make('board')
-                ->label('Pipeline Board')
+                ->label('Pipeline board')
                 ->icon(Heroicon::ViewColumns)
                 ->color('gray')
                 ->url(DealResource::getUrl('board')),

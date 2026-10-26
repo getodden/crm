@@ -38,9 +38,9 @@ class DataQuality extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Sparkles;
 
-    protected static ?string $navigationLabel = 'Data Quality';
+    protected static ?string $navigationLabel = 'Data quality';
 
-    protected static ?string $title = 'CRM Data Quality & Deduplication Command Center';
+    protected static ?string $title = 'Data quality';
 
     protected string $view = 'odden-filament::pages.data-quality';
 

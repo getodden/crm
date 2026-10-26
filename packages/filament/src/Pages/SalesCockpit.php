@@ -49,9 +49,9 @@ class SalesCockpit extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::RocketLaunch;
 
-    protected static ?string $navigationLabel = 'Sales Cockpit';
+    protected static ?string $navigationLabel = 'Sales overview';
 
-    protected static ?string $title = 'Sales Prospecting Workspace';
+    protected static ?string $title = 'Sales overview';
 
     protected string $view = 'odden-filament::pages.sales-cockpit';
 

@@ -30,9 +30,11 @@ class SalesEmailTemplateResource extends Resource
 {
     protected static ?string $model = SalesEmailTemplate::class;
 
-    protected static ?string $modelLabel = 'Email Template';
+    protected static ?string $modelLabel = 'sales email template';
 
-    protected static ?string $pluralModelLabel = 'Email Templates';
+    protected static ?string $pluralModelLabel = 'Sales email templates';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Envelope;
 

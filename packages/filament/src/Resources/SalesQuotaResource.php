@@ -33,9 +33,11 @@ class SalesQuotaResource extends Resource
 {
     protected static ?string $model = SalesQuota::class;
 
-    protected static ?string $modelLabel = 'Sales Quota';
+    protected static ?string $modelLabel = 'quota';
 
-    protected static ?string $pluralModelLabel = 'Sales Quotas';
+    protected static ?string $pluralModelLabel = 'Quotas';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Trophy;
 

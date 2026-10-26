@@ -13,9 +13,9 @@ Each page is only available to users who pass `viewAny` on the resources whose d
 
 Always registered.
 
-### Executive Overview
+### Executive overview
 
-`ExecutiveOverview`, at `/admin/executive-overview` in the **Executive** group. Its title is "Executive RevOps Command Center".
+`ExecutiveOverview`, at `/admin/executive-overview` in the **Executive** group. Its title is "Executive overview".
 
 This page is a read-only dashboard across all modules. It shows:
 
@@ -27,7 +27,7 @@ This page is a read-only dashboard across all modules. It shows:
 
 The timeframe switcher accepts `month`, `quarter` (the default), `year` and `all`. Metrics for modules that are not installed show as zero or empty.
 
-### Data Quality
+### Data quality
 
 `DataQuality`, at `/admin/data-quality` in the **CRM** group.
 
@@ -37,9 +37,9 @@ This page finds duplicate contacts and companies with `Odden\Core\Actions\FindDu
 
 Registered when `getodden/crm-sales` is installed.
 
-### Sales Cockpit
+### Sales overview
 
-`SalesCockpit`, at `/admin/sales-cockpit`. It is the first item in the **Sales** group, and its title is "Sales Prospecting Workspace".
+`SalesCockpit`, at `/admin/sales-cockpit`. It is the first item in the **Sales** group, and its title is "Sales overview".
 
 This is a rep workspace. It shows the selected rep's tasks (filterable by timeframe), sequence activity, a day-by-day schedule, guided next actions, and a deal list with `all`, `closing` and `prospecting` tabs. A user selector switches the rep being viewed.
 

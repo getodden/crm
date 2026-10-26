@@ -26,9 +26,9 @@ class KanbanDeals extends Page
 {
     protected static string $resource = DealResource::class;
 
-    protected static ?string $title = 'Deals Pipeline Board';
+    protected static ?string $title = 'Pipeline board';
 
-    protected static ?string $navigationLabel = 'Pipeline Board';
+    protected static ?string $navigationLabel = 'Pipeline board';
 
     protected string $view = 'odden-filament::pages.deal-kanban';
 

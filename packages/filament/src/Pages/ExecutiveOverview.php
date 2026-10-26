@@ -38,9 +38,9 @@ class ExecutiveOverview extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::PresentationChartLine;
 
-    protected static ?string $navigationLabel = 'Executive Overview';
+    protected static ?string $navigationLabel = 'Executive overview';
 
-    protected static ?string $title = 'Executive RevOps Command Center';
+    protected static ?string $title = 'Executive overview';
 
     protected string $view = 'odden-filament::pages.executive-overview';
 

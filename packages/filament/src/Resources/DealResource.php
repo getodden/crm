@@ -69,9 +69,11 @@ class DealResource extends Resource
 {
     protected static ?string $model = Deal::class;
 
-    protected static ?string $modelLabel = 'Deal';
+    protected static ?string $modelLabel = 'deal';
 
     protected static ?string $pluralModelLabel = 'Deals';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::CurrencyDollar;
 

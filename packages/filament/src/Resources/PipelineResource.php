@@ -29,9 +29,11 @@ class PipelineResource extends Resource
 {
     protected static ?string $model = Pipeline::class;
 
-    protected static ?string $modelLabel = 'Pipeline';
+    protected static ?string $modelLabel = 'pipeline';
 
     protected static ?string $pluralModelLabel = 'Pipelines';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Funnel;
 

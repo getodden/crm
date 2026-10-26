@@ -69,8 +69,8 @@ class PageAuthorizationTest extends TestCase
 
         $this->get('/admin/contacts')->assertForbidden();
         $this->get('/admin')->assertSuccessful()
-            ->assertDontSee('Sales Cockpit')
-            ->assertDontSee('Data Quality');
+            ->assertDontSee('Sales overview')
+            ->assertDontSee('Data quality');
     }
 
     public function test_livewire_requests_to_page_are_rejected_when_policy_denies_view_any(): void

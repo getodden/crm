@@ -31,9 +31,11 @@ class SalesPlaybookResource extends Resource
 {
     protected static ?string $model = SalesPlaybook::class;
 
-    protected static ?string $modelLabel = 'Playbook';
+    protected static ?string $modelLabel = 'playbook';
 
-    protected static ?string $pluralModelLabel = 'Sales Playbooks';
+    protected static ?string $pluralModelLabel = 'Playbooks';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::BookOpen;
 

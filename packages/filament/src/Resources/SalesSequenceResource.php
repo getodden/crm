@@ -38,9 +38,11 @@ class SalesSequenceResource extends Resource
 {
     protected static ?string $model = SalesSequence::class;
 
-    protected static ?string $modelLabel = 'Cadence';
+    protected static ?string $modelLabel = 'cadence';
 
-    protected static ?string $pluralModelLabel = 'Sales Cadences';
+    protected static ?string $pluralModelLabel = 'Cadences';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ArrowPath;
 

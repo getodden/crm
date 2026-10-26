@@ -48,7 +48,7 @@ class DealResourceTest extends TestCase
         $response = $this->actingAs($user)->get('/admin/deals/board');
 
         $response->assertSuccessful();
-        $response->assertSee('Deals Pipeline Board');
+        $response->assertSee('Pipeline board');
         $response->assertSee('SpaceX Heavy Booster Expansion');
         $response->assertSee('$500,000.00');
     }

@@ -34,9 +34,11 @@ class SalesMeetingLinkResource extends Resource
 {
     protected static ?string $model = SalesMeetingLink::class;
 
-    protected static ?string $modelLabel = 'Meeting Link';
+    protected static ?string $modelLabel = 'meeting link';
 
-    protected static ?string $pluralModelLabel = 'Meeting Links';
+    protected static ?string $pluralModelLabel = 'Meeting links';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::CalendarDays;
 

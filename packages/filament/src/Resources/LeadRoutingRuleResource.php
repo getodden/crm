@@ -33,9 +33,11 @@ class LeadRoutingRuleResource extends Resource
 {
     protected static ?string $model = LeadRoutingRule::class;
 
-    protected static ?string $modelLabel = 'Lead Routing Rule';
+    protected static ?string $modelLabel = 'lead routing rule';
 
-    protected static ?string $pluralModelLabel = 'Lead Routing Rules';
+    protected static ?string $pluralModelLabel = 'Lead routing rules';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ArrowsRightLeft;
 

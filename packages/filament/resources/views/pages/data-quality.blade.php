@@ -280,7 +280,7 @@
             <div>
                 <h2 class="dq-title">
                     <x-filament::icon icon="heroicon-m-sparkles" style="width: 1.5rem; height: 1.5rem; color: #f97316;" />
-                    Data Quality & Deduplication Command Center
+                    Duplicates and missing details
                 </h2>
                 <p class="dq-subtitle">
                     Detect duplicate records, reconcile conflicting fields, and merge CRM records without losing timeline history.

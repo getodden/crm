@@ -51,9 +51,11 @@ class QuoteResource extends Resource
 {
     protected static ?string $model = Quote::class;
 
-    protected static ?string $modelLabel = 'Quote';
+    protected static ?string $modelLabel = 'quote';
 
     protected static ?string $pluralModelLabel = 'Quotes';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::DocumentText;
 

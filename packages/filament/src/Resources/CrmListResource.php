@@ -45,9 +45,11 @@ class CrmListResource extends Resource
 {
     protected static ?string $model = CrmList::class;
 
-    protected static ?string $modelLabel = 'List';
+    protected static ?string $modelLabel = 'list';
 
     protected static ?string $pluralModelLabel = 'Lists';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::QueueList;
 

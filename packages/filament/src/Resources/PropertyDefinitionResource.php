@@ -45,7 +45,13 @@ class PropertyDefinitionResource extends Resource
 
     protected static UnitEnum|string|null $navigationGroup = 'Settings';
 
-    protected static ?string $navigationLabel = 'Custom Properties';
+    protected static ?string $navigationLabel = 'Custom properties';
+
+    protected static ?string $modelLabel = 'custom property';
+
+    protected static ?string $pluralModelLabel = 'Custom properties';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     /**
      * Entity types that render custom properties: deals only when the Sales package is installed.
