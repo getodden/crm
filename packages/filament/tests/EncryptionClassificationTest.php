@@ -169,8 +169,11 @@ it('classifies every column of every Odden table, and nothing that does not exis
     $classified = oddenColumnClassification();
     $found = [];
 
+    // MySQL lists the tables of every database on the server, so keep to this connection's own.
+    $database = in_array(DB::getDriverName(), ['mysql', 'mariadb'], true) ? DB::getDatabaseName() : null;
+
     foreach (Schema::getTables() as $table) {
-        if (! str_starts_with($table['name'], 'odden_')) {
+        if (! str_starts_with($table['name'], 'odden_') || ($database !== null && $table['schema'] !== $database)) {
             continue;
         }
 
