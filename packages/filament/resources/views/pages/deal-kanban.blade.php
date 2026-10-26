@@ -422,7 +422,7 @@
         {{-- Kanban Columns Container with Drag & Drop --}}
         <div class="odden-kanban-board">
             @forelse ($this->stages as $stage)
-                <div class="odden-stage-column">
+                <div class="odden-stage-column" wire:key="stage-{{ $stage->id }}">
                     {{-- Stage Header --}}
                     <div class="odden-stage-header">
                         <div class="odden-stage-header-row">
@@ -459,6 +459,7 @@
                         @forelse ($stage->deals as $deal)
                             {{-- Draggable Deal Card --}}
                             <div
+                                wire:key="deal-{{ $deal->id }}-stage-{{ $deal->stage_id }}"
                                 draggable="true"
                                 x-data="{ isDragging: false }"
                                 x-on:dragstart="
@@ -527,11 +528,13 @@
                                     </div>
                                 @endif
 
-                                {{-- Quick Stage Move Selector (Fallback for keyboard/mobile) --}}
+                                {{-- Quick Stage Move Selector (Fallback for keyboard/mobile). It shows only the stage the server confirmed: the
+                                     choice is put back before the move is asked for, so a refused move leaves it as it was. --}}
                                 <div class="odden-card-footer">
                                     <span class="odden-card-footer-label">Move:</span>
                                     <select
-                                        wire:change="moveDeal({{ $deal->id }}, $event.target.value)"
+                                        x-data="{ stageId: '{{ $deal->stage_id }}' }"
+                                        x-on:change="const target = $event.target.value; $event.target.value = stageId; $wire.moveDeal({{ $deal->id }}, target)"
                                         class="odden-card-select"
                                     >
                                         @foreach ($this->stages as $targetStage)

@@ -212,4 +212,29 @@ class DealStageChangesTest extends TestCase
         $this->assertSame($discovery->id, $deal->stage_id);
         $this->assertSame(DealStatus::Open, $deal->status);
     }
+
+    /**
+     * Livewire morphs the board by position unless each card has a key, so after a move a card could inherit the next card's "Move"
+     * box, still showing the stage that was picked there. Each card is keyed by its deal and stage, and the box only ever shows the
+     * stage the server has confirmed: it puts its value back before asking to move, so a refused move leaves it where it was.
+     */
+    public function test_each_board_card_is_keyed_by_its_deal_and_shows_its_confirmed_stage(): void
+    {
+        $pipeline = $this->pipeline();
+        $discovery = $this->stage($pipeline, 'discovery');
+        $first = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $discovery->id]);
+        $second = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $discovery->id]);
+
+        $board = Livewire::actingAs(User::factory()->create())->test(KanbanDeals::class);
+
+        foreach ([$first, $second] as $deal) {
+            $board
+                ->assertSeeHtml("wire:key=\"deal-{$deal->id}-stage-{$discovery->id}\"")
+                ->assertSeeHtml("x-data=\"{ stageId: '{$discovery->id}' }\"")
+                ->assertSeeHtml("\$wire.moveDeal({$deal->id}, target)");
+        }
+
+        $board->assertSeeHtml("wire:key=\"stage-{$discovery->id}\"")
+            ->assertDontSeeHtml('wire:change="moveDeal(');
+    }
 }
