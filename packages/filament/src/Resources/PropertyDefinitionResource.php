@@ -111,7 +111,7 @@ class PropertyDefinitionResource extends Resource
                             ->rows(2)
                             ->columnSpanFull(),
                         KeyValue::make('options')
-                            ->label('Dropdown options (for select / multi-select)')
+                            ->label('Choices (for a choice or several choices)')
                             ->keyLabel('Value')
                             ->valueLabel('Display Label')
                             ->visible(fn (callable $get) => in_array($get('type'), [PropertyType::Select->value, PropertyType::MultiSelect->value], true))
@@ -163,8 +163,9 @@ class PropertyDefinitionResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('entity_type')
-                    ->label('Entity')
+                    ->label('On')
                     ->badge()
+                    ->formatStateUsing(fn (?string $state): string => static::entityTypeOptions()[$state] ?? (string) $state)
                     ->sortable(),
                 TextColumn::make('label')
                     ->label('Property label')

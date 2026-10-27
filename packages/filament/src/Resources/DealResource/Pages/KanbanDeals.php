@@ -130,7 +130,7 @@ class KanbanDeals extends Page
         if ((int) $stage->pipeline_id !== (int) $deal->pipeline_id) {
             Notification::make()
                 ->title('Deal not moved')
-                ->body("[{$stage->name}] belongs to a different pipeline.")
+                ->body("{$stage->name} belongs to a different pipeline.")
                 ->danger()
                 ->send();
 
@@ -141,7 +141,7 @@ class KanbanDeals extends Page
         if ($stage->is_closed_lost && ! $deal->status->isLost()) {
             Notification::make()
                 ->title('Deal not moved')
-                ->body("Use Mark Lost on [{$deal->name}] to close it as lost and record the reason.")
+                ->body("Use Mark lost on {$deal->name} to close it as lost and record the reason.")
                 ->warning()
                 ->send();
 
@@ -162,7 +162,7 @@ class KanbanDeals extends Page
 
         Notification::make()
             ->title('Deal updated')
-            ->body("Moved to [{$stage->name}]")
+            ->body("Moved to {$stage->name}.")
             ->success()
             ->send();
     }

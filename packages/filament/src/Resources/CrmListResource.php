@@ -197,6 +197,8 @@ class CrmListResource extends Resource
                     ->label('Sync')
                     ->icon(Heroicon::ArrowPath)
                     ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalDescription('The list is rebuilt from its rules now: contacts who no longer match are taken off it, and new matches are added.')
                     ->visible(fn (CrmList $record): bool => $record->type === ListType::Active)
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->action(function (CrmList $record): void {

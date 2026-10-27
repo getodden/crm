@@ -130,13 +130,17 @@ class ContactResource extends Resource
                             ->label('Lead score')
                             ->numeric()
                             ->integer()
-                            ->required()
                             ->suffix('pts')
-                            ->default(0),
+                            ->default(0)
+                            // Left empty, it is 0: a quick new contact doesn't need a score.
+                            ->dehydrateStateUsing(fn (mixed $state): int => (int) ($state ?? 0)),
                         // These columns come with Odden Marketing; without it (or with it turned off here) they are not shown or saved.
+                        // Proof of consent: set only when the contact confirms by email, so nobody can type one in or change it here.
                         DateTimePicker::make('marketing_email_verified_at')
                             ->label('Email verified date')
-                            ->helperText('Confirmed via double opt-in email verification')
+                            ->helperText('Set when the contact confirms their address from the email we send. It can\'t be changed here.')
+                            ->disabled()
+                            ->dehydrated(false)
                             ->visible(fn (): bool => self::marketingEnabled()),
                         DateTimePicker::make('last_marketing_email_sent_at')
                             ->label('Last marketing email')

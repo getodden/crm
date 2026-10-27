@@ -25,6 +25,8 @@ class ViewCrmList extends ViewRecord
                 ->label('Sync members')
                 ->icon(Heroicon::ArrowPath)
                 ->color('primary')
+                ->requiresConfirmation()
+                ->modalDescription('The list is rebuilt from its rules now: contacts who no longer match are taken off it, and new matches are added.')
                 ->visible(fn (): bool => $this->getRecord() instanceof CrmList && $this->getRecord()->type === ListType::Active)
                 ->authorize(OddenAuthorization::forRecord('update', CrmListResource::class))
                 ->action(function (): void {
