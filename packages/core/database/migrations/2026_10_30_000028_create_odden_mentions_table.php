@@ -11,8 +11,8 @@ return new class extends Migration
     /**
      * Run the migrations.
      *
-     * Who is mentioned where: one row per person picked with "@" in a note or a comment, by id (never by name), so a mention survives
-     * a change of name and a host can tell the person.
+     * Who is mentioned where: one row per person picked with "@" in a note or a comment, by id, so a host can tell the person. The
+     * label is the name as it was written in the text, so an "@Name" written before a change of name still finds the same person.
      */
     public function up(): void
     {
@@ -24,11 +24,14 @@ return new class extends Migration
 
         Schema::create($name, function (Blueprint $table): void {
             $table->id();
-            $table->morphs('mentionable');
+            $table->string('mentionable_type');
+            $table->unsignedBigInteger('mentionable_id');
             $table->unsignedBigInteger('user_id')->index();
+            $table->string('label');
             $table->unsignedBigInteger('mentioned_by')->nullable();
             $table->timestamp('created_at')->nullable();
 
+            // Also the index for finding the mentions of a note or comment.
             $table->unique(['mentionable_type', 'mentionable_id', 'user_id'], 'odden_mentions_unique');
         });
     }

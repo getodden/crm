@@ -6,7 +6,6 @@ namespace Odden\Core\Support;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
-use Illuminate\Support\Str;
 use Odden\Core\Models\Mention;
 
 /**
@@ -20,9 +19,6 @@ final class Mentions
     /** How many people the "@" picker offers at once. */
     public const int PICKER_LIMIT = 20;
 
-    /** How long the excerpt handed to UserMentioned is. */
-    public const int EXCERPT_LENGTH = 140;
-
     /**
      * The people who can be mentioned whose name contains the search, by name.
      *
@@ -32,9 +28,11 @@ final class Mentions
     {
         $search = mb_strtolower(trim($search));
         $key = UserModel::make()->getKeyName();
+        // "%" and "_" typed in the search are matched as themselves.
+        $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search).'%';
 
         return UserModel::query()
-            ->when($search !== '', fn ($query) => $query->whereRaw('lower(name) like ?', ['%'.$search.'%']))
+            ->when($search !== '', fn ($query) => $query->whereRaw("lower(name) like ? escape '!'", [$pattern]))
             ->orderBy('name')
             ->orderBy($key)
             ->limit(self::PICKER_LIMIT)
@@ -65,7 +63,8 @@ final class Mentions
     }
 
     /**
-     * The names of the people mentioned in a note or comment, from its mentions relation when it has one loaded.
+     * The names the people mentioned in a note or comment were written with (their labels), from its mentions relation when it
+     * has one loaded. A person renamed since is still shown by the name in the text.
      *
      * @return list<string>
      */
@@ -73,13 +72,13 @@ final class Mentions
     {
         $mentions = $mentionable->relationLoaded('mentions')
             ? $mentionable->getRelation('mentions')
-            : Mention::query()->with('user')->where('mentionable_type', $mentionable->getMorphClass())->where('mentionable_id', $mentionable->getKey())->get();
+            : Mention::query()->where('mentionable_type', $mentionable->getMorphClass())->where('mentionable_id', $mentionable->getKey())->get();
 
         $names = [];
 
         foreach ($mentions as $mention) {
-            if ($mention instanceof Mention && $mention->user !== null) {
-                $names[] = UserModel::displayName($mention->user);
+            if ($mention instanceof Mention) {
+                $names[] = $mention->label;
             }
         }
 
@@ -105,13 +104,5 @@ final class Mentions
         $pattern = '/'.implode('|', array_map(fn (string $name): string => preg_quote(e('@'.$name), '/'), $names)).'/u';
 
         return new HtmlString((string) preg_replace_callback($pattern, fn (array $match): string => '<strong>'.$match[0].'</strong>', $escaped));
-    }
-
-    /**
-     * The start of the text, on one line, for a notification.
-     */
-    public static function excerpt(?string $text): string
-    {
-        return Str::limit(Str::squish((string) $text), self::EXCERPT_LENGTH);
     }
 }

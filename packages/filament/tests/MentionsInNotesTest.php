@@ -77,6 +77,57 @@ it('keeps a note as plain text and the people picked in it by id, and tells each
     Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $john->id);
 });
 
+it('keeps the mention of a person renamed since the note was written', function (): void {
+    Event::fake([UserMentioned::class]);
+    $jane = User::factory()->create(['name' => 'Jane Doe']);
+    $contact = Contact::factory()->create();
+
+    $component = Livewire::actingAs($jane)
+        ->test(ActivitiesRelationManager::class, ['ownerRecord' => $contact, 'pageClass' => EditContact::class])
+        ->callAction(TestAction::make('create')->table(), [
+            'type' => ActivityType::Note->value,
+            'title' => 'Renewal',
+            'status' => ActivityStatus::Completed->value,
+            'body' => noteDocument(['Ask ', [$jane->id, 'Jane Doe']]),
+        ]);
+    $note = Activity::query()->sole();
+
+    $jane->update(['name' => 'Jane Smith']);
+
+    // The old "@Jane Doe" still opens as her mention, and saving it writes her new name and keeps her mentioned.
+    expect(MentionEditor::document((string) $note->body, $note)['content'][0]['content'][1])
+        ->toBe(['type' => 'mention', 'attrs' => ['id' => (string) $jane->id, 'label' => 'Jane Doe', 'char' => '@']]);
+
+    $component->mountAction(TestAction::make('edit')->table($note))->callMountedAction()->assertHasNoFormErrors();
+
+    expect($note->refresh()->body)->toBe('Ask @Jane Smith')
+        ->and(Mention::query()->where('mentionable_id', $note->id)->pluck('label', 'user_id')->all())->toBe([$jane->id => 'Jane Smith']);
+    Event::assertDispatchedTimes(UserMentioned::class, 1);
+});
+
+it('keeps two people with the same name mentioned', function (): void {
+    $first = User::factory()->create(['name' => 'Sam Lee']);
+    $second = User::factory()->create(['name' => 'Sam Lee']);
+    $contact = Contact::factory()->create();
+
+    $component = Livewire::actingAs($first)
+        ->test(ActivitiesRelationManager::class, ['ownerRecord' => $contact, 'pageClass' => EditContact::class])
+        ->callAction(TestAction::make('create')->table(), [
+            'type' => ActivityType::Note->value,
+            'title' => 'Two Sams',
+            'status' => ActivityStatus::Completed->value,
+            'body' => noteDocument(['Ask ', [$first->id, 'Sam Lee'], ' and ', [$second->id, 'Sam Lee']]),
+        ]);
+    $note = Activity::query()->sole();
+
+    expect(array_column(array_column(array_filter(MentionEditor::document((string) $note->body, $note)['content'][0]['content'], fn (array $node): bool => $node['type'] === 'mention'), 'attrs'), 'id'))
+        ->toBe([(string) $first->id, (string) $second->id]);
+
+    $component->mountAction(TestAction::make('edit')->table($note))->callMountedAction()->assertHasNoFormErrors();
+
+    expect(Mention::query()->where('mentionable_id', $note->id)->orderBy('user_id')->pluck('user_id')->all())->toBe([$first->id, $second->id]);
+});
+
 it('shows a mention in bold and everything else in the note as text', function (): void {
     $jane = User::factory()->create(['name' => 'Jane Doe']);
     $contact = Contact::factory()->create();
@@ -104,8 +155,8 @@ it('turns the editor document into text, one line per paragraph, and back', func
         ['type' => 'paragraph', 'content' => [['type' => 'mention', 'attrs' => ['id' => '999999', 'label' => 'Ghost', 'char' => '@']]]],
     ]];
 
-    expect(MentionEditor::parse($document))->toBe(['text' => "Hi @Jane Doe\n\none\na\nb\n@Ghost", 'user_ids' => [$jane->id]])
-        ->and(MentionEditor::parse('plain'))->toBe(['text' => 'plain', 'user_ids' => []])
+    expect(MentionEditor::parse($document))->toBe(['text' => "Hi @Jane Doe\n\none\na\nb\n@Ghost", 'user_ids' => [$jane->id], 'labels' => [$jane->id => 'Jane Doe']])
+        ->and(MentionEditor::parse('plain'))->toBe(['text' => 'plain', 'user_ids' => [], 'labels' => []])
         ->and(MentionEditor::document("Line one\n\nLine two")['content'])->toBe([
             ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Line one']]],
             ['type' => 'paragraph'],

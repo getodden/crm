@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Odden\Core\Actions\RecordMentionsAction;
 use Odden\Core\Contracts\TenantContext;
@@ -62,21 +64,64 @@ it('stores a mention and fires UserMentioned once for each person newly mentione
     $note = $contact->logNote('Ask Jane about the renewal');
     $record = app(RecordMentionsAction::class);
 
-    expect($record->execute($note, $contact, [$jane->id], $author->id, 'Ask @Jane about the renewal'))->toBe([$jane->id]);
-    expect(Mention::query()->where('user_id', $jane->id)->where('mentioned_by', $author->id)->where('mentionable_id', $note->id)->exists())->toBeTrue();
+    expect($record->execute($note, $contact, [$jane->id], $author->id, [$jane->id => 'Jane']))->toBe([$jane->id]);
+    expect(Mention::query()->where('user_id', $jane->id)->where('mentioned_by', $author->id)->where('mentionable_id', $note->id)->value('label'))->toBe('Jane');
 
     Event::assertDispatchedTimes(UserMentioned::class, 1);
     Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $jane->id
-        && $event->actorId === $author->id && $event->mentionable->is($note) && $event->subject->is($contact) && $event->excerpt === 'Ask @Jane about the renewal');
+        && $event->actorId === $author->id && $event->mentionable->is($note) && $event->subject->is($contact));
 
-    // Saved again with the same person and one more: only the new person is told.
-    expect($record->execute($note, $contact, [$jane->id, $john->id], $author->id, 'Ask @Jane and @John'))->toBe([$john->id]);
+    // Saved again with the same person and one more: only the new person is told. A missing label is the person's name.
+    expect($record->execute($note, $contact, [$jane->id, $john->id], $author->id, [$jane->id => 'Jane']))->toBe([$john->id]);
+    expect(Mention::query()->where('user_id', $john->id)->value('label'))->toBe($john->name);
     Event::assertDispatchedTimes(UserMentioned::class, 2);
 
     // Taking a person out removes their mention, and tells no one.
-    expect($record->execute($note, $contact, [$john->id], $author->id, 'Ask @John'))->toBe([]);
+    expect($record->execute($note, $contact, [$john->id], $author->id))->toBe([]);
     expect(Mention::query()->where('mentionable_id', $note->id)->pluck('user_id')->all())->toBe([$john->id]);
     Event::assertDispatchedTimes(UserMentioned::class, 2);
+});
+
+it('tells a person once when the same mention is saved twice at once', function (): void {
+    Event::fake([UserMentioned::class]);
+    $jane = User::factory()->create(['name' => 'Jane']);
+    $contact = Contact::factory()->create();
+    $note = $contact->logNote('Ask @Jane');
+    $raced = false;
+
+    // The other save records Jane just after this one has read the mentions it already has.
+    DB::listen(function (QueryExecuted $query) use (&$raced, $note, $jane): void {
+        if (! $raced && str_starts_with($query->sql, 'select') && str_contains($query->sql, 'odden_mentions')) {
+            $raced = true;
+            DB::table('odden_mentions')->insert(['mentionable_type' => $note->getMorphClass(), 'mentionable_id' => $note->id, 'user_id' => $jane->id, 'label' => 'Jane']);
+        }
+    });
+
+    expect(app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], null))->toBe([])
+        ->and($raced)->toBeTrue()
+        ->and(Mention::query()->count())->toBe(1);
+    Event::assertNotDispatched(UserMentioned::class);
+});
+
+it('keeps the name a person was written with after they are renamed', function (): void {
+    $jane = User::factory()->create(['name' => 'Jane Doe']);
+    $contact = Contact::factory()->create();
+    $note = $contact->logNote('Ask @Jane Doe');
+    app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], null);
+
+    $jane->update(['name' => 'Jane Smith']);
+
+    expect(Mentions::mentionedNames($note))->toBe(['Jane Doe'])
+        ->and(Mentions::highlight($note->body, Mentions::mentionedNames($note))->toHtml())->toBe('Ask <strong>@Jane Doe</strong>');
+});
+
+it('matches % and _ in a search as themselves', function (): void {
+    $percent = User::factory()->create(['name' => '100% Sam']);
+    $underscore = User::factory()->create(['name' => 'Sam_Lee']);
+    User::factory()->create(['name' => 'Sam Lee']);
+
+    expect(Mentions::teammates('%'))->toBe([$percent->id => '100% Sam'])
+        ->and(Mentions::teammates('m_l'))->toBe([$underscore->id => 'Sam_Lee']);
 });
 
 it('ignores ids that are not teammates', function (): void {
@@ -87,7 +132,7 @@ it('ignores ids that are not teammates', function (): void {
     $contact = Contact::factory()->create();
     $note = $contact->logNote('Hello');
 
-    expect(app(RecordMentionsAction::class)->execute($note, $contact, [$outsider->id, 'nobody', 999999], $member->id, 'Hello'))->toBe([]);
+    expect(app(RecordMentionsAction::class)->execute($note, $contact, [$outsider->id, 'nobody', 999999], $member->id))->toBe([]);
     expect(Mention::query()->count())->toBe(0);
     Event::assertNotDispatched(UserMentioned::class);
 });
@@ -96,7 +141,7 @@ it('removes the mentions of a deleted note', function (): void {
     $jane = User::factory()->create();
     $contact = Contact::factory()->create();
     $note = $contact->logNote('Ask Jane');
-    app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], null, 'Ask @Jane');
+    app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], null);
 
     $note->delete();
 

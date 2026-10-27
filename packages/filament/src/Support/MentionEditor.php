@@ -9,7 +9,6 @@ use Filament\Forms\Components\RichEditor\MentionProvider;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Models\Mention;
 use Odden\Core\Support\Mentions;
-use Odden\Core\Support\UserModel;
 
 /**
  * The text box of a note or comment, where typing "@" offers the teammates who can be mentioned (Mentions::teammates).
@@ -62,7 +61,8 @@ final class MentionEditor
 
     /**
      * The stored text as a document for the editor: a paragraph per line, and each "@Name" of the people mentioned in the
-     * record as a mention of them.
+     * record as a mention of them. The name is matched as it was written (the mention's label), so a person renamed since keeps
+     * their mention; two people written with the same name take its places in the order they were mentioned.
      *
      * @return array{type: string, content: list<array<string, mixed>>}
      */
@@ -70,6 +70,7 @@ final class MentionEditor
     {
         $people = $mentionable?->exists ? self::mentionedPeople($mentionable) : [];
         $pattern = $people === [] ? null : self::namePattern(array_map('strval', array_keys($people)));
+        $seen = [];
         $paragraphs = [];
 
         foreach (preg_split('/\R/u', $text) ?: [] as $line) {
@@ -79,9 +80,16 @@ final class MentionEditor
             foreach ($pieces as $piece) {
                 $name = str_starts_with((string) $piece, '@') ? mb_substr((string) $piece, 1) : null;
 
-                $content[] = $name !== null && isset($people[$name])
-                    ? ['type' => 'mention', 'attrs' => ['id' => (string) $people[$name], 'label' => $name, 'char' => '@']]
-                    : ['type' => 'text', 'text' => $piece];
+                if ($name === null || ! isset($people[$name])) {
+                    $content[] = ['type' => 'text', 'text' => $piece];
+
+                    continue;
+                }
+
+                $ids = $people[$name];
+                $id = $ids[min($seen[$name] ?? 0, count($ids) - 1)];
+                $seen[$name] = ($seen[$name] ?? 0) + 1;
+                $content[] = ['type' => 'mention', 'attrs' => ['id' => (string) $id, 'label' => $name, 'char' => '@']];
             }
 
             $paragraphs[] = $content === [] ? ['type' => 'paragraph'] : ['type' => 'paragraph', 'content' => $content];
@@ -91,22 +99,28 @@ final class MentionEditor
     }
 
     /**
-     * What was typed, as plain text, and the people picked in it. A mention of someone who is not a teammate stays as its text and
-     * mentions no one; a teammate's mention is written with their current name, whatever label came with it.
+     * What was typed, as plain text, the people picked in it in the order they appear, and the name each is written with (for
+     * RecordMentionsAction). A mention of someone who is not a teammate stays as its text and mentions no one; a teammate's mention
+     * is written with their current name, whatever label came with it.
      *
-     * @return array{text: string, user_ids: list<int>}
+     * @return array{text: string, user_ids: list<int>, labels: array<int, string>}
      */
     public static function parse(mixed $state): array
     {
         if (! is_array($state)) {
-            return ['text' => trim((string) (is_scalar($state) ? $state : '')), 'user_ids' => []];
+            return ['text' => trim((string) (is_scalar($state) ? $state : '')), 'user_ids' => [], 'labels' => []];
         }
 
         $ids = [];
         self::collectMentionIds($state, $ids);
         $names = Mentions::names($ids);
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => isset($names[$id]))));
 
-        return ['text' => trim(self::text($state, $names)), 'user_ids' => array_keys($names)];
+        return [
+            'text' => trim(self::text($state, $names)),
+            'user_ids' => $userIds,
+            'labels' => array_combine($userIds, array_map(fn (int $id): string => $names[$id], $userIds)),
+        ];
     }
 
     /**
@@ -161,22 +175,22 @@ final class MentionEditor
     }
 
     /**
-     * The people mentioned in the record, by their current name.
+     * The people mentioned in the record, by the name they were written with, in the order they were mentioned.
      *
-     * @return array<string, int> User ids by name.
+     * @return array<string, non-empty-list<int>> User ids by label.
      */
     private static function mentionedPeople(Model $mentionable): array
     {
-        $ids = Mention::query()
-            ->where('mentionable_type', $mentionable->getMorphClass())
-            ->where('mentionable_id', $mentionable->getKey())
-            ->pluck('user_id')
-            ->all();
-
         $people = [];
 
-        foreach (UserModel::query()->whereKey($ids)->get() as $user) {
-            $people[UserModel::displayName($user)] = (int) $user->getKey();
+        foreach (Mention::query()
+            ->where('mentionable_type', $mentionable->getMorphClass())
+            ->where('mentionable_id', $mentionable->getKey())
+            ->orderBy('id')
+            ->get(['user_id', 'label']) as $mention) {
+            if ($mention->label !== '') {
+                $people[$mention->label][] = $mention->user_id;
+            }
         }
 
         return $people;

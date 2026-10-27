@@ -18,6 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Actions\RecordMentionsAction;
@@ -70,7 +71,7 @@ class ActivitiesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('title')
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('mentions.user'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('mentions'))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('type')
@@ -120,19 +121,22 @@ class ActivitiesRelationManager extends RelationManager
                         $dueAt = filled($data['due_at'] ?? null) ? Carbon::parse($data['due_at']) : null;
                         $body = MentionEditor::parse($data['body'] ?? null);
 
-                        $activity = app(LogActivityAction::class)->execute(
-                            subject: $this->getOwnerRecord(),
-                            type: (string) $data['type'],
-                            title: (string) $data['title'],
-                            body: $body['text'] !== '' ? $body['text'] : null,
-                            status: (string) $data['status'],
-                            dueAt: $dueAt,
-                            creatorId: $userId,
-                        );
+                        // The note and its mentions are saved together, or not at all.
+                        return DB::transaction(function () use ($data, $body, $dueAt, $userId): Activity {
+                            $activity = app(LogActivityAction::class)->execute(
+                                subject: $this->getOwnerRecord(),
+                                type: (string) $data['type'],
+                                title: (string) $data['title'],
+                                body: $body['text'] !== '' ? $body['text'] : null,
+                                status: (string) $data['status'],
+                                dueAt: $dueAt,
+                                creatorId: $userId,
+                            );
 
-                        app(RecordMentionsAction::class)->execute($activity, $this->getOwnerRecord(), $body['user_ids'], $userId, $body['text']);
+                            app(RecordMentionsAction::class)->execute($activity, $this->getOwnerRecord(), $body['user_ids'], $userId, $body['labels']);
 
-                        return $activity;
+                            return $activity;
+                        });
                     }),
             ])
             ->recordActions([
@@ -156,12 +160,14 @@ class ActivitiesRelationManager extends RelationManager
                         }
 
                         $body = MentionEditor::parse($data['body']);
-                        $record->update(['body' => $body['text'] !== '' ? $body['text'] : null] + $data);
-
                         $userId = OddenAuthorization::userId();
-                        app(RecordMentionsAction::class)->execute($record, $this->getOwnerRecord(), $body['user_ids'], is_numeric($userId) ? (int) $userId : null, $body['text']);
 
-                        return $record;
+                        return DB::transaction(function () use ($record, $data, $body, $userId): Activity {
+                            $record->update(['body' => $body['text'] !== '' ? $body['text'] : null] + $data);
+                            app(RecordMentionsAction::class)->execute($record, $this->getOwnerRecord(), $body['user_ids'], is_numeric($userId) ? (int) $userId : null, $body['labels']);
+
+                            return $record;
+                        });
                     }),
                 DeleteAction::make(),
             ]);

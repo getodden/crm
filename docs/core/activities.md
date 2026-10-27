@@ -142,16 +142,22 @@ The sentiment is `positive` when a company's `health_score` is 75 or more, or th
 
 ## Mentions
 
-In the panel, typing "@" in an activity's details offers the teammates who can be mentioned. The text is kept as plain text, a mention written as `@Name`, and the people picked are kept by id in the `odden_mentions` table (`Odden\Core\Models\Mention`: the note or comment, the person, who mentioned them, and when). A name that changes later does not lose the mention.
+In the panel, typing "@" in an activity's details offers the teammates who can be mentioned. The text is kept as plain text, a mention written as `@Name`, and the people picked are kept by id in the `odden_mentions` table (`Odden\Core\Models\Mention`: the note or comment, the person, the name they were written with, who mentioned them, and when). A name that changes later does not lose the mention: the `@Name` written before still finds the same person, and saving the note again writes their new name. Two people with the same name are both kept.
 
 The people offered are the users of your user model, every one of them by default. A host with several teams or tenants narrows them with the `Odden\Core\Contracts\TenantContext` contract: its `scopeUsers()` decides who can be mentioned, as it does for the owner and assignee pickers. `Odden\Core\Support\Mentions::teammates()` is the list the picker shows.
 
-To record mentions from your own code, pass the people picked to `RecordMentionsAction`. It ignores ids that are not teammates, removes mentions that are gone, and dispatches [`UserMentioned`](events.md) for each person newly mentioned, so you can tell them:
+`odden_mentions` has no tenant column of its own. A multi-tenant host that keeps tenants apart by a column adds one to it, as it does for the other `odden_` tables, so a tenant's mentions stay in that tenant.
+
+To record mentions from your own code, pass the people picked to `RecordMentionsAction`, and the name each is written with in the text (by user id; their current name when you leave one out). It ignores ids that are not teammates, removes mentions that are gone, and dispatches [`UserMentioned`](events.md) for each person newly mentioned, so you can tell them. Saving the same mentions twice at once records them once and tells each person once. Call it in the same transaction that saves the note, so the note and its mentions are saved together:
 
 ```php
+use Illuminate\Support\Facades\DB;
 use Odden\Core\Actions\RecordMentionsAction;
 
-app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], auth()->id(), $note->body);
+DB::transaction(function () use ($note, $contact, $jane): void {
+    $note->save();
+    app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], auth()->id(), [$jane->id => 'Jane Doe']);
+});
 ```
 
-`Mentions::highlight($text, $names)` shows a text with the mentioned names in bold, escaped; nothing else in the text becomes markup.
+`Mentions::highlight($text, Mentions::mentionedNames($note))` shows a text with the mentioned names in bold, as they were written, escaped; nothing else in the text becomes markup.

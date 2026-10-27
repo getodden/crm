@@ -17,6 +17,7 @@ use Odden\Core\Support\UserModel;
  * @property string $mentionable_type
  * @property int $mentionable_id
  * @property int $user_id
+ * @property string $label The name as written in the text when the person was picked.
  * @property int|null $mentioned_by
  * @property CarbonInterface|null $created_at
  * @property-read Model|null $user
@@ -34,6 +35,7 @@ class Mention extends Model
         'mentionable_type',
         'mentionable_id',
         'user_id',
+        'label',
         'mentioned_by',
     ];
 
