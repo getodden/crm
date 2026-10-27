@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Odden\Core\Areas\AreaAccess;
 use Odden\Core\Areas\Areas;
 use Odden\Core\Areas\DataArea;
+use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Events\UserMentioned;
@@ -136,4 +138,36 @@ it('opens a note outside the person\'s data areas with an empty editor', functio
 
             return [];
         });
+});
+
+it('offers only the active tenant\'s members when typing @ in a note', function (): void {
+    $jane = User::factory()->create(['name' => 'Jane Doe']);
+    $elsewhere = User::factory()->create(['name' => 'Jane Elsewhere']);
+    $contact = Contact::factory()->create();
+    $searchAs = function (array $members) use ($jane, $contact): array {
+        app()->instance(TenantContext::class, new class($members) implements TenantContext
+        {
+            /** @param list<int> $members */
+            public function __construct(private array $members) {}
+
+            public function id(): int
+            {
+                return $this->members[0];
+            }
+
+            public function scopeUsers(Builder $users): Builder
+            {
+                return $users->whereIn('id', $this->members);
+            }
+        });
+
+        $component = Livewire::actingAs($jane)
+            ->test(ActivitiesRelationManager::class, ['ownerRecord' => $contact, 'pageClass' => EditContact::class])
+            ->mountAction(TestAction::make('create')->table());
+
+        return array_column((array) $component->instance()->callSchemaComponentMethod('mountedActionSchema0.body', 'getMentionSearchResultsForJs', ['search' => 'jane']), 'label');
+    };
+
+    expect($searchAs([$jane->id]))->toBe(['Jane Doe'])
+        ->and($searchAs([$elsewhere->id]))->toBe(['Jane Elsewhere']);
 });
