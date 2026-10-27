@@ -243,7 +243,7 @@ class ContactImporterTest extends TestCase
             ->test(ListContacts::class)
             ->callAction('import', data: [
                 'file' => UploadedFile::fake()->createWithContent('contacts.csv', $csv),
-                'columnMap' => ['email' => 'Email', 'first_name' => 'First name', 'last_name' => 'Last name'],
+                'columnMap' => ['email' => 'Email', 'first_name' => 'First Name', 'last_name' => 'Last Name'],
                 'existing' => 'skip',
             ])
             ->assertHasNoActionErrors();

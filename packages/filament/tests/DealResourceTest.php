@@ -173,7 +173,7 @@ class DealResourceTest extends TestCase
         Livewire::actingAs($user)
             ->test(ListQuotes::class)
             ->callTableAction('acceptQuote', $quote, ['signed_by_name' => 'Pat Doe', 'signed_by_email' => 'Pat@Example.com'])
-            ->assertNotified('Quote Accepted');
+            ->assertNotified('Quote accepted');
 
         $this->assertSame(QuoteStatus::Accepted, $quote->fresh()->status);
         $this->assertSame('pat@example.com', $quote->fresh()->signed_by_email);
