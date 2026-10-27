@@ -74,11 +74,14 @@ class SmallerReviewFindingsTest extends TestCase
             ->call('save')
             ->assertHasFormErrors(['health_score', 'health_status']);
 
+        // A contact's lead score is optional: cleared, it is saved as 0, never as a database error.
         Livewire::actingAs($user)
             ->test(EditContact::class, ['record' => $contact->id])
             ->set('data.lead_score', null)
             ->call('save')
-            ->assertHasFormErrors(['lead_score']);
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(0, $contact->fresh()?->lead_score);
     }
 
     public function test_a_duplicate_pipeline_code_is_a_validation_error(): void

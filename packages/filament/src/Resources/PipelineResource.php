@@ -13,11 +13,14 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 use Odden\Filament\Resources\PipelineResource\Pages\CreatePipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\EditPipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\ListPipelines;
@@ -45,19 +48,18 @@ class PipelineResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Pipeline Details')
+                Section::make('Pipeline details')
                     ->schema([
                         TextInput::make('name')
                             ->label('Pipeline name')
                             ->placeholder('e.g. Sales Pipeline')
                             ->required()
-                            ->maxLength(255),
-                        TextInput::make('code')
-                            ->label('Pipeline code / slug')
-                            ->placeholder('e.g. sales_pipeline')
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(100),
+                            ->maxLength(255)
+                            // The code is made from the name; nobody has to invent one.
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn (Set $set, Get $get, ?string $state, string $operation) => $operation === 'create' && blank($get('code'))
+                                ? $set('code', Str::slug((string) $state, '_'))
+                                : null),
                         Toggle::make('is_default')
                             ->label('Default pipeline')
                             ->helperText('Used by default when new deals are created without a pipeline. Making this the default unsets the previous one.'),
@@ -65,7 +67,19 @@ class PipelineResource extends Resource
                             ->label('Active')
                             ->default(true),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->columnSpanFull(),
+                Section::make('Advanced')
+                    ->collapsed()
+                    ->schema([
+                        TextInput::make('code')
+                            ->label('Pipeline code')
+                            ->helperText('Used by integrations and the API. Made from the name; change it only if something already uses a different code.')
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(100),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 

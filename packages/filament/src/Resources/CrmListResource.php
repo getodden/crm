@@ -158,6 +158,8 @@ class CrmListResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No lists yet')
+            ->emptyStateDescription('Group contacts by hand, or let a list fill itself from rules, for campaigns and sequences.')
             ->columns([
                 TextColumn::make('name')
                     ->label('List name')

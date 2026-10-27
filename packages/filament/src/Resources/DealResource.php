@@ -180,6 +180,8 @@ class DealResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No deals here')
+            ->emptyStateDescription('Add a deal to follow it through your pipeline, from first talk to won or lost.')
             // Days in stage, rot and health read the stage and its history for every row.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['pipeline', 'stage', 'stageHistory', 'owner']))
             ->columns([

@@ -201,6 +201,8 @@ class QuoteResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No quotes here')
+            ->emptyStateDescription('Make a quote from a deal, with its products and prices, and send it to sign online.')
             ->columns([
                 TextColumn::make('quote_number')
                     ->label('Quote #')

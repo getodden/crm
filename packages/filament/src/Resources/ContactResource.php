@@ -155,6 +155,8 @@ class ContactResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No contacts yet')
+            ->emptyStateDescription('Add people one at a time, or import a CSV from a spreadsheet or your old CRM.')
             ->columns([
                 TextColumn::make('full_name')
                     ->label('Name')
