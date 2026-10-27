@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $link->title }} - {{ $link->user->name }}</title>
+    <title>{{ $link->title }} with {{ $link->user->name }} - {{ config('app.name') }}</title>
+    <meta name="robots" content="noindex">
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -221,6 +222,12 @@
             cursor: not-allowed;
         }
 
+        .slot-local {
+            font-size: 0.7rem;
+            font-weight: 400;
+            opacity: 0.75;
+        }
+
         .alert-success {
             background: #dcfce7;
             color: #15803d;
@@ -239,7 +246,7 @@
             <div class="rep-avatar">
                 {{ strtoupper(substr($link->user->name, 0, 2)) }}
             </div>
-            <div class="rep-name">{{ $link->user->name }}</div>
+            <div class="rep-name">{{ $link->user->name }} &middot; {{ config('app.name') }}</div>
             <h1 class="meeting-title">{{ $link->title }}</h1>
 
             <div class="meta-item">
@@ -264,7 +271,7 @@
                 <div class="alert-success">
                     &#10003; {{ session('status') }}
                 </div>
-            @endif
+            @else
 
             @if ($errors->any())
                 <div class="alert-error">
@@ -312,7 +319,7 @@
                                             {{ old('time') === $slot->format('H:i') || (old('time') === null && $loop->first) ? 'checked' : '' }}
                                             required
                                         >
-                                        <span class="slot-btn">{{ $slot->format('g:i A') }}</span>
+                                        <span class="slot-btn" data-start="{{ $slot->toIso8601String() }}">{{ $slot->format('g:i A') }}</span>
                                     </label>
                                 @endforeach
                             </div>
@@ -344,7 +351,25 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
+
+    {{-- For a visitor in another time zone, each time also shows in theirs. --}}
+    <script>
+        (() => {
+            const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (! visitorZone || visitorZone === @json($timezone)) {
+                return;
+            }
+            document.querySelectorAll('.slot-btn[data-start]').forEach((node) => {
+                const when = new Date(node.dataset.start);
+                const local = document.createElement('small');
+                local.className = 'slot-local';
+                local.textContent = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + ' your time';
+                node.append(document.createElement('br'), local);
+            });
+        })();
+    </script>
 </body>
 </html>

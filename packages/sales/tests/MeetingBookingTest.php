@@ -181,6 +181,33 @@ it('books through the form with an accurate confirmation message', function (): 
             && ! str_contains($status, 'invitation has been dispatched'));
 
     expect(Activity::query()->where('type', ActivityType::Meeting)->count())->toBe(1);
+
+    // Once booked, the page confirms it and offers no second booking form.
+    $this->get("/meet/{$link->slug}")->assertSee('Monday, January 7 at 9:30 AM')->assertDontSee('Confirm Meeting');
+});
+
+it('names the business on the booking page and in the confirmation, which has a plain-text version', function (): void {
+    config(['app.name' => 'Northwind Supply']);
+    $link = ($this->makeLink)(['description' => 'Pick a time that suits you.']);
+
+    $this->get("/meet/{$link->slug}?date=2030-01-07")->assertSee('Beth Caldwell &middot; Northwind Supply', false);
+
+    app(BookMeetingAction::class)->execute($link, 'Dana Scully', 'dana@example.com', Carbon::parse('2030-01-07 09:30'));
+
+    Mail::assertQueued(MeetingBookedMail::class, function (MeetingBookedMail $mail): bool {
+        if (! $mail->hasTo('dana@example.com')) {
+            return false;
+        }
+
+        $html = $mail->render();
+        $text = view('odden-sales::mail.meeting-booked-text', $mail->content()->with)->render();
+
+        // The link's page prompt is not repeated in the confirmation.
+        return str_contains($html, 'with Beth Caldwell of Northwind Supply')
+            && ! str_contains($html, 'Pick a time that suits you.')
+            && $mail->content()->text === 'odden-sales::mail.meeting-booked-text'
+            && str_contains($text, 'Need another time? Reply to this email.');
+    });
 });
 
 it('sends the visitor back with an error when the slot was taken', function (): void {

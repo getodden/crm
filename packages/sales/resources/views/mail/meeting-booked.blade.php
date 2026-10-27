@@ -9,7 +9,7 @@
         <p>{{ $booking->invitee_name }} ({{ $booking->invitee_email }}) booked <strong>{{ $link->title }}</strong> with you.</p>
     @else
         <p>Hi {{ $booking->invitee_name }},</p>
-        <p>Your meeting <strong>{{ $link->title }}</strong> with {{ $hostName }} is confirmed.</p>
+        <p>Your meeting <strong>{{ $link->title }}</strong> with {{ $hostName }} of {{ config('app.name') }} is confirmed.</p>
     @endif
 
     <p>
@@ -17,10 +17,10 @@
         {{ $startsAt->format('g:i A') }} &ndash; {{ $endsAt->format('g:i A') }} ({{ $booking->timezone }})
     </p>
 
-    @if ($link->description)
-        <p>{{ $link->description }}</p>
-    @endif
-
     <p>The attached calendar invite (invite.ics) adds the meeting to your calendar.</p>
+
+    @if ($recipientRole !== 'host')
+        <p>Need another time? Reply to this email.</p>
+    @endif
 </body>
 </html>

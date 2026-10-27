@@ -63,6 +63,7 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
 
         return new Content(
             view: 'odden-sales::mail.meeting-booked',
+            text: 'odden-sales::mail.meeting-booked-text',
             with: [
                 'booking' => $booking,
                 'link' => $booking->meetingLink,
