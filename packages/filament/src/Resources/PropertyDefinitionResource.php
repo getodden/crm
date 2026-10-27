@@ -165,7 +165,7 @@ class PropertyDefinitionResource extends Resource
                 TextColumn::make('entity_type')
                     ->label('On')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => static::entityTypeOptions()[$state] ?? (string) $state)
+                    ->formatStateUsing(fn (?string $state): string => $state === null ? '' : (static::entityTypeOptions()[$state] ?? $state))
                     ->sortable(),
                 TextColumn::make('label')
                     ->label('Property label')
