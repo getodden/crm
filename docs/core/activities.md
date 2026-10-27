@@ -139,3 +139,19 @@ It returns:
 | `touchpoints_analyzed` | Number of activities read (at most 15). |
 
 The sentiment is `positive` when a company's `health_score` is 75 or more, or the lead score is 70 or more. For a contact that's `lead_score`, and for a company `intent_score`. It's `at_risk` when a company's health score is below 40, and `neutral` otherwise. Deal and ticket signals only apply when `method_exists($subject, 'deals')` or `method_exists($subject, 'tickets')` is true.
+
+## Mentions
+
+In the panel, typing "@" in an activity's details offers the teammates who can be mentioned. The text is kept as plain text, a mention written as `@Name`, and the people picked are kept by id in the `odden_mentions` table (`Odden\Core\Models\Mention`: the note or comment, the person, who mentioned them, and when). A name that changes later does not lose the mention.
+
+The people offered are the users of your user model, every one of them by default. A host with several teams or tenants narrows them with the `Odden\Core\Contracts\TenantContext` contract: its `scopeUsers()` decides who can be mentioned, as it does for the owner and assignee pickers. `Odden\Core\Support\Mentions::teammates()` is the list the picker shows.
+
+To record mentions from your own code, pass the people picked to `RecordMentionsAction`. It ignores ids that are not teammates, removes mentions that are gone, and dispatches [`UserMentioned`](events.md) for each person newly mentioned, so you can tell them:
+
+```php
+use Odden\Core\Actions\RecordMentionsAction;
+
+app(RecordMentionsAction::class)->execute($note, $contact, [$jane->id], auth()->id(), $note->body);
+```
+
+`Mentions::highlight($text, $names)` shows a text with the mentioned names in bold, escaped; nothing else in the text becomes markup.

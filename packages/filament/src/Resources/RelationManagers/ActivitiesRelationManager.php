@@ -10,19 +10,23 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
 use Odden\Core\Actions\LogActivityAction;
+use Odden\Core\Actions\RecordMentionsAction;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
+use Odden\Core\Support\Mentions;
 use Odden\Filament\Support\AreaGuard;
+use Odden\Filament\Support\MentionEditor;
 use Odden\Filament\Support\OddenAuthorization;
 
 class ActivitiesRelationManager extends RelationManager
@@ -47,9 +51,8 @@ class ActivitiesRelationManager extends RelationManager
                 ->label('Subject / Title')
                 ->required()
                 ->maxLength(255),
-            AreaGuard::field(Textarea::make('body'), Activity::class)
-                ->label('Details / Body')
-                ->rows(3),
+            AreaGuard::field(MentionEditor::make('body'), Activity::class)
+                ->label('Details / Body'),
             Select::make('status')
                 ->label('Status')
                 ->options(collect(ActivityStatus::cases())->mapWithKeys(
@@ -67,6 +70,7 @@ class ActivitiesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('title')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('mentions.user'))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('type')
@@ -82,7 +86,7 @@ class ActivitiesRelationManager extends RelationManager
                 AreaGuard::column(TextColumn::make('title'), Activity::class)
                     ->label('Subject')
                     ->weight('bold')
-                    ->description(fn (Activity $record): ?string => AreaGuard::masked(Activity::class, 'body', $record) ? null : $record->body),
+                    ->description(fn (Activity $record): ?HtmlString => AreaGuard::masked(Activity::class, 'body', $record) ? null : Mentions::highlight($record->body, Mentions::mentionedNames($record))),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -112,17 +116,23 @@ class ActivitiesRelationManager extends RelationManager
                     // Through LogActivityAction, so ActivityLogged fires and completed_at is set as everywhere else.
                     ->using(function (array $data): Activity {
                         $userId = OddenAuthorization::userId();
+                        $userId = is_numeric($userId) ? (int) $userId : null;
                         $dueAt = filled($data['due_at'] ?? null) ? Carbon::parse($data['due_at']) : null;
+                        $body = MentionEditor::parse($data['body'] ?? null);
 
-                        return app(LogActivityAction::class)->execute(
+                        $activity = app(LogActivityAction::class)->execute(
                             subject: $this->getOwnerRecord(),
                             type: (string) $data['type'],
                             title: (string) $data['title'],
-                            body: filled($data['body'] ?? null) ? (string) $data['body'] : null,
+                            body: $body['text'] !== '' ? $body['text'] : null,
                             status: (string) $data['status'],
                             dueAt: $dueAt,
-                            creatorId: is_numeric($userId) ? (int) $userId : null,
+                            creatorId: $userId,
                         );
+
+                        app(RecordMentionsAction::class)->execute($activity, $this->getOwnerRecord(), $body['user_ids'], $userId, $body['text']);
+
+                        return $activity;
                     }),
             ])
             ->recordActions([
@@ -136,7 +146,23 @@ class ActivitiesRelationManager extends RelationManager
                         'status' => ActivityStatus::Completed,
                         'completed_at' => now(),
                     ])),
-                EditAction::make(),
+                EditAction::make()
+                    // The body comes back from the editor as a document: kept as plain text, the people picked in it beside it.
+                    ->using(function (Activity $record, array $data): Activity {
+                        if (! array_key_exists('body', $data)) {
+                            $record->update($data);
+
+                            return $record;
+                        }
+
+                        $body = MentionEditor::parse($data['body']);
+                        $record->update(['body' => $body['text'] !== '' ? $body['text'] : null] + $data);
+
+                        $userId = OddenAuthorization::userId();
+                        app(RecordMentionsAction::class)->execute($record, $this->getOwnerRecord(), $body['user_ids'], is_numeric($userId) ? (int) $userId : null, $body['text']);
+
+                        return $record;
+                    }),
                 DeleteAction::make(),
             ]);
     }

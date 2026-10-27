@@ -97,6 +97,9 @@ function oddenColumnClassification(): array
         'odden_list_memberships' => [
             'structural' => ['id', 'list_id', 'member_type', 'member_id', 'added_at'],
         ],
+        'odden_mentions' => [
+            'structural' => ['id', 'mentionable_type', 'mentionable_id', 'user_id', 'mentioned_by', 'created_at'],
+        ],
         'odden_lists' => [
             'structural' => ['id', 'name', 'description', 'entity_type', 'type', 'created_by_id', ...$timestamps],
             'encrypted' => ['criteria' => 'lists.criteria'],
