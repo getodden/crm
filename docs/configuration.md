@@ -99,5 +99,7 @@ Other options in `config/odden-core.php`:
 | `lifecycle.strict_transitions` | `false` | Only allow contacts to move forward through lifecycle stages |
 | `enrichment.driver` | `heuristic` (`ODDEN_ENRICHMENT_DRIVER`) | Driver for company enrichment |
 | `enrichment.auto_enrich` | `false` | Enrich companies automatically |
+| `branding.logo_url` | none (`ODDEN_BRAND_LOGO_URL`) | Logo on the booking and quote pages (and the paid add-ons' visitor pages): an `https://` or `http://` address, or a path on your host. Its text alternative is `app.name` |
+| `branding.accent_color` | none (`ODDEN_BRAND_ACCENT_COLOR`) | A `#rrggbb` colour for those pages' buttons and links. White text sits on it, so pick one with a contrast of at least 4.5:1 against white. Any other value is ignored |
 
 See [Core concepts](core/index.md) for how these behave.
