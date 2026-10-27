@@ -48,18 +48,18 @@ class PipelineResource extends Resource
                 Section::make('Pipeline Details')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Pipeline Name')
+                            ->label('Pipeline name')
                             ->placeholder('e.g. Sales Pipeline')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('code')
-                            ->label('Pipeline Code / Slug')
+                            ->label('Pipeline code / slug')
                             ->placeholder('e.g. sales_pipeline')
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(100),
                         Toggle::make('is_default')
-                            ->label('Default Pipeline')
+                            ->label('Default pipeline')
                             ->helperText('Used by default when new deals are created without a pipeline. Making this the default unsets the previous one.'),
                         Toggle::make('is_active')
                             ->label('Active')

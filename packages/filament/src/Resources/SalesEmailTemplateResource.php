@@ -49,7 +49,7 @@ class SalesEmailTemplateResource extends Resource
                 Section::make('Template Details')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Template Name')
+                            ->label('Template name')
                             ->placeholder('e.g. Post-Demo Follow-Up')
                             ->required()
                             ->maxLength(255),
@@ -65,19 +65,19 @@ class SalesEmailTemplateResource extends Resource
                             ->default('follow_up')
                             ->required(),
                         TextInput::make('subject')
-                            ->label('Email Subject')
+                            ->label('Email subject')
                             ->placeholder('e.g. Next steps for {{ company.name }}')
                             ->helperText('Available merge tags: {{ contact.first_name }}, {{ contact.last_name }}, {{ deal.name }}, {{ deal.amount }}, {{ company.name }}')
                             ->required()
                             ->columnSpanFull(),
                         Textarea::make('body_html')
-                            ->label('Email Body')
+                            ->label('Email body')
                             ->rows(8)
                             ->required()
                             ->helperText('Use merge tags like {{ contact.first_name }} to personalize dynamic values.')
                             ->columnSpanFull(),
                         Toggle::make('is_shared')
-                            ->label('Shared with Sales Team')
+                            ->label('Shared with sales team')
                             ->default(true),
                     ])
                     ->columns(2),

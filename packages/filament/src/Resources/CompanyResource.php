@@ -60,7 +60,7 @@ class CompanyResource extends Resource
                 Section::make('Company Details')
                     ->schema([
                         AreaGuard::field(TextInput::make('name'), Company::class)
-                            ->label('Company Name')
+                            ->label('Company name')
                             ->required()
                             ->maxLength(255),
                         AreaGuard::field(TextInput::make('domain'), Company::class)
@@ -71,7 +71,7 @@ class CompanyResource extends Resource
                             ->label('Industry')
                             ->maxLength(255),
                         Select::make('account_tier')
-                            ->label('ABM Target Account Tier')
+                            ->label('ABM target account tier')
                             ->options([
                                 'tier_1' => 'Tier 1 (Strategic Enterprise)',
                                 'tier_2' => 'Tier 2 (Target Account)',
@@ -79,7 +79,7 @@ class CompanyResource extends Resource
                             ])
                             ->placeholder('Non-Target Account'),
                         Select::make('health_status')
-                            ->label('Customer Health Standing')
+                            ->label('Customer health standing')
                             ->options([
                                 'healthy' => 'Healthy (Low Churn Risk)',
                                 'neutral' => 'Neutral (Stable)',
@@ -88,7 +88,7 @@ class CompanyResource extends Resource
                             ->default('healthy')
                             ->required(),
                         TextInput::make('health_score')
-                            ->label('Health Score (0-100)')
+                            ->label('Health score (0-100)')
                             ->numeric()
                             ->integer()
                             ->required()
@@ -106,7 +106,7 @@ class CompanyResource extends Resource
         return $table
             ->columns([
                 AreaGuard::column(TextColumn::make('name'), Company::class)
-                    ->label('Company Name')
+                    ->label('Company name')
                     ->searchable(query: EncryptedSearch::companies())
                     ->sortable(query: EncryptedSearch::keepsOrder()),
                 AreaGuard::column(TextColumn::make('domain'), Company::class)
@@ -118,7 +118,7 @@ class CompanyResource extends Resource
                     ->searchable()
                     ->badge(),
                 TextColumn::make('account_tier')
-                    ->label('ABM Tier')
+                    ->label('ABM tier')
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'tier_1' => 'Tier 1',
@@ -134,7 +134,7 @@ class CompanyResource extends Resource
                     })
                     ->sortable(),
                 TextColumn::make('intent_score')
-                    ->label('Intent Score')
+                    ->label('Intent score')
                     ->badge()
                     ->color(fn (int $state): string => $state >= 75 ? 'danger' : ($state >= 30 ? 'warning' : 'gray'))
                     ->formatStateUsing(fn (Company $record): string => "{$record->intent_score} pts".($record->intent_surge ? ' ⚡' : ''))
@@ -147,7 +147,7 @@ class CompanyResource extends Resource
                     ->icon(fn (?CustomerHealthStatus $state): string => $state?->badgeIcon() ?? 'heroicon-m-check-circle')
                     ->sortable(),
                 TextColumn::make('health_score')
-                    ->label('Health Score')
+                    ->label('Health score')
                     ->badge()
                     ->formatStateUsing(fn (int $state): string => "{$state}/100")
                     ->color(fn (int $state): string => $state >= 70 ? 'success' : ($state >= 40 ? 'warning' : 'danger'))
@@ -166,7 +166,7 @@ class CompanyResource extends Resource
             ])
             ->recordActions([
                 Action::make('recalculateHealth')
-                    ->label('Recalculate Health')
+                    ->label('Recalculate health')
                     ->icon(Heroicon::Heart)
                     ->color('success')
                     ->visible(fn (): bool => class_exists(CalculateCustomerHealthScoreAction::class))
@@ -175,7 +175,7 @@ class CompanyResource extends Resource
                         app(CalculateCustomerHealthScoreAction::class)->execute($record);
 
                         Notification::make()
-                            ->title('Customer Health Recalculated')
+                            ->title('Customer health recalculated')
                             ->body("Health score: {$record->health_score}/100 ({$record->health_status->label()})")
                             ->success()
                             ->send();
@@ -183,7 +183,7 @@ class CompanyResource extends Resource
                 // Added by the packages that are installed separately (Marketing: Recalculate Intent).
                 ...Modules::companyActions(),
                 Action::make('ai_briefing')
-                    ->label('AI Briefing')
+                    ->label('AI briefing')
                     ->icon(Heroicon::Sparkles)
                     ->color('info')
                     ->authorize(OddenAuthorization::forRecord('view', self::class))
@@ -231,7 +231,7 @@ class CompanyResource extends Resource
                         app(MergeCompaniesAction::class)->execute($record, $secondary);
 
                         Notification::make()
-                            ->title('Companies Merged')
+                            ->title('Companies merged')
                             ->body("Merged duplicate {$secondary->name} into this record.")
                             ->success()
                             ->send();

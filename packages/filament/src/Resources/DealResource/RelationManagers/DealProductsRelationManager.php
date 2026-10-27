@@ -23,7 +23,7 @@ class DealProductsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $title = 'Products & Line Items';
+    protected static ?string $title = 'Products & line items';
 
     protected static bool $isLazy = false;
 
@@ -31,7 +31,7 @@ class DealProductsRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Product / Service Name')
+                ->label('Product / service name')
                 ->placeholder('e.g. Enterprise License (Annual)')
                 ->required()
                 ->maxLength(255)
@@ -41,7 +41,7 @@ class DealProductsRelationManager extends RelationManager
                 ->placeholder('e.g. PROD-ENT-001')
                 ->maxLength(100),
             TextInput::make('unit_price')
-                ->label('Unit Price')
+                ->label('Unit price')
                 ->numeric()
                 ->prefix(fn (): string => Money::prefix($this->getOwnerRecord()->getAttribute('currency')))
                 ->required(),
@@ -59,7 +59,7 @@ class DealProductsRelationManager extends RelationManager
                 ->maxValue(100)
                 ->suffix('%'),
             Textarea::make('description')
-                ->label('Description / Notes')
+                ->label('Description / notes')
                 ->placeholder('Optional line item notes...')
                 ->columnSpanFull(),
         ]);
@@ -83,7 +83,7 @@ class DealProductsRelationManager extends RelationManager
                     ->badge()
                     ->placeholder('-'),
                 TextColumn::make('unit_price')
-                    ->label('Unit Price')
+                    ->label('Unit price')
                     ->money(fn (): string => $this->getOwnerRecord()->getAttribute('currency') ?? Money::defaultCurrency()),
                 TextColumn::make('quantity')
                     ->label('Qty')
@@ -98,7 +98,7 @@ class DealProductsRelationManager extends RelationManager
                     ->money(fn (): string => $this->getOwnerRecord()->getAttribute('currency') ?? Money::defaultCurrency()),
             ])
             ->headerActions([
-                CreateAction::make()->label('Add Product'),
+                CreateAction::make()->label('Add product'),
             ])
             ->recordActions([
                 EditAction::make(),

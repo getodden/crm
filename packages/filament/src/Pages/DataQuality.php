@@ -117,7 +117,7 @@ class DataQuality extends Page
         app(MergeContactsAction::class)->execute($primary, $secondary);
 
         Notification::make()
-            ->title('Contacts Successfully Merged')
+            ->title('Contacts successfully merged')
             ->body("Merged duplicate {$secondary->email} into {$primary->email}. All history and associations preserved.")
             ->success()
             ->send();
@@ -136,7 +136,7 @@ class DataQuality extends Page
         app(MergeCompaniesAction::class)->execute($primary, $secondary);
 
         Notification::make()
-            ->title('Companies Successfully Merged')
+            ->title('Companies successfully merged')
             ->body("Merged duplicate {$secondary->name} into {$primary->name}. All contacts and tickets preserved.")
             ->success()
             ->send();

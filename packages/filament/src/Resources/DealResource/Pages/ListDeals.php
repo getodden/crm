@@ -24,7 +24,7 @@ class ListDeals extends ListRecords
                 ->color('gray')
                 ->url(DealResource::getUrl('board')),
             CreateAction::make()
-                ->label('New Deal'),
+                ->label('New deal'),
         ];
     }
 

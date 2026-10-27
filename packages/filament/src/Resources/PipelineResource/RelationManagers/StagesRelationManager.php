@@ -27,7 +27,7 @@ class StagesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $title = 'Pipeline Stages';
+    protected static ?string $title = 'Pipeline stages';
 
     protected static bool $isLazy = false;
 
@@ -35,12 +35,12 @@ class StagesRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Stage Name')
+                ->label('Stage name')
                 ->placeholder('e.g. Discovery Call')
                 ->required()
                 ->maxLength(255),
             TextInput::make('code')
-                ->label('Internal Code')
+                ->label('Internal code')
                 ->placeholder('e.g. discovery_call')
                 ->required()
                 // Codes are unique within a pipeline.
@@ -50,19 +50,19 @@ class StagesRelationManager extends RelationManager
                 )
                 ->maxLength(100),
             TextInput::make('probability')
-                ->label('Win Probability (%)')
+                ->label('Win probability (%)')
                 ->numeric()
                 ->default(0)
                 ->minValue(0)
                 ->maxValue(100)
                 ->required(),
             TextInput::make('sort_order')
-                ->label('Sort Order')
+                ->label('Sort order')
                 ->numeric()
                 ->default(10)
                 ->required(),
             TextInput::make('rot_after_days')
-                ->label('Rot After Days')
+                ->label('Rot after days')
                 ->helperText('Flag deals as idle/stale after spending this many days in this stage.')
                 ->numeric()
                 ->minValue(1)
@@ -70,7 +70,7 @@ class StagesRelationManager extends RelationManager
                 ->nullable(),
             // A stage closes a deal as won or as lost, not both.
             Toggle::make('is_closed_won')
-                ->label('Closed Won Stage')
+                ->label('Closed won stage')
                 ->helperText('Deals entering this stage will automatically be marked as Won.')
                 ->live()
                 ->rule(fn (callable $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
@@ -79,20 +79,20 @@ class StagesRelationManager extends RelationManager
                     }
                 }),
             Toggle::make('is_closed_lost')
-                ->label('Closed Lost Stage')
+                ->label('Closed lost stage')
                 ->helperText('Deals entering this stage will automatically be marked as Lost.')
                 ->live(),
             Repeater::make('automations')
                 ->relationship('automations')
-                ->label('Stage Transition Automations & Guards')
+                ->label('Stage transition automations & guards')
                 ->schema([
                     TextInput::make('name')
-                        ->label('Rule Name')
+                        ->label('Rule name')
                         ->placeholder('e.g. Require Associated Contact')
                         ->required()
                         ->columnSpan(2),
                     Select::make('action_type')
-                        ->label('Automation Type')
+                        ->label('Automation type')
                         ->options(collect(StageAutomationActionType::cases())->mapWithKeys(
                             fn (StageAutomationActionType $t) => [$t->value => $t->label()]
                         ))
@@ -100,13 +100,13 @@ class StagesRelationManager extends RelationManager
                         ->live()
                         ->columnSpan(2),
                     TextInput::make('action_payload.task_subject')
-                        ->label('Task Subject')
+                        ->label('Task subject')
                         ->placeholder('Defaults to "Follow up: <deal> in [<stage>]"')
                         ->maxLength(255)
                         ->visible(fn (callable $get): bool => $get('action_type') === StageAutomationActionType::CreateTask->value)
                         ->columnSpan(3),
                     TextInput::make('action_payload.due_days')
-                        ->label('Due In (days)')
+                        ->label('Due in (days)')
                         ->numeric()
                         ->integer()
                         ->minValue(0)
@@ -142,7 +142,7 @@ class StagesRelationManager extends RelationManager
                     ->label('Code')
                     ->badge(),
                 TextColumn::make('probability')
-                    ->label('Win Probability')
+                    ->label('Win probability')
                     ->suffix('%')
                     ->badge()
                     ->color(fn (int $state): string => match (true) {
@@ -151,7 +151,7 @@ class StagesRelationManager extends RelationManager
                         default => 'gray',
                     }),
                 TextColumn::make('rot_after_days')
-                    ->label('Stale After')
+                    ->label('Stale after')
                     ->suffix(' days')
                     ->placeholder('No limit')
                     ->badge()
@@ -164,7 +164,7 @@ class StagesRelationManager extends RelationManager
                     ->boolean(),
             ])
             ->headerActions([
-                CreateAction::make()->label('Add Stage'),
+                CreateAction::make()->label('Add stage'),
             ])
             ->recordActions([
                 EditAction::make(),

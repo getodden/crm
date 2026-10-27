@@ -28,7 +28,7 @@ class ContactsRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('email')
-                ->label('Email Address')
+                ->label('Email address')
                 ->required(),
         ]);
     }
@@ -39,13 +39,13 @@ class ContactsRelationManager extends RelationManager
             ->recordTitle(fn (Contact $record): string => (string) $record->email)
             ->columns([
                 TextColumn::make('full_name')
-                    ->label('Contact Name')
+                    ->label('Contact name')
                     ->searchable(query: EncryptedSearch::contacts()),
                 TextColumn::make('email')
                     ->label('Email')
                     ->copyable(),
                 TextColumn::make('pivot.type')
-                    ->label('Role / Type')
+                    ->label('Role / type')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => ucfirst((string) ($state ?? 'default'))),
                 TextColumn::make('lifecycle_stage')
@@ -60,7 +60,7 @@ class ContactsRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
-                            ->label('Association Type')
+                            ->label('Association type')
                             ->options([
                                 'primary' => 'Primary Contact',
                                 'billing' => 'Billing / Finance',

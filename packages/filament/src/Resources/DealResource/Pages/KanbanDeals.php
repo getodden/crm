@@ -129,7 +129,7 @@ class KanbanDeals extends Page
 
         if ((int) $stage->pipeline_id !== (int) $deal->pipeline_id) {
             Notification::make()
-                ->title('Deal Not Moved')
+                ->title('Deal not moved')
                 ->body("[{$stage->name}] belongs to a different pipeline.")
                 ->danger()
                 ->send();
@@ -140,7 +140,7 @@ class KanbanDeals extends Page
         // A lost deal needs a reason, which a drag-and-drop cannot ask for: send the user to Mark Lost instead.
         if ($stage->is_closed_lost && ! $deal->status->isLost()) {
             Notification::make()
-                ->title('Deal Not Moved')
+                ->title('Deal not moved')
                 ->body("Use Mark Lost on [{$deal->name}] to close it as lost and record the reason.")
                 ->warning()
                 ->send();
@@ -152,7 +152,7 @@ class KanbanDeals extends Page
             $deal->moveToStage($stage, OddenAuthorization::userId());
         } catch (StageRequirementException $e) {
             Notification::make()
-                ->title('Deal Not Moved')
+                ->title('Deal not moved')
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
@@ -161,7 +161,7 @@ class KanbanDeals extends Page
         }
 
         Notification::make()
-            ->title('Deal Updated')
+            ->title('Deal updated')
             ->body("Moved to [{$stage->name}]")
             ->success()
             ->send();
@@ -171,12 +171,12 @@ class KanbanDeals extends Page
     {
         return [
             Action::make('table')
-                ->label('Table View')
+                ->label('Table view')
                 ->icon(Heroicon::TableCells)
                 ->color('gray')
                 ->url(DealResource::getUrl('index')),
             Action::make('create')
-                ->label('New Deal')
+                ->label('New deal')
                 ->icon(Heroicon::Plus)
                 ->color('primary')
                 ->url(DealResource::getUrl('create')),

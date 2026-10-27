@@ -24,7 +24,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'salesSequenceEnrollments';
 
-    protected static ?string $title = 'Sales Sequences & Cadences';
+    protected static ?string $title = 'Sales sequences & cadences';
 
     protected static string|BackedEnum|null $icon = Heroicon::ArrowPath;
 
@@ -46,7 +46,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                     ->sortable(),
 
                 TextColumn::make('current_step')
-                    ->label('Current Progress')
+                    ->label('Current progress')
                     ->formatStateUsing(function (SalesSequenceEnrollment $record): string {
                         $total = $record->sequence->totalSteps();
                         $steps = $record->sequence->steps ?? [];
@@ -69,26 +69,26 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                     }),
 
                 TextColumn::make('next_step_due_at')
-                    ->label('Next Touch Due')
+                    ->label('Next touch due')
                     ->date('M j, Y')
                     ->placeholder('None (Complete)')
                     ->sortable(),
 
                 TextColumn::make('created_at')
-                    ->label('Enrolled On')
+                    ->label('Enrolled on')
                     ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
                 Action::make('enrollInCadence')
-                    ->label('Enroll in Cadence')
+                    ->label('Enroll in cadence')
                     ->authorize(fn (): bool => OddenAuthorization::allows('update', $this->getOwnerRecord(), ContactResource::class))
                     ->icon(Heroicon::UserPlus)
                     ->color('primary')
                     ->form([
                         Select::make('sequence_id')
-                            ->label('Select Active Cadence')
+                            ->label('Select active cadence')
                             ->options(fn (): array => SalesSequence::query()->where('is_active', true)->pluck('name', 'id')->all())
                             ->searchable()
                             ->required(),
@@ -102,7 +102,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                         app(EnrollContactInSequenceAction::class)->execute($contact, $sequence);
 
                         Notification::make()
-                            ->title('Enrolled in Cadence')
+                            ->title('Enrolled in cadence')
                             ->body("Contact successfully enrolled in {$sequence->name}.")
                             ->success()
                             ->send();
@@ -110,7 +110,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('advanceStep')
-                    ->label('Advance Step')
+                    ->label('Advance step')
                     ->icon(Heroicon::Forward)
                     ->color('info')
                     ->visible(fn (SalesSequenceEnrollment $record): bool => $record->status === 'active')
@@ -120,7 +120,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                         $record->advanceStep();
 
                         Notification::make()
-                            ->title('Cadence Step Advanced')
+                            ->title('Cadence step advanced')
                             ->body("Advanced to step {$record->current_step}.")
                             ->success()
                             ->send();
@@ -134,7 +134,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                     ->authorize(fn (SalesSequenceEnrollment $record): bool => OddenAuthorization::allows('update', $this->getOwnerRecord(), ContactResource::class)
                         && OddenAuthorization::allows('update', $record))
                     ->requiresConfirmation()
-                    ->modalHeading('Unenroll from Cadence')
+                    ->modalHeading('Unenroll from cadence')
                     ->modalDescription('Stop all scheduled outbound emails and tasks for this contact in this cadence.')
                     ->action(function (SalesSequenceEnrollment $record): void {
                         $record->update([
@@ -143,7 +143,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                         ]);
 
                         Notification::make()
-                            ->title('Contact Unenrolled')
+                            ->title('Contact unenrolled')
                             ->body('Contact removed from cadence.')
                             ->warning()
                             ->send();

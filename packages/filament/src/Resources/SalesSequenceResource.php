@@ -57,15 +57,15 @@ class SalesSequenceResource extends Resource
                 Section::make('Cadence Overview')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Cadence Name')
+                            ->label('Cadence name')
                             ->placeholder('e.g. Enterprise Inbound Follow-Up')
                             ->required()
                             ->maxLength(255),
                         Toggle::make('is_active')
-                            ->label('Active Cadence')
+                            ->label('Active cadence')
                             ->default(true),
                         Textarea::make('description')
-                            ->label('Description & Purpose')
+                            ->label('Description & purpose')
                             ->placeholder('Multi-channel 4-touch cadence for marketing qualified leads...')
                             ->rows(3)
                             ->columnSpanFull(),
@@ -75,7 +75,7 @@ class SalesSequenceResource extends Resource
                 Section::make('Sequence Steps')
                     ->schema([
                         Repeater::make('steps')
-                            ->label('Sequential Actions')
+                            ->label('Sequential actions')
                             ->schema([
                                 TextInput::make('step')
                                     ->label('Step #')
@@ -83,7 +83,7 @@ class SalesSequenceResource extends Resource
                                     ->default(1)
                                     ->required(),
                                 Select::make('type')
-                                    ->label('Action Type')
+                                    ->label('Action type')
                                     ->options([
                                         'email' => 'Automated Email',
                                         'call' => 'Outbound Phone Call',
@@ -98,11 +98,11 @@ class SalesSequenceResource extends Resource
                                     ->default(1)
                                     ->required(),
                                 TextInput::make('title')
-                                    ->label('Step Summary')
+                                    ->label('Step summary')
                                     ->placeholder('e.g. Initial intro email')
                                     ->required(),
                                 Select::make('template_id')
-                                    ->label('Email Template')
+                                    ->label('Email template')
                                     ->options(fn (): array => SalesEmailTemplate::query()->pluck('name', 'id')->all())
                                     ->searchable()
                                     ->placeholder('Select template...')
@@ -130,7 +130,7 @@ class SalesSequenceResource extends Resource
                     ->badge()
                     ->color('primary'),
                 TextColumn::make('enrollments_count')
-                    ->label('Active Contacts')
+                    ->label('Active contacts')
                     ->counts(['enrollments' => fn (Builder $query): Builder => $query->where('status', 'active')])
                     ->badge()
                     ->color('success'),
@@ -146,14 +146,14 @@ class SalesSequenceResource extends Resource
             ])
             ->recordActions([
                 Action::make('enrollContact')
-                    ->label('Enroll Contact')
+                    ->label('Enroll contact')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->icon(Heroicon::UserPlus)
                     ->color('primary')
                     ->modalHeading(fn (SalesSequence $record): string => "Enroll Contact in {$record->name}")
                     ->form([
                         Select::make('contact_id')
-                            ->label('Select Contact')
+                            ->label('Select contact')
                             ->searchable()
                             ->getSearchResultsUsing(fn (string $search): array => ContactResource::searchContactOptions($search))
                             ->getOptionLabelUsing(fn (mixed $value): ?string => ContactResource::contactOptionLabel($value))
@@ -165,7 +165,7 @@ class SalesSequenceResource extends Resource
                         app(EnrollContactInSequenceAction::class)->execute($contact, $record);
 
                         Notification::make()
-                            ->title('Contact Enrolled')
+                            ->title('Contact enrolled')
                             ->body("{$contact->full_name} enrolled in {$record->name}.")
                             ->success()
                             ->send();

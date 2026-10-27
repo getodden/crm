@@ -74,22 +74,22 @@ class ContactResource extends Resource
                 Section::make('Contact Details')
                     ->schema([
                         AreaGuard::field(TextInput::make('first_name'), Contact::class)
-                            ->label('First Name')
+                            ->label('First name')
                             ->maxLength(255),
                         AreaGuard::field(TextInput::make('last_name'), Contact::class)
-                            ->label('Last Name')
+                            ->label('Last name')
                             ->maxLength(255),
                         AreaGuard::field(TextInput::make('job_title'), Contact::class)
-                            ->label('Job Title')
+                            ->label('Job title')
                             ->placeholder('e.g. VP of Sales')
                             ->maxLength(255),
                         AreaGuard::field(TextInput::make('email'), Contact::class)
-                            ->label('Email Address')
+                            ->label('Email address')
                             ->email()
                             ->required(fn (?Contact $record): bool => ! AreaGuard::masked(Contact::class, 'email', $record))
                             ->maxLength(255),
                         AreaGuard::field(TextInput::make('phone'), Contact::class)
-                            ->label('Phone Number')
+                            ->label('Phone number')
                             ->tel()
                             ->maxLength(50),
                         AreaGuard::field(DatePicker::make('date_of_birth'), Contact::class)
@@ -98,25 +98,25 @@ class ContactResource extends Resource
                             ->maxDate(now())
                             ->helperText('Optional. Used to keep messages of the wrong kind from reaching a child. It is personal data: leave it empty if you do not need it.'),
                         AreaGuard::field(TextInput::make('linkedin_url'), Contact::class)
-                            ->label('LinkedIn Profile URL')
+                            ->label('LinkedIn profile URL')
                             ->url()
                             ->placeholder('https://linkedin.com/in/...'),
                         Select::make('lifecycle_stage')
-                            ->label('Lifecycle Stage')
+                            ->label('Lifecycle stage')
                             ->options(collect(LifecycleStage::cases())->mapWithKeys(
                                 fn (LifecycleStage $stage) => [$stage->value => $stage->label()]
                             ))
                             ->default(LifecycleStage::Lead->value)
                             ->required(),
                         Select::make('lead_status')
-                            ->label('Lead Outreach Status')
+                            ->label('Lead outreach status')
                             ->options(collect(LeadStatus::cases())->mapWithKeys(
                                 fn (LeadStatus $status) => [$status->value => $status->label()]
                             ))
                             ->default(LeadStatus::New->value)
                             ->required(),
                         Select::make('owner_id')
-                            ->label('Contact Owner')
+                            ->label('Contact owner')
                             // A relationship select queries the user model directly; keep it to the users this
                             // installation offers (a multi-tenant host narrows UserModel::query() to the active tenant).
                             ->relationship('owner', 'name', modifyQueryUsing: fn (Builder $query): Builder => app(TenantContext::class)->scopeUsers($query))
@@ -127,7 +127,7 @@ class ContactResource extends Resource
                 Section::make('Marketing & Lead Qualification')
                     ->schema([
                         TextInput::make('lead_score')
-                            ->label('Lead Score')
+                            ->label('Lead score')
                             ->numeric()
                             ->integer()
                             ->required()
@@ -135,11 +135,11 @@ class ContactResource extends Resource
                             ->default(0),
                         // These columns come with Odden Marketing; without it (or with it turned off here) they are not shown or saved.
                         DateTimePicker::make('marketing_email_verified_at')
-                            ->label('Email Verified Date')
+                            ->label('Email verified date')
                             ->helperText('Confirmed via double opt-in email verification')
                             ->visible(fn (): bool => self::marketingEnabled()),
                         DateTimePicker::make('last_marketing_email_sent_at')
-                            ->label('Last Marketing Email')
+                            ->label('Last marketing email')
                             ->visible(fn (): bool => self::marketingEnabled())
                             ->disabled(),
                     ])
@@ -166,7 +166,7 @@ class ContactResource extends Resource
                     ->copyable(fn (Contact $record): bool => ! AreaGuard::masked(Contact::class, 'email', $record))
                     ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('email_status')
-                    ->label('Email Status')
+                    ->label('Email status')
                     ->badge()
                     ->formatStateUsing(fn ($state): ?string => $state instanceof EmailStatus ? $state->label() : null)
                     ->color(fn ($state): string => $state instanceof EmailStatus ? $state->color() : 'gray')
@@ -178,7 +178,7 @@ class ContactResource extends Resource
                     ->label('Phone')
                     ->searchable(query: EncryptedSearch::contacts(), isIndividual: true, isGlobal: false),
                 TextColumn::make('lead_status')
-                    ->label('Lead Status')
+                    ->label('Lead status')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => $state instanceof LeadStatus ? $state->label() : ucfirst((string) $state))
                     ->color(fn ($state): string => match ($state instanceof LeadStatus ? $state : LeadStatus::tryFrom((string) $state)) {
@@ -189,7 +189,7 @@ class ContactResource extends Resource
                         default => 'gray',
                     }),
                 TextColumn::make('last_contacted_at')
-                    ->label('Last Touch')
+                    ->label('Last touch')
                     ->since()
                     ->placeholder('Never')
                     ->sortable(),
@@ -205,12 +205,12 @@ class ContactResource extends Resource
                     ->suffix(' pts')
                     ->sortable(),
                 TextColumn::make('lifecycle_stage')
-                    ->label('Lifecycle Stage')
+                    ->label('Lifecycle stage')
                     ->badge()
                     ->formatStateUsing(fn (LifecycleStage|string|null $state): string => $state instanceof LifecycleStage ? $state->label() : ($state ?? '—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sunset_stage')
-                    ->label('List Hygiene')
+                    ->label('List hygiene')
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'suppressed' => 'Suppressed (Sunset)',
@@ -234,7 +234,7 @@ class ContactResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('lead_status')
-                    ->label('Lead Status')
+                    ->label('Lead status')
                     ->options(collect(LeadStatus::cases())->mapWithKeys(
                         fn (LeadStatus $status) => [$status->value => $status->label()]
                     )),
@@ -243,7 +243,7 @@ class ContactResource extends Resource
                         fn (LifecycleStage $stage) => [$stage->value => $stage->label()]
                     )),
                 SelectFilter::make('email_status')
-                    ->label('Email Status')
+                    ->label('Email status')
                     ->options([
                         ...collect(EmailStatus::cases())->mapWithKeys(
                             fn (EmailStatus $status) => [$status->value => $status->label()]
@@ -321,19 +321,19 @@ class ContactResource extends Resource
                         app(ExecuteSalesPlaybookAction::class)->execute($record, $playbook, $answers, OddenAuthorization::userId());
 
                         Notification::make()
-                            ->title('Playbook Completed')
+                            ->title('Playbook completed')
                             ->body("Recorded [{$playbook->name}] notes on {$record->full_name}.")
                             ->success()
                             ->send();
                     }),
                 Action::make('route_lead')
-                    ->label('Auto-Route')
+                    ->label('Auto-route')
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('gray')
                     ->visible(fn (): bool => Modules::salesEnabled())
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->requiresConfirmation()
-                    ->modalHeading('Auto-Route Contact Owner')
+                    ->modalHeading('Auto-route contact owner')
                     ->modalDescription('Run active lead routing rules to assign this contact to a sales representative based on criteria, round-robin, or quota attainment.')
                     ->action(function (Contact $record): void {
                         $result = app(RouteLeadAction::class)->execute($record);
@@ -344,20 +344,20 @@ class ContactResource extends Resource
                             $name = $user !== null ? $user->name : "User #{$result['assigned_user_id']}";
 
                             Notification::make()
-                                ->title('Contact Routed')
+                                ->title('Contact routed')
                                 ->body("Assigned to {$name} via rule [{$result['rule']->name}].")
                                 ->success()
                                 ->send();
                         } else {
                             Notification::make()
-                                ->title('No Routing Match')
+                                ->title('No routing match')
                                 ->body('No active lead routing rules matched this contact.')
                                 ->warning()
                                 ->send();
                         }
                     }),
                 Action::make('ai_briefing')
-                    ->label('AI Briefing')
+                    ->label('AI briefing')
                     ->icon(Heroicon::Sparkles)
                     ->color('info')
                     ->authorize(OddenAuthorization::forRecord('view', self::class))
@@ -393,7 +393,7 @@ class ContactResource extends Resource
                         app(MergeContactsAction::class)->execute($record, $secondary);
 
                         Notification::make()
-                            ->title('Contacts Merged')
+                            ->title('Contacts merged')
                             ->body("Merged duplicate {$secondary->email} into this record.")
                             ->success()
                             ->send();

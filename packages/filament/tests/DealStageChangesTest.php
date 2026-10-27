@@ -160,7 +160,7 @@ class DealStageChangesTest extends TestCase
             ->test(ViewDeal::class, ['record' => $deal->id])
             ->callAction('mark_won')
             ->assertSuccessful()
-            ->assertNotified('Deal Not Moved');
+            ->assertNotified('Deal not moved');
 
         $this->assertSame(DealStatus::Open, $deal->refresh()->status);
     }
@@ -175,7 +175,7 @@ class DealStageChangesTest extends TestCase
             ->test(ViewDeal::class, ['record' => $deal->id])
             ->callAction('mark_lost', ['lost_reason' => LostReason::Price->value])
             ->assertSuccessful()
-            ->assertNotified('Deal Not Moved');
+            ->assertNotified('Deal not moved');
 
         $this->assertSame(DealStatus::Open, $deal->refresh()->status);
     }
@@ -191,7 +191,7 @@ class DealStageChangesTest extends TestCase
             ->test(KanbanDeals::class)
             ->call('moveDeal', $deal->id, $won->id)
             ->assertSuccessful()
-            ->assertNotified('Deal Not Moved');
+            ->assertNotified('Deal not moved');
 
         $this->assertSame(DealStatus::Open, $deal->refresh()->status);
     }
@@ -206,7 +206,7 @@ class DealStageChangesTest extends TestCase
             ->test(KanbanDeals::class)
             ->call('moveDeal', $deal->id, $this->stage($pipeline, 'closed_lost')->id)
             ->assertSuccessful()
-            ->assertNotified('Deal Not Moved');
+            ->assertNotified('Deal not moved');
 
         $deal->refresh();
         $this->assertSame($discovery->id, $deal->stage_id);

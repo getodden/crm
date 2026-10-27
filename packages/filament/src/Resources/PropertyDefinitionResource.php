@@ -76,13 +76,13 @@ class PropertyDefinitionResource extends Resource
                 Section::make('Property Configuration')
                     ->schema([
                         Select::make('entity_type')
-                            ->label('Entity Type')
+                            ->label('Entity type')
                             ->options(static::entityTypeOptions())
                             ->disabled(fn (?PropertyDefinition $record): bool => (bool) $record?->is_sensitive)
                             ->required(),
                         TextInput::make('name')
                             ->disabled(fn (?PropertyDefinition $record): bool => (bool) $record?->is_sensitive)
-                            ->label('Internal Key')
+                            ->label('Internal key')
                             ->placeholder('e.g. annual_budget')
                             ->helperText('Lowercase machine name used in database/API.')
                             ->required()
@@ -91,27 +91,27 @@ class PropertyDefinitionResource extends Resource
                             // The key is unique per entity type; without this a duplicate was a database error (a 500).
                             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where('entity_type', $get('entity_type'))),
                         TextInput::make('label')
-                            ->label('Display Label')
+                            ->label('Display label')
                             ->placeholder('e.g. Annual Budget')
                             ->required()
                             ->maxLength(255),
                         Select::make('type')
-                            ->label('Data Type')
+                            ->label('Data type')
                             ->options(collect(PropertyType::cases())->mapWithKeys(
                                 fn (PropertyType $type) => [$type->value => $type->label()]
                             ))
                             ->required()
                             ->reactive(),
                         TextInput::make('group_name')
-                            ->label('Property Group')
+                            ->label('Property group')
                             ->default('general')
                             ->required(),
                         Textarea::make('description')
-                            ->label('Help Text / Description')
+                            ->label('Help text / description')
                             ->rows(2)
                             ->columnSpanFull(),
                         KeyValue::make('options')
-                            ->label('Dropdown Options (for Select / Multi-Select)')
+                            ->label('Dropdown options (for select / multi-select)')
                             ->keyLabel('Value')
                             ->valueLabel('Display Label')
                             ->visible(fn (callable $get) => in_array($get('type'), [PropertyType::Select->value, PropertyType::MultiSelect->value], true))
@@ -167,7 +167,7 @@ class PropertyDefinitionResource extends Resource
                     ->badge()
                     ->sortable(),
                 TextColumn::make('label')
-                    ->label('Property Label')
+                    ->label('Property label')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('name')

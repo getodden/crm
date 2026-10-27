@@ -42,18 +42,18 @@ class ActivitiesRelationManager extends RelationManager
     {
         return $schema->components([
             Select::make('type')
-                ->label('Activity Type')
+                ->label('Activity type')
                 ->options(collect(ActivityType::cases())->mapWithKeys(
                     fn (ActivityType $type) => [$type->value => $type->label()]
                 ))
                 ->default(ActivityType::Note->value)
                 ->required(),
             AreaGuard::field(TextInput::make('title'), Activity::class)
-                ->label('Subject / Title')
+                ->label('Subject / title')
                 ->required()
                 ->maxLength(255),
             AreaGuard::field(MentionEditor::make('body'), Activity::class)
-                ->label('Details / Body'),
+                ->label('Details / body'),
             Select::make('status')
                 ->label('Status')
                 ->options(collect(ActivityStatus::cases())->mapWithKeys(
@@ -62,7 +62,7 @@ class ActivitiesRelationManager extends RelationManager
                 ->default(ActivityStatus::Completed->value)
                 ->required(),
             DateTimePicker::make('due_at')
-                ->label('Due Date')
+                ->label('Due date')
                 ->nullable(),
         ]);
     }
@@ -98,22 +98,22 @@ class ActivitiesRelationManager extends RelationManager
                         default => 'warning',
                     }),
                 TextColumn::make('due_at')
-                    ->label('Due Date')
+                    ->label('Due date')
                     ->dateTime()
                     ->sortable()
                     ->placeholder('—'),
                 TextColumn::make('creator.name')
-                    ->label('Logged By')
+                    ->label('Logged by')
                     ->placeholder('System')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
-                    ->label('Logged At')
+                    ->label('Logged at')
                     ->dateTime()
                     ->sortable(),
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Log Activity')
+                    ->label('Log activity')
                     // Through LogActivityAction, so ActivityLogged fires and completed_at is set as everywhere else.
                     ->using(function (array $data): Activity {
                         $userId = OddenAuthorization::userId();

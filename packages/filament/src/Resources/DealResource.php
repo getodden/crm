@@ -88,7 +88,7 @@ class DealResource extends Resource
                 Section::make('Deal Information')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Deal Name')
+                            ->label('Deal name')
                             ->placeholder('e.g. Acme Corp - Enterprise Expansion')
                             ->required()
                             ->maxLength(255)
@@ -104,7 +104,7 @@ class DealResource extends Resource
                             ->disabledOn('edit')
                             ->required(),
                         Select::make('stage_id')
-                            ->label('Pipeline Stage')
+                            ->label('Pipeline stage')
                             ->options(function (callable $get, string $operation): array {
                                 $pipelineId = $get('pipeline_id');
                                 if (! $pipelineId) {
@@ -127,7 +127,7 @@ class DealResource extends Resource
                                 : null)
                             ->required(),
                         TextInput::make('amount')
-                            ->label('Deal Amount')
+                            ->label('Deal amount')
                             ->prefix(fn (callable $get): string => Money::prefix(is_string($get('currency')) ? $get('currency') : null))
                             ->numeric()
                             ->default(0.00)
@@ -146,27 +146,27 @@ class DealResource extends Resource
                             ->hiddenOn('create')
                             ->disabled(),
                         DatePicker::make('expected_close_date')
-                            ->label('Expected Close Date'),
+                            ->label('Expected close date'),
                         Select::make('owner_id')
-                            ->label('Deal Owner')
+                            ->label('Deal owner')
                             ->options(function (): array {
                                 return UserModel::query()->pluck('name', 'id')->toArray();
                             })
                             ->searchable()
                             ->nullable(),
                         DateTimePicker::make('closed_at')
-                            ->label('Closed Date')
+                            ->label('Closed date')
                             ->disabled()
                             ->visible(fn (callable $get): bool => in_array($get('status'), [DealStatus::Won->value, DealStatus::Lost->value], true)),
                         Select::make('lost_reason')
-                            ->label('Reason for Loss')
+                            ->label('Reason for loss')
                             ->options(collect(LostReason::cases())->mapWithKeys(
                                 fn (LostReason $r) => [$r->value => $r->label()]
                             ))
                             ->placeholder('Select a reason...')
                             ->visible(fn (callable $get): bool => $get('status') === DealStatus::Lost->value),
                         AreaGuard::field(Textarea::make('lost_notes'), Deal::class)
-                            ->label('Loss Retrospective Notes')
+                            ->label('Loss retrospective notes')
                             ->placeholder('Key takeaways, competitor feedback, follow-up timeline...')
                             ->visible(fn (callable $get): bool => $get('status') === DealStatus::Lost->value)
                             ->columnSpanFull(),
@@ -184,7 +184,7 @@ class DealResource extends Resource
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['pipeline', 'stage', 'stageHistory', 'owner']))
             ->columns([
                 TextColumn::make('name')
-                    ->label('Deal Name')
+                    ->label('Deal name')
                     ->searchable(query: EncryptedSearch::deals())
                     ->sortable(query: EncryptedSearch::sortBy(['name']))
                     ->weight('bold'),
@@ -201,7 +201,7 @@ class DealResource extends Resource
                     ->sortable(query: AmountSort::query('amount'))
                     ->weight('bold'),
                 TextColumn::make('days_in_stage')
-                    ->label('In Stage')
+                    ->label('In stage')
                     ->getStateUsing(fn (Deal $record): string => $record->daysInCurrentStage().'d')
                     ->badge()
                     ->color(fn (Deal $record): string => $record->isRotten() ? 'danger' : 'gray')
@@ -229,7 +229,7 @@ class DealResource extends Resource
                             : 'Healthy deal progression';
                     }),
                 TextColumn::make('expected_close_date')
-                    ->label('Target Close')
+                    ->label('Target close')
                     ->date()
                     ->sortable(),
                 TextColumn::make('owner.name')
@@ -251,7 +251,7 @@ class DealResource extends Resource
                         fn (DealStatus $s) => [$s->value => $s->label()]
                     )),
                 SelectFilter::make('lost_reason')
-                    ->label('Loss Reason')
+                    ->label('Loss reason')
                     ->options(collect(LostReason::cases())->mapWithKeys(
                         fn (LostReason $r) => [$r->value => $r->label()]
                     ))
@@ -328,18 +328,18 @@ class DealResource extends Resource
                         app(ExecuteSalesPlaybookAction::class)->execute($record, $playbook, $answers, OddenAuthorization::userId());
 
                         Notification::make()
-                            ->title('Playbook Completed')
+                            ->title('Playbook completed')
                             ->body("Recorded [{$playbook->name}] notes on {$record->name}.")
                             ->success()
                             ->send();
                     }),
                 Action::make('route_lead')
-                    ->label('Auto-Route')
+                    ->label('Auto-route')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('gray')
                     ->requiresConfirmation()
-                    ->modalHeading('Auto-Route Deal Owner')
+                    ->modalHeading('Auto-route deal owner')
                     ->modalDescription('Run active lead routing rules to assign this deal to a sales representative based on criteria, round-robin, or quota attainment.')
                     ->action(function (Deal $record): void {
                         $result = app(RouteLeadAction::class)->execute($record);
@@ -350,13 +350,13 @@ class DealResource extends Resource
                             $name = $user !== null ? $user->name : "User #{$result['assigned_user_id']}";
 
                             Notification::make()
-                                ->title('Deal Routed')
+                                ->title('Deal routed')
                                 ->body("Assigned to {$name} via rule [{$result['rule']->name}].")
                                 ->success()
                                 ->send();
                         } else {
                             Notification::make()
-                                ->title('No Routing Match')
+                                ->title('No routing match')
                                 ->body('No active lead routing rules matched this deal.')
                                 ->warning()
                                 ->send();

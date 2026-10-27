@@ -52,26 +52,26 @@ class LeadRoutingRuleResource extends Resource
                 Section::make('Routing Configuration')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Rule Name')
+                            ->label('Rule name')
                             ->placeholder('e.g. Inbound Enterprise Distribution')
                             ->required()
                             ->maxLength(255),
                         Select::make('strategy')
-                            ->label('Routing Strategy')
+                            ->label('Routing strategy')
                             ->options(collect(LeadRoutingStrategy::cases())->mapWithKeys(
                                 fn (LeadRoutingStrategy $strategy): array => [$strategy->value => $strategy->label()]
                             )->all())
                             ->required()
                             ->default(LeadRoutingStrategy::RoundRobin->value),
                         Select::make('assigned_user_ids')
-                            ->label('Eligible Sales Reps')
+                            ->label('Eligible sales reps')
                             ->options(fn (): array => UserModel::query()->pluck('name', 'id')->all())
                             ->multiple()
                             ->required()
                             ->searchable()
                             ->columnSpanFull(),
                         KeyValue::make('criteria')
-                            ->label('Matching Criteria (Optional Filters e.g. min_amount: 10000, timezone: Europe/Berlin)')
+                            ->label('Matching criteria (optional filters e.g. min_amount: 10000, timezone: Europe/Berlin)')
                             ->helperText('Supported fields: lead_status, timezone, city (contacts); pipeline_id, min_amount (deals).')
                             ->keyLabel('Field')
                             ->valueLabel('Value')
@@ -89,13 +89,13 @@ class LeadRoutingRuleResource extends Resource
                             })
                             ->columnSpanFull(),
                         TextInput::make('sort_order')
-                            ->label('Evaluation Priority')
+                            ->label('Evaluation priority')
                             ->numeric()
                             ->default(0)
                             ->helperText('Lower numbers are evaluated first.')
                             ->required(),
                         Toggle::make('is_active')
-                            ->label('Active Rule')
+                            ->label('Active rule')
                             ->default(true),
                     ])
                     ->columns(2),
@@ -110,7 +110,7 @@ class LeadRoutingRuleResource extends Resource
                     ->label('Priority')
                     ->sortable(),
                 TextColumn::make('name')
-                    ->label('Rule Name')
+                    ->label('Rule name')
                     ->weight('bold')
                     ->searchable()
                     ->sortable(),
@@ -120,7 +120,7 @@ class LeadRoutingRuleResource extends Resource
                     ->formatStateUsing(fn ($state): string => $state instanceof LeadRoutingStrategy ? $state->label() : (LeadRoutingStrategy::tryFrom((string) $state)?->label() ?? (string) $state)),
                 // The state is the list of user ids; one summary for the row, not one per id.
                 TextColumn::make('reps_pool')
-                    ->label('Reps Pool')
+                    ->label('Reps pool')
                     ->state(fn (LeadRoutingRule $record): string => count($record->assigned_user_ids ?? []).' '.str('rep')->plural(count($record->assigned_user_ids ?? []))),
                 IconColumn::make('is_active')
                     ->label('Active')

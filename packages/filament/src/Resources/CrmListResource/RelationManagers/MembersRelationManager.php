@@ -19,7 +19,7 @@ class MembersRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'member_id';
 
-    protected static ?string $title = 'List Members';
+    protected static ?string $title = 'List members';
 
     protected static bool $isLazy = false;
 
@@ -47,11 +47,11 @@ class MembersRelationManager extends RelationManager
                     })
                     ->weight('bold'),
                 TextColumn::make('member_type')
-                    ->label('Entity Type')
+                    ->label('Entity type')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => class_basename((string) $state)),
                 TextColumn::make('added_at')
-                    ->label('Added Date')
+                    ->label('Added date')
                     ->dateTime()
                     ->sortable(),
             ])

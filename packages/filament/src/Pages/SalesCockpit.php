@@ -597,7 +597,7 @@ class SalesCockpit extends Page
         $actions = $this->getGuidedActionsProperty();
         if (empty($actions)) {
             Notification::make()
-                ->title('All Caught Up!')
+                ->title('All caught up')
                 ->body('No pending guided actions in your queue.')
                 ->success()
                 ->send();
@@ -636,7 +636,7 @@ class SalesCockpit extends Page
 
         if ($enrollment->status !== 'active' || $stepDef === null) {
             Notification::make()
-                ->title('Step Not Completed')
+                ->title('Step not completed')
                 ->body("{$contact->full_name} is no longer active in this sequence.")
                 ->warning()
                 ->send();
@@ -646,7 +646,7 @@ class SalesCockpit extends Page
 
         if ($stepDef['type'] === 'email') {
             Notification::make()
-                ->title('Step Not Completed')
+                ->title('Step not completed')
                 ->body('Email steps are sent by the sequence processor; this one has not been sent yet.')
                 ->warning()
                 ->send();
@@ -694,7 +694,7 @@ class SalesCockpit extends Page
 
         if (! $claimed) {
             Notification::make()
-                ->title('Step Already Handled')
+                ->title('Step already handled')
                 ->body("This step for {$contact->full_name} was already completed or the enrollment has moved on.")
                 ->warning()
                 ->send();
@@ -708,7 +708,7 @@ class SalesCockpit extends Page
         }
 
         Notification::make()
-            ->title('Sequence Step Advanced')
+            ->title('Sequence step advanced')
             ->body("Step marked complete for {$contact->full_name}.")
             ->success()
             ->send();
@@ -742,7 +742,7 @@ class SalesCockpit extends Page
         ]);
 
         Notification::make()
-            ->title('Task Completed')
+            ->title('Task completed')
             ->body("Activity '{$activity->title}' marked done.")
             ->success()
             ->send();
@@ -778,7 +778,7 @@ class SalesCockpit extends Page
         }
 
         Notification::make()
-            ->title('Touch Recorded')
+            ->title('Touch recorded')
             ->body("Logged {$activityType->label()} with {$contact->full_name} and updated contact status.")
             ->success()
             ->send();
@@ -850,7 +850,7 @@ class SalesCockpit extends Page
         }
 
         Notification::make()
-            ->title('Call Logged Successfully')
+            ->title('Call logged successfully')
             ->body("Recorded {$disposition->label()} call with {$contact->full_name}.")
             ->success()
             ->send();
@@ -917,7 +917,7 @@ class SalesCockpit extends Page
         }
 
         Notification::make()
-            ->title('Meeting Scheduled')
+            ->title('Meeting scheduled')
             ->body("Added '{$this->meetingTitle}' to your schedule for {$dueAt->format('M j, g:i A')}.")
             ->success()
             ->send();
