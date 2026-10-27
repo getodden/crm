@@ -723,6 +723,9 @@
             color: #f8fafc;
             background: #1f2937;
         }
+        /* "+ Schedule": teal-700 on teal-50 in light mode (5.5:1), teal-300 on a teal tint in dark (the old teal-600 was under 4.5:1). */
+        .odden-schedule-btn { font-size: 0.6875rem; font-weight: 700; color: #0f766e; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 0.25rem; padding: 0.2rem 0.45rem; cursor: pointer; }
+        .dark .odden-schedule-btn { color: #5eead4; background: rgba(20, 184, 166, 0.12); border-color: rgba(94, 234, 212, 0.3); }
     </style>
 
     <div class="hub-workspace">
@@ -1129,7 +1132,7 @@
                             <button
                                 type="button"
                                 wire:click="openMeetingModal"
-                                style="font-size: 0.6875rem; font-weight: 700; color: #0d9488; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 0.25rem; padding: 0.2rem 0.45rem; cursor: pointer;"
+                                class="odden-schedule-btn"
                             >
                                 + Schedule
                             </button>
