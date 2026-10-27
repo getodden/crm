@@ -253,10 +253,12 @@
                 <span>&#9201;</span>
                 <span>{{ $link->duration_minutes }} minutes</span>
             </div>
-            <div class="meta-item">
-                <span>&#128197;</span>
-                <span>A confirmation email with a calendar invite follows your booking</span>
-            </div>
+            @if (config('odden-sales.mail.deliverable', true))
+                <div class="meta-item">
+                    <span>&#128197;</span>
+                    <span>A confirmation email with a calendar invite follows your booking</span>
+                </div>
+            @endif
 
             @if ($link->description)
                 <div class="meeting-desc">

@@ -39,6 +39,10 @@ return [
     */
     'mail' => [
         'mailer' => env('ODDEN_SALES_MAILER'),
+
+        // Whether mail can go out at all. Off, the booking page promises no confirmation email (a host that knows its mailer
+        // can't send, such as a multi-tenant app for a tenant with no email set up, turns it off).
+        'deliverable' => (bool) env('ODDEN_SALES_MAIL_DELIVERABLE', true),
         'connection' => env('ODDEN_SALES_QUEUE_CONNECTION'),
         'queue' => env('ODDEN_SALES_MAIL_QUEUE'),
 

@@ -52,6 +52,7 @@ Used by `Odden\Sales\Support\Money::format()` when a record has no currency of i
 ```php
 'mail' => [
     'mailer' => env('ODDEN_SALES_MAILER'),
+    'deliverable' => (bool) env('ODDEN_SALES_MAIL_DELIVERABLE', true),
     'connection' => env('ODDEN_SALES_QUEUE_CONNECTION'),
     'queue' => env('ODDEN_SALES_MAIL_QUEUE'),
 
@@ -71,6 +72,7 @@ Sales sends two kinds of email: [sequence email steps](sequences.md#email-steps)
 | Key | Env | Default | Effect |
 | --- | --- | --- | --- |
 | `mail.mailer` | `ODDEN_SALES_MAILER` | `null` | Mailer from `config/mail.php` to send with. `null` uses the default mailer. |
+| `mail.deliverable` | `ODDEN_SALES_MAIL_DELIVERABLE` | `true` | Whether mail can go out at all. When `false` the booking page promises no confirmation email and tells the visitor to note the time. A multi-tenant app sets it per tenant. |
 | `mail.connection` | `ODDEN_SALES_QUEUE_CONNECTION` | `null` | Queue connection. `null` uses the default connection. |
 | `mail.queue` | `ODDEN_SALES_MAIL_QUEUE` | `null` | Queue name. `null` uses the connection's default queue. |
 | `mail.from.address` | `ODDEN_SALES_FROM_ADDRESS` | `null` | From address for Sales email. `null` uses your app's `mail.from`. |

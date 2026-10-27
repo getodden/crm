@@ -100,6 +100,8 @@ class SalesMeetingBookingController extends Controller
 
         return redirect()
             ->route('odden.meetings.show', ['slug' => $slug])
-            ->with('status', "Meeting booked for {$when} ({$timezone}). A confirmation with a calendar invite is on its way to {$result['booking']->invitee_email}.");
+            ->with('status', (bool) config('odden-sales.mail.deliverable', true)
+                ? "Meeting booked for {$when} ({$timezone}). A confirmation with a calendar invite is on its way to {$result['booking']->invitee_email}."
+                : "Meeting booked for {$when} ({$timezone}). No confirmation email will follow, so please note the time.");
     }
 }

@@ -210,6 +210,16 @@ it('names the business on the booking page and in the confirmation, which has a 
     });
 });
 
+it('promises no confirmation email when mail cannot go out', function (): void {
+    config(['odden-sales.mail.deliverable' => false]);
+    $link = ($this->makeLink)();
+
+    $this->get("/meet/{$link->slug}?date=2030-01-07")->assertDontSee('confirmation email');
+
+    $this->post("/meet/{$link->slug}/book", ['name' => 'Dana Scully', 'email' => 'dana@example.com', 'date' => '2030-01-07', 'time' => '09:30'])
+        ->assertSessionHas('status', fn (string $status): bool => str_contains($status, 'No confirmation email will follow') && ! str_contains($status, 'on its way'));
+});
+
 it('sends the visitor back with an error when the slot was taken', function (): void {
     $link = ($this->makeLink)();
     app(BookMeetingAction::class)->execute($link, 'Fox Mulder', 'fox@example.com', Carbon::parse('2030-01-07 09:30'));
