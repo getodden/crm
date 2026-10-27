@@ -57,7 +57,7 @@ class CompanyResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Company Details')
+                Section::make('Company details')
                     ->schema([
                         AreaGuard::field(TextInput::make('name'), Company::class)
                             ->label('Company name')

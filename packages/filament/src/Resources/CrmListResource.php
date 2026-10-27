@@ -61,7 +61,7 @@ class CrmListResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('List Information')
+                Section::make('List information')
                     ->schema([
                         TextInput::make('name')
                             ->label('List name')
@@ -91,7 +91,7 @@ class CrmListResource extends Resource
                     ])
                     ->columns(3),
 
-                Section::make('Segmentation Rules / Criteria')
+                Section::make('Segmentation rules / criteria')
                     ->description('For Active smart lists, records matching these rules are dynamically synced.')
                     ->visible(fn (callable $get): bool => $get('type') === ListType::Active->value)
                     ->schema([

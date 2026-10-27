@@ -65,7 +65,8 @@ class SmallerReviewFindingsTest extends TestCase
     {
         $user = User::factory()->create();
         $company = Company::factory()->create();
-        $contact = Contact::factory()->create();
+        // No phone: the factory's random number can fail the format rule, and this saves the whole form.
+        $contact = Contact::factory()->create(['phone' => null]);
 
         Livewire::actingAs($user)
             ->test(EditCompany::class, ['record' => $company->id])

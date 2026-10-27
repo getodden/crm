@@ -71,7 +71,7 @@ class ContactResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Contact Details')
+                Section::make('Contact details')
                     ->schema([
                         AreaGuard::field(TextInput::make('first_name'), Contact::class)
                             ->label('First name')
@@ -124,7 +124,7 @@ class ContactResource extends Resource
                             ->preload(),
                     ])
                     ->columns(2),
-                Section::make('Marketing & Lead Qualification')
+                Section::make('Marketing & lead qualification')
                     ->schema([
                         TextInput::make('lead_score')
                             ->label('Lead score')

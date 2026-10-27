@@ -54,7 +54,7 @@ class SalesSequenceResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Cadence Overview')
+                Section::make('Cadence overview')
                     ->schema([
                         TextInput::make('name')
                             ->label('Cadence name')
@@ -72,7 +72,7 @@ class SalesSequenceResource extends Resource
                     ])
                     ->columns(2),
 
-                Section::make('Sequence Steps')
+                Section::make('Sequence steps')
                     ->schema([
                         Repeater::make('steps')
                             ->label('Sequential actions')

@@ -49,7 +49,7 @@ class LeadRoutingRuleResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Routing Configuration')
+                Section::make('Routing configuration')
                     ->schema([
                         TextInput::make('name')
                             ->label('Rule name')

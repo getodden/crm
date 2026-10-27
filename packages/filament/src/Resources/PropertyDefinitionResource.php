@@ -73,7 +73,7 @@ class PropertyDefinitionResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Property Configuration')
+                Section::make('Property configuration')
                     ->schema([
                         Select::make('entity_type')
                             ->label('Entity type')

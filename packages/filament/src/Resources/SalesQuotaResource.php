@@ -49,7 +49,7 @@ class SalesQuotaResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Quota Assignment')
+                Section::make('Quota assignment')
                     ->schema([
                         Select::make('user_id')
                             ->label('Sales representative')

@@ -67,13 +67,14 @@ class QuoteResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Quote Overview')
+                Section::make('Quote overview')
                     ->schema([
                         TextInput::make('quote_number')
                             ->label('Quote #')
                             ->disabled()
                             ->dehydrated(false)
-                            ->placeholder('Auto-generated'),
+                            // Numbered when it is saved; nothing to show on a new quote.
+                            ->hiddenOn('create'),
                         Select::make('deal_id')
                             ->label('Associated deal')
                             ->relationship('deal', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->whereIn(
@@ -123,7 +124,7 @@ class QuoteResource extends Resource
                     ])
                     ->columns(2),
 
-                Section::make('Line Items')
+                Section::make('Line items')
                     ->schema([
                         Repeater::make('items')
                             ->relationship('items')
@@ -162,7 +163,7 @@ class QuoteResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Terms & Notes')
+                Section::make('Terms & notes')
                     ->schema([
                         Textarea::make('terms')
                             ->label('Terms and conditions')
@@ -178,7 +179,7 @@ class QuoteResource extends Resource
                     ])
                     ->collapsible(),
 
-                Section::make('Acceptance & Digital Signature')
+                Section::make('Acceptance & digital signature')
                     ->schema([
                         DateTimePicker::make('accepted_at')
                             ->label('Accepted timestamp')
