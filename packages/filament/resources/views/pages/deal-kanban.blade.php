@@ -424,7 +424,7 @@
                     {{ $this->forecast['win_rate'] }}%
                 </div>
                 <div class="odden-stat-subtext">
-                    Avg deal: {{ \Odden\Sales\Support\Money::format($this->forecast['average_deal_size'], $this->forecast['currency'], 0, decimals: 0) }}
+                    Avg deal: {{ \Odden\Sales\Support\Money::format($this->forecast['average_deal_size'], $this->forecast['currency'], decimals: 0) }}
                 </div>
             </div>
         </div>
