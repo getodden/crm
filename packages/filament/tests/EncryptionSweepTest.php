@@ -69,9 +69,21 @@ function sweepEncrypted(string $value): bool
     return app(FieldEncrypter::class)->isEncrypted($value);
 }
 
+/**
+ * The first row of a table as text with every envelope (odden1.{key id}.{ciphertext}) taken out, so what is left is what the table holds
+ * in plain text. Searching the ciphertext itself for a plain value can match by chance, because random base64 contains any short string.
+ */
 function sweepRow(string $table): string
 {
-    return implode(' ', array_map('strval', (array) DB::table($table)->first()));
+    return sweepPlainText((array) DB::table($table)->first());
+}
+
+/**
+ * @param  array<string, mixed>  $row
+ */
+function sweepPlainText(array $row): string
+{
+    return (string) preg_replace('/odden1\.[^.\s"]+\.[A-Za-z0-9_-]+/', '[encrypted]', implode(' ', array_map('strval', $row)));
 }
 
 it('stores the input and error of an action log entry encrypted', function (): void {
@@ -138,7 +150,7 @@ it('stores a custom object record encrypted whole, and finds it by property in P
 
     $row = (array) DB::table('odden_custom_object_records')->where('id', $one->id)->first();
     expect(sweepEncrypted($row['name']))->toBeTrue()->and(sweepEncrypted($row['properties']))->toBeTrue()
-        ->and(implode(' ', $row))->not->toContain('Marplethorpe')->not->toContain('MQ-1')
+        ->and(sweepPlainText($row))->not->toContain('Marplethorpe')->not->toContain('MQ-1')
         ->and(CustomObjectRecord::whereProperty('status', 'repair')->pluck('id')->all())->toBe([$one->id])
         ->and($one->fresh()->name)->toBe('Marplethorpe laptop');
 });

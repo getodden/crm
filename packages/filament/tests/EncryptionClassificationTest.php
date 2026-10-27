@@ -10,7 +10,6 @@ use Odden\Core\Encryption\BusinessDataColumns;
 use Odden\Core\Encryption\Casts\CustomProperties;
 use Odden\Core\Encryption\Casts\EncryptedAmount;
 use Odden\Core\Encryption\Casts\EncryptedCast;
-use Odden\Core\Encryption\FieldEncrypter;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
@@ -244,13 +243,41 @@ it('keeps every business-data figure behind the EncryptedAmount cast with a text
     }
 });
 
+/*
+ * A stored value that is nothing but our envelope (odden1.{key id}.{base64url nonce and ciphertext}), so no part of it is plain text.
+ * Searching the ciphertext itself for a short plain value ("555", "2011") fails now and then, because random base64 can contain it.
+ */
+function oddenIsWholeEnvelope(?string $stored): bool
+{
+    return is_string($stored) && preg_match('/^odden1\.[^.\s]+\.[A-Za-z0-9_-]+$/', $stored) === 1;
+}
+
+/**
+ * A stored row as text with every envelope taken out, so what is left is what the database holds in plain text.
+ *
+ * @param  array<string, mixed>  $row
+ */
+function oddenPlainTextOf(array $row): string
+{
+    return (string) preg_replace('/odden1\.[^.\s"]+\.[A-Za-z0-9_-]+/', '[encrypted]', implode(' ', array_map('strval', $row)));
+}
+
+it('searches only the plain text of a row, not its ciphertext', function (): void {
+    // Random ciphertext once contained "555" and failed the Identity check below.
+    $row = ['id' => 7, 'phone' => 'odden1.d4b7d27c80f9.k-_VY78555abc', 'source' => 'import'];
+
+    expect(oddenPlainTextOf($row))->toBe('7 [encrypted] import')
+        ->and(oddenIsWholeEnvelope($row['phone']))->toBeTrue()
+        ->and(oddenIsWholeEnvelope('+1 555 019 7788'))->toBeFalse()
+        ->and(oddenIsWholeEnvelope('odden1.d4b7d27c80f9.abc and 555'))->toBeFalse();
+});
+
 it('stores the date of birth encrypted and still reads it as a date', function (): void {
     $contact = Contact::factory()->create(['date_of_birth' => '2011-03-02']);
 
     $stored = DB::table('odden_contacts')->where('id', $contact->id)->value('date_of_birth');
 
-    expect(app(FieldEncrypter::class)->isEncrypted($stored))->toBeTrue()
-        ->and($stored)->not->toContain('2011')
+    expect(oddenIsWholeEnvelope($stored))->toBeTrue()
         ->and($contact->fresh()->date_of_birth->toDateString())->toBe('2011-03-02');
 });
 
@@ -286,11 +313,18 @@ it('stores no Identity value in plain text', function (): void {
         $row = (array) DB::table($table)->where('id', $id)->first();
 
         foreach (oddenIdentityColumns()[$table] as $column) {
-            expect(app(FieldEncrypter::class)->isEncrypted($row[$column]))->toBeTrue("{$table}.{$column} is stored in plain text");
+            expect(oddenIsWholeEnvelope($row[$column]))->toBeTrue("{$table}.{$column} is stored in plain text");
         }
 
-        expect(implode(' ', array_map('strval', $row)))->not->toContain('Zebulon')->not->toContain('Wombat')->not->toContain('identity-test')->not->toContain('555');
+        // No other column holds a copy in plain text.
+        expect(oddenPlainTextOf($row))->not->toContain('Zebulon')->not->toContain('Wombat')->not->toContain('identity-test')->not->toContain('555');
     }
+
+    // And each one reads back as what was saved.
+    expect($contact->fresh()->only(['first_name', 'last_name', 'email', 'phone', 'job_title', 'linkedin_url', 'timezone']))->toBe([
+        'first_name' => 'Zebulon', 'last_name' => 'Quillfeather', 'email' => 'zeb.quill@identity-test.example', 'phone' => '+1 555 019 7788',
+        'job_title' => 'Chief Wombat', 'linkedin_url' => 'https://linkedin.com/in/zebulon-q', 'timezone' => 'America/Denver',
+    ])->and($company->fresh()->only(['name', 'domain', 'phone']))->toBe(['name' => 'Wombat Holdings', 'domain' => 'wombat-holdings.example', 'phone' => '+1 555 019 0000']);
 
     // And the search index holds only keyed hashes.
     $index = DB::table('odden_search_index')->get();
@@ -342,14 +376,15 @@ it('stores no value of a sensitive property in plain text, on any record type th
         $record->update(['properties' => ['tax_id' => $secret.'-2', 'nickname' => 'open']]);
         $row = (array) DB::table($table)->where('id', $record->id)->first();
 
-        expect(implode(' ', array_map('strval', $row)))->not->toContain('ZX-4417')
+        expect(oddenPlainTextOf($row))->not->toContain('ZX-4417')
             ->and(json_decode((string) $row['properties'], true)['nickname'])->toBe('open')
-            ->and(app(FieldEncrypter::class)->isEncrypted(json_decode((string) $row['properties'], true)['tax_id']))->toBeTrue("{$table}: a sensitive property is stored in plain text");
+            ->and(oddenIsWholeEnvelope(json_decode((string) $row['properties'], true)['tax_id']))->toBeTrue("{$table}: a sensitive property is stored in plain text")
+            ->and($record->fresh()->properties['tax_id'] ?? null)->toBe($secret.'-2');
     }
 
     // The history of the change is encrypted too, and so is every other copy the tables hold.
     foreach (DB::table('odden_property_history')->get() as $history) {
-        expect(implode(' ', array_map('strval', (array) $history)))->not->toContain('ZX-4417');
+        expect(oddenPlainTextOf((array) $history))->not->toContain('ZX-4417');
     }
 });
 
