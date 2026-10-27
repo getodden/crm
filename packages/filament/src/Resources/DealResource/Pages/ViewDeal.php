@@ -6,6 +6,7 @@ namespace Odden\Filament\Resources\DealResource\Pages;
 
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -34,6 +35,7 @@ class ViewDeal extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            RestoreAction::make(),
             RevealAreaAction::make(),
             Action::make('health_analysis')
                 ->label(function (): string {

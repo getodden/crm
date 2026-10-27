@@ -169,11 +169,11 @@ class SalesSequenceResource extends Resource
                             ->send();
                     }),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->modalDescription('Contacts in them stop where they are, and nothing more is sent from them. Deleting can\'t be undone.'),
                 ]),
             ]);
     }

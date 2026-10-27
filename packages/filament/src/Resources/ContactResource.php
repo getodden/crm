@@ -375,11 +375,11 @@ class ContactResource extends Resource
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     // A record in the trash is not the one to keep: merging into it would hide both.
                     ->hidden(fn (Contact $record): bool => $record->trashed())
-                    ->modalHeading('Merge Duplicate Contact')
-                    ->modalDescription('Merge another duplicate contact into this record. All activities, deals, tickets, and associations will be reparented and preserved.')
+                    ->modalHeading('Merge a duplicate into this contact')
+                    ->modalDescription('Its activities, deals, tickets and links move to this contact, and details this contact is missing are filled in from it. The duplicate is then deleted: it goes to the deleted contacts, where it can be restored, but without what moved.')
                     ->form([
                         Select::make('secondary_contact_id')
-                            ->label('Select Duplicate Contact to Merge into This Record')
+                            ->label('Duplicate to merge in')
                             ->searchable()
                             ->getSearchResultsUsing(fn (Contact $record, string $search): array => self::searchContactOptions($search, except: $record))
                             ->getOptionLabelUsing(fn (mixed $value): ?string => self::contactOptionLabel($value))

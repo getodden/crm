@@ -15,7 +15,7 @@ class EditSalesSequence extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
         ];
     }
 }

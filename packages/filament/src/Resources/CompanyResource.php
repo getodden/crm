@@ -201,11 +201,11 @@ class CompanyResource extends Resource
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     // A record in the trash is not the one to keep: merging into it would hide both.
                     ->hidden(fn (Company $record): bool => $record->trashed())
-                    ->modalHeading('Merge Duplicate Company')
-                    ->modalDescription('Merge another duplicate company into this record. All contacts, activities, and tickets will be reparented and preserved.')
+                    ->modalHeading('Merge a duplicate into this company')
+                    ->modalDescription('Its contacts, activities and tickets move to this company, and details this company is missing are filled in from it. The duplicate is then deleted: it goes to the deleted companies, where it can be restored, but without what moved.')
                     ->form([
                         Select::make('secondary_company_id')
-                            ->label('Select Duplicate Company to Merge into This Record')
+                            ->label('Duplicate to merge in')
                             ->searchable()
                             // Searched on the server, within the companies the user can see, so every company is reachable.
                             ->getSearchResultsUsing(fn (Company $record, string $search): array => EncryptedSearch::limitedAndSorted(

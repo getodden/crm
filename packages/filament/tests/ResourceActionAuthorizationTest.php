@@ -18,6 +18,7 @@ use Odden\Sales\Enums\DealStatus;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\SalesSequence;
+use Odden\Sales\Models\SalesSequenceEnrollment;
 
 class ResourceActionAuthorizationTest extends TestCase
 {
@@ -135,6 +136,23 @@ class ResourceActionAuthorizationTest extends TestCase
         Livewire::actingAs(User::factory()->create())
             ->test(ListSalesSequences::class)
             ->assertActionHidden('processDueCadences');
+    }
+
+    public function test_running_due_steps_says_how_many_contacts_it_reaches_first(): void
+    {
+        $sequence = SalesSequence::query()->create(['name' => 'Outreach', 'is_active' => true, 'steps' => []]);
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListSalesSequences::class)
+            ->mountAction('processDueCadences')
+            ->assertMountedActionModalSee('No contact has a step due right now');
+
+        SalesSequenceEnrollment::query()->create(['sequence_id' => $sequence->id, 'contact_id' => Contact::factory()->create()->id, 'status' => 'active', 'next_step_due_at' => now()->subHour()]);
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(ListSalesSequences::class)
+            ->mountAction('processDueCadences')
+            ->assertMountedActionModalSee(['1 contact has a step due', "Emails can't be recalled"]);
     }
 
     public function test_custom_actions_are_visible_without_a_policy(): void
