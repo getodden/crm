@@ -18,6 +18,16 @@ ODDEN_USER_MODEL=App\Models\Admin
 
 The model only needs to be an Eloquent model. Where Odden shows a person's name, it reads the model's `name` attribute.
 
+### Disabled accounts
+
+If your application can disable accounts, name the nullable timestamp or flag column that marks one (set means disabled):
+
+```env
+ODDEN_USERS_DISABLED_COLUMN=disabled_at
+```
+
+The pickers for owners, assignees, routing reps and `@` mentions then stop offering disabled accounts. Nothing else changes: records a disabled person owns keep showing them and save as before, existing mentions still display, and lead routing and reports are unaffected. Left unset, no account is treated as disabled.
+
 ## Public routes
 
 Sales registers routes for the things your customers use directly, such as quote acceptance and booking pages. The paid Marketing and Service add-ons do the same for hosted forms, landing pages, tracking links, the support portal and the help center, in the same way. Each module has a `routes` block you can adjust:

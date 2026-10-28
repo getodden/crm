@@ -31,6 +31,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Odden\Core\Encryption\Index\DecryptedFilter;
@@ -149,9 +150,7 @@ class DealResource extends Resource
                             ->label('Expected close date'),
                         Select::make('owner_id')
                             ->label('Deal owner')
-                            ->options(function (): array {
-                                return UserModel::query()->pluck('name', 'id')->toArray();
-                            })
+                            ->options(fn (?Model $record): array => UserModel::pickable($record?->getAttribute('owner_id'))->pluck('name', 'id')->all())
                             ->searchable()
                             ->nullable(),
                         DateTimePicker::make('closed_at')

@@ -29,11 +29,11 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\MergeContactsAction;
 use Odden\Core\Areas\Areas;
 use Odden\Core\Contracts\SummarizesTimeline;
-use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\EmailStatus;
 use Odden\Core\Enums\LeadStatus;
 use Odden\Core\Enums\LifecycleStage;
@@ -117,11 +117,10 @@ class ContactResource extends Resource
                             ->required(),
                         Select::make('owner_id')
                             ->label('Contact owner')
-                            // A relationship select queries the user model directly; keep it to the users this
-                            // installation offers (a multi-tenant host narrows UserModel::query() to the active tenant).
-                            ->relationship('owner', 'name', modifyQueryUsing: fn (Builder $query): Builder => app(TenantContext::class)->scopeUsers($query))
-                            ->searchable()
-                            ->preload(),
+                            // Not a relationship select: that would query the user model unfiltered, and a disabled
+                            // current owner must stay selectable (pickable keeps the record's own owner).
+                            ->options(fn (?Model $record): array => UserModel::pickable($record?->getAttribute('owner_id'))->orderBy('name')->pluck('name', 'id')->all())
+                            ->searchable(),
                     ])
                     ->columns(2),
                 Section::make('Marketing & lead qualification')

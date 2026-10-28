@@ -21,6 +21,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\CreateLeadRoutingRule;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\EditLeadRoutingRule;
@@ -65,7 +66,7 @@ class LeadRoutingRuleResource extends Resource
                             ->default(LeadRoutingStrategy::RoundRobin->value),
                         Select::make('assigned_user_ids')
                             ->label('Eligible sales reps')
-                            ->options(fn (): array => UserModel::query()->pluck('name', 'id')->all())
+                            ->options(fn (?Model $record): array => UserModel::pickable($record?->getAttribute('assigned_user_ids'))->pluck('name', 'id')->all())
                             ->multiple()
                             ->required()
                             ->searchable()
