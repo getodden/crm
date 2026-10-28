@@ -74,7 +74,7 @@ class CustomPropertyFieldBuilder
         }
 
         return [
-            Section::make('Custom Properties')
+            Section::make('Custom properties')
                 ->description('Dynamic custom fields configured for this entity.')
                 ->schema($fields)
                 ->collapsible(),

@@ -29,6 +29,10 @@ class ListContacts extends ListRecords
         return [
             ImportAction::make()
                 ->importer(ContactImporter::class)
+                ->label('Import contacts')
+                ->modalHeading('Import contacts')
+                // Say up front which columns are read, so a file can be got ready before choosing it.
+                ->modalDescription(fn (): string => 'A CSV file with a header row. Columns read: '.collect(ContactImporter::getColumns())->map(fn ($column): string => $column->getLabel() ?? $column->getName())->implode(', ').'. Only Email is required; the rest can be left out.')
                 // Imports skip per-record policy checks, so gate the whole action on the create ability.
                 ->authorize(fn (): bool => OddenAuthorization::allows('create', Contact::class, ContactResource::class)),
             CreateAction::make(),

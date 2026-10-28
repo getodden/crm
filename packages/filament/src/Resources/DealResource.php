@@ -85,7 +85,7 @@ class DealResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Deal Information')
+                Section::make('Deal information')
                     ->schema([
                         TextInput::make('name')
                             ->label('Deal name')
@@ -180,6 +180,8 @@ class DealResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No deals here')
+            ->emptyStateDescription('Add a deal to follow it through your pipeline, from first talk to won or lost.')
             // Days in stage, rot and health read the stage and its history for every row.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['pipeline', 'stage', 'stageHistory', 'owner']))
             ->columns([
@@ -219,7 +221,8 @@ class DealResource extends Resource
                 TextColumn::make('health_score')
                     ->label('Health')
                     ->getStateUsing(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_label'])
-                    ->badge()
+                    // Coloured text with a dot, not a badge: a badge reads as a button.
+                    ->icon('heroicon-m-heart')
                     ->color(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_color'])
                     ->tooltip(function (Deal $record, HasTable $livewire): string {
                         $health = self::healthScore($record, $livewire);

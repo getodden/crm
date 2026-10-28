@@ -61,7 +61,7 @@ class CrmListResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('List Information')
+                Section::make('List information')
                     ->schema([
                         TextInput::make('name')
                             ->label('List name')
@@ -91,7 +91,7 @@ class CrmListResource extends Resource
                     ])
                     ->columns(3),
 
-                Section::make('Segmentation Rules / Criteria')
+                Section::make('Segmentation rules / criteria')
                     ->description('For Active smart lists, records matching these rules are dynamically synced.')
                     ->visible(fn (callable $get): bool => $get('type') === ListType::Active->value)
                     ->schema([
@@ -158,6 +158,8 @@ class CrmListResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No lists yet')
+            ->emptyStateDescription('Group contacts by hand, or let a list fill itself from rules, for campaigns and sequences.')
             ->columns([
                 TextColumn::make('name')
                     ->label('List name')
@@ -197,6 +199,8 @@ class CrmListResource extends Resource
                     ->label('Sync')
                     ->icon(Heroicon::ArrowPath)
                     ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalDescription('The list is rebuilt from its rules now: contacts who no longer match are taken off it, and new matches are added.')
                     ->visible(fn (CrmList $record): bool => $record->type === ListType::Active)
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->action(function (CrmList $record): void {

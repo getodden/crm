@@ -33,7 +33,7 @@ class DataQualityPageTest extends TestCase
         $response->assertSee('Data quality');
         $response->assertSee('Duplicates and missing details');
         $response->assertSee('duplicate@domain.com');
-        $response->assertSee('Cleanliness Index');
+        $response->assertSee('Without duplicates')->assertDontSee('Guarantee');
     }
 
     public function test_can_merge_contacts_directly_from_data_quality_page(): void

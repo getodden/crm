@@ -46,7 +46,7 @@ class SalesEmailTemplateResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Template Details')
+                Section::make('Template details')
                     ->schema([
                         TextInput::make('name')
                             ->label('Template name')

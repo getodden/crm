@@ -50,7 +50,7 @@ class SalesMeetingLinkResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Meeting Details')
+                Section::make('Meeting details')
                     ->schema([
                         Select::make('user_id')
                             ->label('Assigned sales rep')

@@ -30,6 +30,16 @@
             }
         }
 
+        /* On a touch screen there is nothing to drag with. */
+        @media (hover: none) {
+            .odden-drag-tip { display: none; }
+        }
+
+        /* On a phone the deals come first, the forecast after them. */
+        @media (max-width: 639px) {
+            .odden-stats-grid { order: 2; }
+        }
+
         .odden-stats-grid {
             display: grid;
             grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -358,8 +368,8 @@
                 </div>
             </div>
 
-            <div style="font-size: 0.75rem; color: #64748b;" class="dark:text-gray-400">
-                Tip: Drag and drop deal cards directly into stage columns to update stages.
+            <div style="font-size: 0.75rem; color: #64748b;" class="odden-drag-tip dark:text-gray-400">
+                Tip: drag a card to another column to move the deal, or use its Move list.
             </div>
         </div>
 
@@ -368,7 +378,7 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Open Pipeline</div>
                 <div class="odden-stat-value">
-                    {{ \Odden\Sales\Support\Money::format($this->forecast['open_value'], $this->forecast['currency']) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['open_value'], $this->forecast['currency'], decimals: 0) }}
                 </div>
                 <div class="odden-stat-subtext" style="color: #0284c7;">
                     {{ $this->forecast['open_count'] }} active open {{ \Illuminate\Support\Str::plural('deal', $this->forecast['open_count']) }}
@@ -377,7 +387,7 @@
                     <div style="font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem;">
                         Not included:
                         @foreach ($this->forecast['other_currencies'] as $code => $totals)
-                            {{ \Odden\Sales\Support\Money::format($totals['open_value'], $code) }} open{{ $loop->last ? '' : ',' }}
+                            {{ \Odden\Sales\Support\Money::format($totals['open_value'], $code, decimals: 0) }} open{{ $loop->last ? '' : ',' }}
                         @endforeach
                     </div>
                 @endif
@@ -391,7 +401,7 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Weighted Forecast</div>
                 <div class="odden-stat-value" style="color: #f97316;">
-                    {{ \Odden\Sales\Support\Money::format($this->forecast['weighted_forecast'], $this->forecast['currency']) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['weighted_forecast'], $this->forecast['currency'], decimals: 0) }}
                 </div>
                 <div class="odden-stat-subtext">
                     Probability-adjusted revenue
@@ -401,7 +411,7 @@
             <div class="odden-stat-card">
                 <div class="odden-stat-label">Closed Won</div>
                 <div class="odden-stat-value" style="color: #16a34a;">
-                    {{ \Odden\Sales\Support\Money::format($this->forecast['won_value'], $this->forecast['currency']) }}
+                    {{ \Odden\Sales\Support\Money::format($this->forecast['won_value'], $this->forecast['currency'], decimals: 0) }}
                 </div>
                 <div class="odden-stat-subtext" style="color: #16a34a;">
                     {{ $this->forecast['won_count'] }} {{ \Illuminate\Support\Str::plural('deal', $this->forecast['won_count']) }} won
@@ -414,7 +424,7 @@
                     {{ $this->forecast['win_rate'] }}%
                 </div>
                 <div class="odden-stat-subtext">
-                    Avg deal: {{ \Odden\Sales\Support\Money::format($this->forecast['average_deal_size'], $this->forecast['currency'], 0) }}
+                    Avg deal: {{ \Odden\Sales\Support\Money::format($this->forecast['average_deal_size'], $this->forecast['currency'], decimals: 0) }}
                 </div>
             </div>
         </div>
@@ -482,7 +492,7 @@
 
                                 <div class="odden-card-row">
                                     <span class="odden-card-amount">
-                                        {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency) }}
+                                        {{ \Odden\Sales\Support\Money::format($deal->amount, $deal->currency, decimals: 0) }}
                                     </span>
                                     <div style="display: flex; align-items: center; gap: 0.375rem;">
                                         @php $health = $this->healthScores[$deal->id] ?? $deal->getHealthScore(); @endphp
@@ -533,6 +543,7 @@
                                 <div class="odden-card-footer">
                                     <span class="odden-card-footer-label">Move:</span>
                                     <select
+                                        aria-label="Move {{ $deal->name }} to"
                                         x-data="{ stageId: '{{ $deal->stage_id }}' }"
                                         x-on:change="const target = $event.target.value; $event.target.value = stageId; $wire.moveDeal({{ $deal->id }}, target)"
                                         class="odden-card-select"

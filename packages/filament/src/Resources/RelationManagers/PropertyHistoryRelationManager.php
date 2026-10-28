@@ -16,7 +16,7 @@ class PropertyHistoryRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'property_name';
 
-    protected static ?string $title = 'Property history / audit trail';
+    protected static ?string $title = 'History';
 
     protected static bool $isLazy = false;
 

@@ -57,7 +57,7 @@ class CompanyResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Company Details')
+                Section::make('Company details')
                     ->schema([
                         AreaGuard::field(TextInput::make('name'), Company::class)
                             ->label('Company name')
@@ -104,6 +104,8 @@ class CompanyResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No companies yet')
+            ->emptyStateDescription('Add the organizations your contacts work for, to see their deals and tickets together.')
             ->columns([
                 AreaGuard::column(TextColumn::make('name'), Company::class)
                     ->label('Company name')

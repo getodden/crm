@@ -288,7 +288,7 @@
             </div>
 
             <div style="text-align: right;">
-                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Cleanliness Index</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Without duplicates</div>
                 <div style="font-size: 1.625rem; font-weight: 900; color: #10b981;">
                     {{ $this->dataCleanlinessScore }}%
                 </div>
@@ -329,15 +329,15 @@
 
             <div class="dq-card">
                 <div class="dq-card-header">
-                    <span class="dq-card-label">Audit & Data Integrity</span>
+                    <span class="dq-card-label">When you merge</span>
                     <x-filament::icon icon="heroicon-m-shield-check" style="width: 1.25rem; height: 1.25rem; color: #10b981;" />
                 </div>
                 <div style="font-size: 0.875rem; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem;">
                     <x-filament::icon icon="heroicon-m-check-circle" style="width: 1rem; height: 1rem;" />
-                    Zero Data Loss Guarantee
+                    Nothing linked is lost
                 </div>
                 <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
-                    Activities, deals & associations preserved
+                    Activities, deals and links move to the record you keep; the duplicate goes to the trash, where it can be restored.
                 </div>
             </div>
         </div>

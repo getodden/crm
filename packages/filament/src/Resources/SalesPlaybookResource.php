@@ -47,7 +47,7 @@ class SalesPlaybookResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Playbook Overview')
+                Section::make('Playbook overview')
                     ->schema([
                         TextInput::make('name')
                             ->label('Playbook name')
@@ -89,7 +89,7 @@ class SalesPlaybookResource extends Resource
                     ])
                     ->columns(2),
 
-                Section::make('Interactive Checklist & Discovery Questions')
+                Section::make('Interactive checklist & discovery questions')
                     ->schema([
                         Repeater::make('questions')
                             ->label('Playbook prompts')

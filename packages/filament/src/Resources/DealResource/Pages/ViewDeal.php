@@ -199,6 +199,10 @@ class ViewDeal extends ViewRecord
                 ->label('Mark won')
                 ->icon(Heroicon::CheckCircle)
                 ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading(fn (): string => 'Mark '.$this->getRecord()->getAttribute('name').' won?')
+                ->modalDescription('It moves to the won stage and closes. To reopen it, move it back to an open stage.')
+                ->modalSubmitActionLabel('Mark won')
                 ->visible(fn (): bool => $this->getRecord() instanceof Deal && $this->getRecord()->status !== DealStatus::Won)
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->action(function (): void {
