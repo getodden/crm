@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\DealResource\Pages;
 
 use Filament\Actions\DeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Odden\Filament\Resources\DealResource;
@@ -35,6 +36,7 @@ class EditDeal extends EditRecord
             ViewAction::make(),
             RevealAreaAction::make(),
             DeleteAction::make(),
+            RestoreAction::make(),
         ];
     }
 }

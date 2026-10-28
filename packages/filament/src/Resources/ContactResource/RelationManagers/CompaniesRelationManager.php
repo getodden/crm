@@ -74,7 +74,7 @@ class CompaniesRelationManager extends RelationManager
                     ->action(fn (AttachAction $action, array $data, Table $table) => AttachesThroughAssociations::attach($action, $this->getOwnerRecord(), $table, $data, ownerIsParent: true)),
             ])
             ->recordActions([
-                DetachAction::make(),
+                DetachAction::make()->label('Unlink')->modalHeading('Unlink this record?')->modalDescription('Only the link is removed: both records stay as they are.')->modalSubmitActionLabel('Unlink'),
             ]);
     }
 }

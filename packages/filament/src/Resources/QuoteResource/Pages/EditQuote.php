@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\QuoteResource\Pages;
 
 use Filament\Actions\DeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Odden\Filament\Resources\QuoteResource;
@@ -31,6 +32,7 @@ class EditQuote extends EditRecord
         return [
             ViewAction::make(),
             DeleteAction::make(),
+            RestoreAction::make(),
         ];
     }
 }

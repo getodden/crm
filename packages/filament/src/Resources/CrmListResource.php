@@ -215,11 +215,11 @@ class CrmListResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->modalDescription('Its members stay as contacts, but campaigns and sequences that use this list lose their audience. Deleting can\'t be undone.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->modalDescription('Their members stay as contacts, but campaigns and sequences that use these lists lose their audience. Deleting can\'t be undone.'),
                 ]),
             ]);
     }
