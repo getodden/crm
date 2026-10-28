@@ -16,7 +16,7 @@ The custom actions listed here check your model policies when you register them.
 | `ContactResource` | `Odden\Core\Models\Contact` | CRM › Contacts | list, create, view, edit |
 | `CompanyResource` | `Odden\Core\Models\Company` | CRM › Companies | list, create, view, edit |
 | `CrmListResource` | `Odden\Core\Models\CrmList` | CRM › Lists | list, create, view, edit |
-| `PropertyDefinitionResource` | `Odden\Core\Models\PropertyDefinition` | Settings › Custom Properties | list, create, edit |
+| `PropertyDefinitionResource` | `Odden\Core\Models\PropertyDefinition` | Settings › Custom properties | list, create, edit |
 
 ### Contacts
 
@@ -59,17 +59,17 @@ Registered when `getodden/crm-sales` is installed. See the [sales module docs](.
 | --- | --- | --- | --- |
 | `DealResource` | `Odden\Sales\Models\Deal` | Sales › Deals | list, board, create, view, edit |
 | `QuoteResource` | `Odden\Sales\Models\Quote` | Sales › Quotes | list, create, view, edit |
-| `SalesQuotaResource` | `Odden\Sales\Models\SalesQuota` | Sales › Sales Quotas | list, create, edit |
-| `SalesEmailTemplateResource` | `Odden\Sales\Models\SalesEmailTemplate` | Sales › Email Templates | list, create, edit |
-| `SalesSequenceResource` | `Odden\Sales\Models\SalesSequence` | Sales › Sales Cadences | list, create, edit |
-| `SalesPlaybookResource` | `Odden\Sales\Models\SalesPlaybook` | Sales › Sales Playbooks | list, create, edit |
-| `SalesMeetingLinkResource` | `Odden\Sales\Models\SalesMeetingLink` | Sales › Meeting Links | list, create, edit |
-| `LeadRoutingRuleResource` | `Odden\Sales\Models\LeadRoutingRule` | Sales › Lead Routing Rules | list, create, edit |
+| `SalesQuotaResource` | `Odden\Sales\Models\SalesQuota` | Sales › Quotas | list, create, edit |
+| `SalesEmailTemplateResource` | `Odden\Sales\Models\SalesEmailTemplate` | Sales › Sales email templates | list, create, edit |
+| `SalesSequenceResource` | `Odden\Sales\Models\SalesSequence` | Sales › Cadences | list, create, edit |
+| `SalesPlaybookResource` | `Odden\Sales\Models\SalesPlaybook` | Sales › Playbooks | list, create, edit |
+| `SalesMeetingLinkResource` | `Odden\Sales\Models\SalesMeetingLink` | Sales › Meeting links | list, create, edit |
+| `LeadRoutingRuleResource` | `Odden\Sales\Models\LeadRoutingRule` | Sales › Lead routing rules | list, create, edit |
 | `PipelineResource` | `Odden\Sales\Models\Pipeline` | Settings › Pipelines | list, create, edit |
 
 ### Deals
 
-- **List page:** the `DealPipelineForecastWidget` stats header (open pipeline, weighted forecast, closed won, win rate) and a **Pipeline Board** button. Row actions are **Playbook** and **Auto-Route** (the same actions as on contacts, run against the deal). Deals are soft-deleted, so the table has a trashed filter with bulk restore and force-delete.
+- **List page:** the `DealPipelineForecastWidget` stats header (open pipeline, weighted forecast, closed won, win rate) and a **Pipeline board** button. Row actions are **Playbook** and **Auto-Route** (the same actions as on contacts, run against the deal). Deals are soft-deleted, so the table has a trashed filter with bulk restore and force-delete.
 - **Board page** (`/deals/board`): a kanban of the selected pipeline's stages. It starts on the default pipeline, or the first pipeline if none is the default. Dragging a card calls `Deal::moveToStage()` with the current user. A card dropped on a stage of a different pipeline isn't moved, and an error notification is shown.
 - **Create page:** sets `owner_id` to the current user if left empty, and writes an initial `DealStageHistory` row.
 - **View page:** a deal health button (its label and color come from `Deal::getHealthScore()`) that opens the health analysis, **Generate Quote** (`GenerateQuoteFromDealAction`), **Run Playbook**, **Mark Won** (`Deal::markWon()`), **Mark Lost** (`Deal::markLost()`, with a required `LostReason` select) and Edit.

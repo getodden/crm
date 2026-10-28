@@ -33,9 +33,11 @@ class SalesQuotaResource extends Resource
 {
     protected static ?string $model = SalesQuota::class;
 
-    protected static ?string $modelLabel = 'Sales Quota';
+    protected static ?string $modelLabel = 'quota';
 
-    protected static ?string $pluralModelLabel = 'Sales Quotas';
+    protected static ?string $pluralModelLabel = 'Quotas';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Trophy;
 
@@ -50,26 +52,26 @@ class SalesQuotaResource extends Resource
                 Section::make('Quota Assignment')
                     ->schema([
                         Select::make('user_id')
-                            ->label('Sales Representative')
+                            ->label('Sales representative')
                             ->options(function (): array {
                                 return UserModel::query()->pluck('name', 'id')->toArray();
                             })
                             ->searchable()
                             ->required(),
                         Select::make('pipeline_id')
-                            ->label('Pipeline (Optional)')
+                            ->label('Pipeline (optional)')
                             ->relationship('pipeline', 'name')
                             ->placeholder('All Pipelines')
                             ->nullable(),
                         Select::make('period_type')
-                            ->label('Period Type')
+                            ->label('Period type')
                             ->options(collect(QuotaPeriod::cases())->mapWithKeys(
                                 fn (QuotaPeriod $p) => [$p->value => $p->label()]
                             ))
                             ->default(QuotaPeriod::Monthly->value)
                             ->required(),
                         TextInput::make('target_amount')
-                            ->label('Target Revenue')
+                            ->label('Target revenue')
                             ->numeric()
                             ->prefix(fn (callable $get): string => Money::prefix(is_string($get('currency')) ? $get('currency') : null))
                             ->required(),
@@ -83,10 +85,10 @@ class SalesQuotaResource extends Resource
                             ->dehydrateStateUsing(fn (?string $state): string => strtoupper(trim((string) $state)))
                             ->live(onBlur: true),
                         DatePicker::make('period_start')
-                            ->label('Start Date')
+                            ->label('Start date')
                             ->required(),
                         DatePicker::make('period_end')
-                            ->label('End Date')
+                            ->label('End date')
                             ->afterOrEqual('period_start')
                             ->required(),
                     ])
@@ -99,7 +101,7 @@ class SalesQuotaResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('user.name')
-                    ->label('Sales Rep')
+                    ->label('Sales rep')
                     ->weight('bold')
                     ->searchable(),
                 TextColumn::make('pipeline.name')
@@ -136,7 +138,7 @@ class SalesQuotaResource extends Resource
                         };
                     }),
                 TextColumn::make('won_closed')
-                    ->label('Closed Won')
+                    ->label('Closed won')
                     ->getStateUsing(function (SalesQuota $record): string {
                         $metrics = self::attainment($record);
 

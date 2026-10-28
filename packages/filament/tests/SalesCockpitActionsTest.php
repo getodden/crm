@@ -133,7 +133,7 @@ class SalesCockpitActionsTest extends TestCase
         Livewire::actingAs(User::factory()->create())
             ->test(SalesCockpit::class)
             ->call('advanceEnrollment', $enrollment->id)
-            ->assertNotified('Sequence Step Advanced');
+            ->assertNotified('Sequence step advanced');
 
         $this->assertSame(2, $enrollment->refresh()->current_step);
 
@@ -180,7 +180,7 @@ class SalesCockpitActionsTest extends TestCase
         $action = collect($component->get('guidedActions'))->firstWhere('enrollment_id', $enrollment->id);
         $this->assertNotSame('advance_sequence', $action['action_type'] ?? null);
 
-        $component->call('advanceEnrollment', $enrollment->id)->assertNotified('Step Not Completed');
+        $component->call('advanceEnrollment', $enrollment->id)->assertNotified('Step not completed');
 
         $this->assertSame(1, $enrollment->refresh()->current_step);
         $this->assertSame(0, Activity::query()->count());
@@ -197,7 +197,7 @@ class SalesCockpitActionsTest extends TestCase
         Livewire::actingAs(User::factory()->create())
             ->test(SalesCockpit::class)
             ->call('advanceEnrollment', $enrollment->id)
-            ->assertNotified('Step Not Completed');
+            ->assertNotified('Step not completed');
 
         $enrollment->refresh();
         $this->assertSame(1, $enrollment->current_step);

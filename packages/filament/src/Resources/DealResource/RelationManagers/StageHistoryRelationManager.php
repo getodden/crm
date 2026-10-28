@@ -15,7 +15,7 @@ class StageHistoryRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'id';
 
-    protected static ?string $title = 'Stage Movement History';
+    protected static ?string $title = 'Stage movement history';
 
     protected static bool $isLazy = false;
 
@@ -26,16 +26,16 @@ class StageHistoryRelationManager extends RelationManager
             ->defaultSort('entered_at', 'desc')
             ->columns([
                 TextColumn::make('fromStage.name')
-                    ->label('From Stage')
+                    ->label('From stage')
                     ->placeholder('New Deal')
                     ->badge(),
                 TextColumn::make('toStage.name')
-                    ->label('To Stage')
+                    ->label('To stage')
                     ->badge()
                     ->color('primary')
                     ->weight('bold'),
                 TextColumn::make('duration_in_stage_seconds')
-                    ->label('Time in Stage')
+                    ->label('Time in stage')
                     ->state(function (DealStageHistory $record): string {
                         if ($record->duration_in_stage_seconds === null) {
                             return 'Current Stage';
@@ -60,14 +60,14 @@ class StageHistoryRelationManager extends RelationManager
                     })
                     ->badge(),
                 TextColumn::make('user.name')
-                    ->label('Moved By')
+                    ->label('Moved by')
                     ->placeholder('System'),
                 TextColumn::make('entered_at')
-                    ->label('Entered At')
+                    ->label('Entered at')
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('exited_at')
-                    ->label('Exited At')
+                    ->label('Exited at')
                     ->dateTime()
                     ->placeholder('Current'),
             ]);

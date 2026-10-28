@@ -37,7 +37,7 @@ class QuotesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'quote_number';
 
-    protected static ?string $title = 'Quotes & Proposals';
+    protected static ?string $title = 'Quotes & proposals';
 
     protected static bool $isLazy = false;
 
@@ -45,7 +45,7 @@ class QuotesRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('title')
-                ->label('Quote Title')
+                ->label('Quote title')
                 ->required()
                 ->maxLength(255)
                 ->columnSpan(2),
@@ -58,7 +58,7 @@ class QuotesRelationManager extends RelationManager
                 ->default(QuoteStatus::Draft->value)
                 ->required(),
             DatePicker::make('expires_at')
-                ->label('Expiration Date')
+                ->label('Expiration date')
                 ->default(now()->addDays(30)),
             TextInput::make('discount_amount')
                 ->label('Discount')
@@ -71,15 +71,15 @@ class QuotesRelationManager extends RelationManager
                 ->numeric()
                 ->default(0.00),
             Textarea::make('terms')
-                ->label('Payment Terms')
+                ->label('Payment terms')
                 ->default('Payment due net 30 days from signature.')
                 ->columnSpanFull(),
             Textarea::make('notes')
-                ->label('Customer Facing Notes')
+                ->label('Customer facing notes')
                 ->helperText('Shown to the customer on the quote page.')
                 ->columnSpanFull(),
             Textarea::make('internal_notes')
-                ->label('Internal Notes')
+                ->label('Internal notes')
                 ->helperText('For your team only: never shown to the customer.')
                 ->columnSpanFull(),
         ]);
@@ -117,7 +117,7 @@ class QuotesRelationManager extends RelationManager
                     ->label('Expires')
                     ->date(),
                 TextColumn::make('signed_by_name')
-                    ->label('Signed By')
+                    ->label('Signed by')
                     ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -126,7 +126,7 @@ class QuotesRelationManager extends RelationManager
             ])
             ->headerActions([
                 Action::make('generateFromDeal')
-                    ->label('Generate from Products')
+                    ->label('Generate from products')
                     ->authorize(fn (): bool => OddenAuthorization::allows('update', $this->getOwnerRecord(), DealResource::class))
                     ->icon(Heroicon::DocumentPlus)
                     ->color('primary')
@@ -137,13 +137,13 @@ class QuotesRelationManager extends RelationManager
                         $quote = app(GenerateQuoteFromDealAction::class)->execute($deal);
 
                         Notification::make()
-                            ->title('Quote Generated')
+                            ->title('Quote generated')
                             ->body("Created {$quote->quote_number} with {$quote->items()->count()} line items.")
                             ->success()
                             ->send();
                     }),
                 CreateAction::make()
-                    ->label('New Blank Quote')
+                    ->label('New blank quote')
                     // A quote is in its deal's currency, and belongs to the deal owner unless someone else creates it.
                     ->mutateDataUsing(function (array $data): array {
                         /** @var Deal $deal */
@@ -160,7 +160,7 @@ class QuotesRelationManager extends RelationManager
                     ->visible(fn (Quote $record): bool => $record->status !== QuoteStatus::Draft)
                     ->url(fn (Quote $record): string => route('odden.quotes.show', ['token' => $record->public_token]), shouldOpenInNewTab: true),
                 Action::make('acceptQuote')
-                    ->label('Accept & Sign')
+                    ->label('Accept & sign')
                     ->icon(Heroicon::CheckBadge)
                     ->color('success')
                     ->visible(fn (Quote $record): bool => ! $record->status->isAccepted())
@@ -168,10 +168,10 @@ class QuotesRelationManager extends RelationManager
                         && OddenAuthorization::allows('update', $this->getOwnerRecord(), DealResource::class))
                     ->schema([
                         TextInput::make('signed_by_name')
-                            ->label('Signer Full Name')
+                            ->label('Signer full name')
                             ->required(),
                         TextInput::make('signed_by_email')
-                            ->label('Signer Email')
+                            ->label('Signer email')
                             ->email()
                             ->required(),
                     ])
@@ -180,7 +180,7 @@ class QuotesRelationManager extends RelationManager
                             app(AcceptQuoteAction::class)->accept($record, (string) $data['signed_by_name'], (string) $data['signed_by_email']);
                         } catch (QuoteNotAcceptableException|StageRequirementException $e) {
                             Notification::make()
-                                ->title('Quote Not Accepted')
+                                ->title('Quote not accepted')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->send();
@@ -189,7 +189,7 @@ class QuotesRelationManager extends RelationManager
                         }
 
                         Notification::make()
-                            ->title('Quote Accepted')
+                            ->title('Quote accepted')
                             ->body("Quote {$record->quote_number} marked as accepted.")
                             ->success()
                             ->send();

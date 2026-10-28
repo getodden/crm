@@ -31,9 +31,11 @@ class SalesPlaybookResource extends Resource
 {
     protected static ?string $model = SalesPlaybook::class;
 
-    protected static ?string $modelLabel = 'Playbook';
+    protected static ?string $modelLabel = 'playbook';
 
-    protected static ?string $pluralModelLabel = 'Sales Playbooks';
+    protected static ?string $pluralModelLabel = 'Playbooks';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::BookOpen;
 
@@ -48,12 +50,12 @@ class SalesPlaybookResource extends Resource
                 Section::make('Playbook Overview')
                     ->schema([
                         TextInput::make('name')
-                            ->label('Playbook Name')
+                            ->label('Playbook name')
                             ->placeholder('e.g. BANT Enterprise Qualification')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('slug')
-                            ->label('URL Slug')
+                            ->label('URL slug')
                             ->required()
                             ->maxLength(255),
                         Select::make('category')
@@ -77,12 +79,12 @@ class SalesPlaybookResource extends Resource
                             ->default('custom')
                             ->required(),
                         Textarea::make('description')
-                            ->label('Description & Purpose')
+                            ->label('Description & purpose')
                             ->placeholder('Questions and guidance for reps to qualify deal momentum...')
                             ->rows(3)
                             ->columnSpanFull(),
                         Toggle::make('is_active')
-                            ->label('Active Playbook')
+                            ->label('Active playbook')
                             ->default(true),
                     ])
                     ->columns(2),
@@ -90,18 +92,18 @@ class SalesPlaybookResource extends Resource
                 Section::make('Interactive Checklist & Discovery Questions')
                     ->schema([
                         Repeater::make('questions')
-                            ->label('Playbook Prompts')
+                            ->label('Playbook prompts')
                             ->schema([
                                 TextInput::make('id')
-                                    ->label('Field Key')
+                                    ->label('Field key')
                                     ->placeholder('e.g. budget_status')
                                     ->required(),
                                 TextInput::make('label')
-                                    ->label('Question / Prompt for Rep')
+                                    ->label('Question / prompt for rep')
                                     ->placeholder('e.g. What is the approved budget range?')
                                     ->required(),
                                 Select::make('type')
-                                    ->label('Response Type')
+                                    ->label('Response type')
                                     ->options([
                                         'text' => 'Short Text',
                                         'textarea' => 'Multi-line Notes',
@@ -110,7 +112,7 @@ class SalesPlaybookResource extends Resource
                                     ->default('text')
                                     ->required(),
                                 TextInput::make('target_property')
-                                    ->label('Sync to Target Property (optional)')
+                                    ->label('Sync to target property (optional)')
                                     ->placeholder('e.g. qualification_budget'),
                             ])
                             ->columns(2)

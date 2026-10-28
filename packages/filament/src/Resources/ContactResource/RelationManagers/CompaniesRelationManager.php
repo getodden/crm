@@ -27,7 +27,7 @@ class CompaniesRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Company Name')
+                ->label('Company name')
                 ->required(),
         ]);
     }
@@ -45,7 +45,7 @@ class CompaniesRelationManager extends RelationManager
                     ->label('Domain')
                     ->copyable(),
                 TextColumn::make('pivot.type')
-                    ->label('Association Type')
+                    ->label('Association type')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => ucfirst((string) ($state ?? 'default'))),
                 TextColumn::make('industry')
@@ -59,7 +59,7 @@ class CompaniesRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
-                            ->label('Association Type')
+                            ->label('Association type')
                             ->options([
                                 'primary' => 'Primary Company',
                                 'billing' => 'Billing Entity',

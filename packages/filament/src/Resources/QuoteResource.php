@@ -51,9 +51,11 @@ class QuoteResource extends Resource
 {
     protected static ?string $model = Quote::class;
 
-    protected static ?string $modelLabel = 'Quote';
+    protected static ?string $modelLabel = 'quote';
 
     protected static ?string $pluralModelLabel = 'Quotes';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::DocumentText;
 
@@ -73,7 +75,7 @@ class QuoteResource extends Resource
                             ->dehydrated(false)
                             ->placeholder('Auto-generated'),
                         Select::make('deal_id')
-                            ->label('Associated Deal')
+                            ->label('Associated deal')
                             ->relationship('deal', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->whereIn(
                                 $query->getModel()->getQualifiedKeyName(),
                                 OddenAuthorization::scoped(Deal::class)->select((new Deal)->getQualifiedKeyName()),
@@ -100,20 +102,20 @@ class QuoteResource extends Resource
                             ->default(QuoteStatus::Draft->value)
                             ->required(),
                         DatePicker::make('expires_at')
-                            ->label('Expiration Date')
+                            ->label('Expiration date')
                             ->default(now()->addDays(30)),
                         TextInput::make('discount_amount')
-                            ->label('Discount Amount')
+                            ->label('Discount amount')
                             ->numeric()
                             ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->default(0.00),
                         TextInput::make('tax_amount')
-                            ->label('Tax Amount')
+                            ->label('Tax amount')
                             ->numeric()
                             ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->default(0.00),
                         TextInput::make('total_amount')
-                            ->label('Total Amount')
+                            ->label('Total amount')
                             ->numeric()
                             ->prefix(fn (callable $get): string => self::currencyPrefix($get('deal_id')))
                             ->disabled()
@@ -127,14 +129,14 @@ class QuoteResource extends Resource
                             ->relationship('items')
                             ->schema([
                                 TextInput::make('name')
-                                    ->label('Product / Service')
+                                    ->label('Product / service')
                                     ->required()
                                     ->columnSpan(3),
                                 TextInput::make('sku')
                                     ->label('SKU')
                                     ->columnSpan(1),
                                 TextInput::make('unit_price')
-                                    ->label('Unit Price')
+                                    ->label('Unit price')
                                     ->numeric()
                                     ->prefix(fn (callable $get): string => self::currencyPrefix($get('../../deal_id')))
                                     ->required()
@@ -163,14 +165,14 @@ class QuoteResource extends Resource
                 Section::make('Terms & Notes')
                     ->schema([
                         Textarea::make('terms')
-                            ->label('Terms and Conditions')
+                            ->label('Terms and conditions')
                             ->columnSpanFull(),
                         AreaGuard::field(Textarea::make('notes'), Quote::class)
-                            ->label('Customer Facing Notes')
+                            ->label('Customer facing notes')
                             ->helperText('Shown to the customer on the quote page.')
                             ->columnSpanFull(),
                         AreaGuard::field(Textarea::make('internal_notes'), Quote::class)
-                            ->label('Internal Notes')
+                            ->label('Internal notes')
                             ->helperText('For your team only: never shown to the customer.')
                             ->columnSpanFull(),
                     ])
@@ -179,16 +181,16 @@ class QuoteResource extends Resource
                 Section::make('Acceptance & Digital Signature')
                     ->schema([
                         DateTimePicker::make('accepted_at')
-                            ->label('Accepted Timestamp')
+                            ->label('Accepted timestamp')
                             ->disabled(),
                         TextInput::make('signed_by_name')
-                            ->label('Signer Name')
+                            ->label('Signer name')
                             ->disabled(),
                         TextInput::make('signed_by_email')
-                            ->label('Signer Email')
+                            ->label('Signer email')
                             ->disabled(),
                         TextInput::make('public_token')
-                            ->label('Public Client URL Token')
+                            ->label('Public client URL token')
                             ->disabled(),
                     ])
                     ->columns(2)
@@ -254,17 +256,17 @@ class QuoteResource extends Resource
                     ->visible(fn (Quote $record): bool => $record->status !== QuoteStatus::Draft)
                     ->url(fn (Quote $record): string => route('odden.quotes.show', ['token' => $record->public_token]), shouldOpenInNewTab: true),
                 Action::make('acceptQuote')
-                    ->label('Accept & Sign')
+                    ->label('Accept & sign')
                     ->icon(Heroicon::CheckBadge)
                     ->color('success')
                     ->visible(fn (Quote $record): bool => ! $record->status->isAccepted())
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
                     ->form([
                         TextInput::make('signed_by_name')
-                            ->label('Signer Full Name')
+                            ->label('Signer full name')
                             ->required(),
                         TextInput::make('signed_by_email')
-                            ->label('Signer Email')
+                            ->label('Signer email')
                             ->email()
                             ->required(),
                     ])
@@ -273,7 +275,7 @@ class QuoteResource extends Resource
                             app(AcceptQuoteAction::class)->accept($record, (string) $data['signed_by_name'], (string) $data['signed_by_email']);
                         } catch (QuoteNotAcceptableException|StageRequirementException $e) {
                             Notification::make()
-                                ->title('Quote Not Accepted')
+                                ->title('Quote not accepted')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->send();
@@ -282,7 +284,7 @@ class QuoteResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('Quote Accepted')
+                            ->title('Quote accepted')
                             ->body("Quote {$record->quote_number} marked as accepted.")
                             ->success()
                             ->send();

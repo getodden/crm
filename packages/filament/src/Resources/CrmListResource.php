@@ -45,9 +45,11 @@ class CrmListResource extends Resource
 {
     protected static ?string $model = CrmList::class;
 
-    protected static ?string $modelLabel = 'List';
+    protected static ?string $modelLabel = 'list';
 
     protected static ?string $pluralModelLabel = 'Lists';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::QueueList;
 
@@ -62,19 +64,19 @@ class CrmListResource extends Resource
                 Section::make('List Information')
                     ->schema([
                         TextInput::make('name')
-                            ->label('List Name')
+                            ->label('List name')
                             ->placeholder('e.g. High Value Leads')
                             ->required()
                             ->maxLength(255),
                         Select::make('entity_type')
-                            ->label('Target Entity')
+                            ->label('Target entity')
                             ->options([
                                 (new Contact)->getMorphClass() => 'Contacts',
                                 (new Company)->getMorphClass() => 'Companies',
                             ])
                             ->required(),
                         Select::make('type')
-                            ->label('List Type')
+                            ->label('List type')
                             ->options(collect(ListType::cases())->mapWithKeys(
                                 fn (ListType $type) => [$type->value => $type->label()]
                             ))
@@ -97,7 +99,7 @@ class CrmListResource extends Resource
                             ->label('Rules')
                             ->schema([
                                 TextInput::make('field')
-                                    ->label('Property / Field')
+                                    ->label('Property / field')
                                     ->placeholder('e.g. lifecycle_stage, email, lead_score')
                                     ->live(onBlur: true)
                                     ->hint(fn (Get $get): ?string => self::ruleHint((string) $get('field'), (string) $get('../../entity_type')))
@@ -158,7 +160,7 @@ class CrmListResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('List Name')
+                    ->label('List name')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
@@ -208,7 +210,7 @@ class CrmListResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('List Synchronized')
+                            ->title('List synchronized')
                             ->body("{$count} members synced.")
                             ->success()
                             ->send();

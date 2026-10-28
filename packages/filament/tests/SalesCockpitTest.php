@@ -25,7 +25,7 @@ class SalesCockpitTest extends TestCase
         $response = $this->actingAs($user)->get('/admin/sales-cockpit');
 
         $response->assertSuccessful();
-        $response->assertSee('Sales Prospecting Workspace');
+        $response->assertSee('Sales overview');
         $response->assertSee('Your tasks');
         $response->assertSee('Your sequence activities');
         $response->assertSee('Guided actions');

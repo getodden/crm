@@ -34,9 +34,11 @@ class SalesMeetingLinkResource extends Resource
 {
     protected static ?string $model = SalesMeetingLink::class;
 
-    protected static ?string $modelLabel = 'Meeting Link';
+    protected static ?string $modelLabel = 'meeting link';
 
-    protected static ?string $pluralModelLabel = 'Meeting Links';
+    protected static ?string $pluralModelLabel = 'Meeting links';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::CalendarDays;
 
@@ -51,19 +53,19 @@ class SalesMeetingLinkResource extends Resource
                 Section::make('Meeting Details')
                     ->schema([
                         Select::make('user_id')
-                            ->label('Assigned Sales Rep')
+                            ->label('Assigned sales rep')
                             ->options(fn (): array => UserModel::query()->pluck('name', 'id')->all())
                             ->default(fn (): ?int => auth()->id() !== null ? (int) auth()->id() : null)
                             ->searchable()
                             ->required(),
                         TextInput::make('title')
-                            ->label('Meeting Title')
+                            ->label('Meeting title')
                             ->placeholder('e.g. 30 Min Discovery Call')
                             ->default('30 Min Meeting')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('slug')
-                            ->label('Booking Slug (URL handle)')
+                            ->label('Booking slug (URL handle)')
                             ->prefix(url('/meet').'/')
                             ->placeholder('e.g. beth-caldwell')
                             ->required()
@@ -80,12 +82,12 @@ class SalesMeetingLinkResource extends Resource
                             ->default(30)
                             ->required(),
                         Textarea::make('description')
-                            ->label('Public Description for Prospects')
+                            ->label('Public description for prospects')
                             ->placeholder('Schedule a brief strategic discovery session to align on requirements...')
                             ->rows(3)
                             ->columnSpanFull(),
                         Toggle::make('is_active')
-                            ->label('Active Link (Accepting Bookings)')
+                            ->label('Active link (accepting bookings)')
                             ->default(true),
                     ])
                     ->columns(2),
@@ -99,7 +101,7 @@ class SalesMeetingLinkResource extends Resource
                             ->placeholder('App timezone ('.config('app.timezone', 'UTC').')')
                             ->searchable(),
                         TextInput::make('buffer_minutes')
-                            ->label('Buffer Between Meetings')
+                            ->label('Buffer between meetings')
                             ->helperText('Minutes kept free before and after each booking.')
                             ->numeric()
                             ->integer()
@@ -165,12 +167,12 @@ class SalesMeetingLinkResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('title')
-                    ->label('Meeting Title')
+                    ->label('Meeting title')
                     ->weight('bold')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('user.name')
-                    ->label('Sales Rep')
+                    ->label('Sales rep')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('slug')

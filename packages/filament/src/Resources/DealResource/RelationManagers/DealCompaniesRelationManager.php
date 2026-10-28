@@ -21,7 +21,7 @@ class DealCompaniesRelationManager extends RelationManager
 {
     protected static string $relationship = 'companies';
 
-    protected static ?string $title = 'Associated Companies';
+    protected static ?string $title = 'Associated companies';
 
     protected static bool $isLazy = false;
 
@@ -29,7 +29,7 @@ class DealCompaniesRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Company Name')
+                ->label('Company name')
                 ->required(),
         ]);
     }
@@ -48,7 +48,7 @@ class DealCompaniesRelationManager extends RelationManager
                     ->label('Domain')
                     ->copyable(),
                 TextColumn::make('pivot.type')
-                    ->label('Account Relationship')
+                    ->label('Account relationship')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => ucfirst((string) ($state ?? 'primary'))),
                 TextColumn::make('industry')
@@ -62,7 +62,7 @@ class DealCompaniesRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
-                            ->label('Account Relationship')
+                            ->label('Account relationship')
                             ->options([
                                 'primary' => 'Primary Account',
                                 'subsidiary' => 'Subsidiary / Branch',

@@ -51,7 +51,7 @@ class ViewDeal extends ViewRecord
 
                     return $record->getHealthScore()['badge_color'];
                 })
-                ->modalHeading('Deal Health & Velocity Analysis')
+                ->modalHeading('Deal health & velocity analysis')
                 ->modalDescription('Multi-factor algorithmic scoring based on multi-threading, activity recency, stage dwell time, and CPQ quotes.')
                 ->modalContent(function (): View {
                     /** @var Deal $record */
@@ -65,7 +65,7 @@ class ViewDeal extends ViewRecord
                 ->modalCancelActionLabel('Close'),
 
             Action::make('generate_quote')
-                ->label('Generate Quote')
+                ->label('Generate quote')
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->icon(Heroicon::DocumentText)
                 ->color('primary')
@@ -75,14 +75,14 @@ class ViewDeal extends ViewRecord
                     $quote = app(GenerateQuoteFromDealAction::class)->execute($record);
 
                     Notification::make()
-                        ->title('Draft Quote Generated')
+                        ->title('Draft quote generated')
                         ->body("Proposal #{$quote->quote_number} generated for ".Money::format($quote->total_amount, $quote->currency).'.')
                         ->success()
                         ->send();
                 }),
 
             Action::make('run_playbook')
-                ->label('Run Playbook')
+                ->label('Run playbook')
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->icon(Heroicon::BookOpen)
                 ->color('gray')
@@ -99,7 +99,7 @@ class ViewDeal extends ViewRecord
 
                     return [
                         Select::make('playbook_id')
-                            ->label('Select Playbook')
+                            ->label('Select playbook')
                             ->options($playbooks->pluck('name', 'id'))
                             ->required()
                             ->live(),
@@ -145,20 +145,20 @@ class ViewDeal extends ViewRecord
                     app(ExecuteSalesPlaybookAction::class)->execute($record, $playbook, $answers, OddenAuthorization::userId());
 
                     Notification::make()
-                        ->title('Playbook Completed')
+                        ->title('Playbook completed')
                         ->body("Recorded [{$playbook->name}] discovery notes on {$record->name}.")
                         ->success()
                         ->send();
                 }),
 
             Action::make('change_stage')
-                ->label('Change Stage')
+                ->label('Change stage')
                 ->icon(Heroicon::ArrowsRightLeft)
                 ->color('gray')
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->form([
                     Select::make('stage_id')
-                        ->label('Move to Stage')
+                        ->label('Move to stage')
                         ->options(function (): array {
                             /** @var Deal $record */
                             $record = $this->getRecord();
@@ -173,7 +173,7 @@ class ViewDeal extends ViewRecord
                         ->live()
                         ->required(),
                     Select::make('lost_reason')
-                        ->label('Reason for Loss')
+                        ->label('Reason for loss')
                         ->options(collect(LostReason::cases())->mapWithKeys(
                             fn (LostReason $reason) => [$reason->value => $reason->label()]
                         ))
@@ -196,7 +196,7 @@ class ViewDeal extends ViewRecord
                 }),
 
             Action::make('mark_won')
-                ->label('Mark Won')
+                ->label('Mark won')
                 ->icon(Heroicon::CheckCircle)
                 ->color('success')
                 ->visible(fn (): bool => $this->getRecord() instanceof Deal && $this->getRecord()->status !== DealStatus::Won)
@@ -207,20 +207,20 @@ class ViewDeal extends ViewRecord
 
                     $this->runStageChange(
                         fn (): Deal => $record->markWon(OddenAuthorization::userId()),
-                        'Deal Won!',
-                        "Deal [{$record->name}] has been marked as Closed Won.",
+                        'Deal won',
+                        "{$record->name} is marked won.",
                     );
                 }),
 
             Action::make('mark_lost')
-                ->label('Mark Lost')
+                ->label('Mark lost')
                 ->icon(Heroicon::XCircle)
                 ->color('danger')
                 ->visible(fn (): bool => $this->getRecord() instanceof Deal && $this->getRecord()->status !== DealStatus::Lost)
                 ->authorize(OddenAuthorization::forRecord('update', DealResource::class))
                 ->form([
                     Select::make('lost_reason')
-                        ->label('Reason for Loss')
+                        ->label('Reason for loss')
                         ->options(collect(LostReason::cases())->mapWithKeys(
                             fn (LostReason $reason) => [$reason->value => $reason->label()]
                         ))
@@ -255,7 +255,7 @@ class ViewDeal extends ViewRecord
         } catch (RuntimeException $e) {
             // StageRequirementException is a RuntimeException, as is markWon()/markLost()'s missing-stage error.
             Notification::make()
-                ->title('Deal Not Moved')
+                ->title('Deal not moved')
                 ->body($e->getMessage())
                 ->danger()
                 ->send();

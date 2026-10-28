@@ -22,7 +22,7 @@ class DealContactsRelationManager extends RelationManager
 {
     protected static string $relationship = 'contacts';
 
-    protected static ?string $title = 'Associated Contacts';
+    protected static ?string $title = 'Associated contacts';
 
     protected static bool $isLazy = false;
 
@@ -30,7 +30,7 @@ class DealContactsRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('email')
-                ->label('Email Address')
+                ->label('Email address')
                 ->required(),
         ]);
     }
@@ -48,7 +48,7 @@ class DealContactsRelationManager extends RelationManager
                     ->label('Email')
                     ->copyable(),
                 TextColumn::make('pivot.type')
-                    ->label('Role on Deal')
+                    ->label('Role on deal')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => ucfirst((string) ($state ?? 'primary'))),
                 TextColumn::make('lifecycle_stage')
@@ -63,7 +63,7 @@ class DealContactsRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
-                            ->label('Role on Deal')
+                            ->label('Role on deal')
                             ->options([
                                 'primary' => 'Primary Decision Maker',
                                 'champion' => 'Internal Champion',

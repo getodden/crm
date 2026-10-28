@@ -22,7 +22,7 @@ class ViewCrmList extends ViewRecord
     {
         return [
             Action::make('sync')
-                ->label('Sync Members')
+                ->label('Sync members')
                 ->icon(Heroicon::ArrowPath)
                 ->color('primary')
                 ->visible(fn (): bool => $this->getRecord() instanceof CrmList && $this->getRecord()->type === ListType::Active)
@@ -33,7 +33,7 @@ class ViewCrmList extends ViewRecord
                     $synced = $record->syncActiveMembers();
 
                     Notification::make()
-                        ->title('List Synchronized')
+                        ->title('List synchronized')
                         ->body("Criteria evaluated and {$synced} members updated.")
                         ->success()
                         ->send();

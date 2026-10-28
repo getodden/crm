@@ -30,8 +30,8 @@ class DataQualityPageTest extends TestCase
         $response = $this->actingAs($user)->get('/admin/data-quality');
 
         $response->assertSuccessful();
-        $response->assertSee('Data Quality');
-        $response->assertSee('Deduplication Command Center');
+        $response->assertSee('Data quality');
+        $response->assertSee('Duplicates and missing details');
         $response->assertSee('duplicate@domain.com');
         $response->assertSee('Cleanliness Index');
     }

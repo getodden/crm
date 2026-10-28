@@ -24,7 +24,7 @@ class DealsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $title = 'Associated Deals';
+    protected static ?string $title = 'Associated deals';
 
     protected static bool $isLazy = false;
 
@@ -32,7 +32,7 @@ class DealsRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Deal Name')
+                ->label('Deal name')
                 ->required(),
         ]);
     }
@@ -43,7 +43,7 @@ class DealsRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
-                    ->label('Deal Name')
+                    ->label('Deal name')
                     ->searchable()
                     ->weight('bold'),
                 TextColumn::make('pipeline.name')
@@ -67,7 +67,7 @@ class DealsRelationManager extends RelationManager
                         default => 'info',
                     }),
                 TextColumn::make('expected_close_date')
-                    ->label('Target Close')
+                    ->label('Target close')
                     ->date()
                     ->sortable(),
             ])
@@ -78,7 +78,7 @@ class DealsRelationManager extends RelationManager
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Select::make('type')
-                            ->label('Role / Type')
+                            ->label('Role / type')
                             ->options([
                                 'primary' => 'Primary',
                                 'secondary' => 'Secondary',
