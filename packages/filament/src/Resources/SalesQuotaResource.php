@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\CreateSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\EditSalesQuota;
@@ -53,9 +54,7 @@ class SalesQuotaResource extends Resource
                     ->schema([
                         Select::make('user_id')
                             ->label('Sales representative')
-                            ->options(function (): array {
-                                return UserModel::query()->pluck('name', 'id')->toArray();
-                            })
+                            ->options(fn (?Model $record): array => UserModel::pickable($record?->getAttribute('user_id'))->pluck('name', 'id')->all())
                             ->searchable()
                             ->required(),
                         Select::make('pipeline_id')
