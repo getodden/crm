@@ -97,6 +97,10 @@ function oddenColumnClassification(): array
         'odden_list_memberships' => [
             'structural' => ['id', 'list_id', 'member_type', 'member_id', 'added_at'],
         ],
+        'odden_mentions' => [
+            // The label is a teammate's name as written, as plain as it is in the users table.
+            'structural' => ['id', 'mentionable_type', 'mentionable_id', 'user_id', 'label', 'mentioned_by', 'created_at'],
+        ],
         'odden_lists' => [
             'structural' => ['id', 'name', 'description', 'entity_type', 'type', 'created_by_id', ...$timestamps],
             'encrypted' => ['criteria' => 'lists.criteria'],
