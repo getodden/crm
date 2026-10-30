@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Resources\SalesMeetingLinkResource\Pages;
 
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Odden\Filament\Resources\SalesMeetingLinkResource;
 
@@ -15,7 +14,7 @@ class EditSalesMeetingLink extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            SalesMeetingLinkResource::deleteAction(),
         ];
     }
 

@@ -23,10 +23,12 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\CreateSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\EditSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\ListSalesMeetingLinks;
+use Odden\Sales\Exceptions\MeetingLinkInUseException;
 use Odden\Sales\Models\SalesMeetingLink;
 use Odden\Sales\Services\MeetingAvailability;
 use UnitEnum;
@@ -192,13 +194,45 @@ class SalesMeetingLinkResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                static::deleteAction(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->using(function (DeleteBulkAction $action, Collection $records): void {
+                            $records->each(function (SalesMeetingLink $link) use ($action): void {
+                                try {
+                                    $link->delete() || $action->reportBulkProcessingFailure();
+                                } catch (MeetingLinkInUseException) {
+                                    $action->reportBulkProcessingFailure();
+                                }
+                            });
+                        })
+                        ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => trans_choice(
+                            '{1} Skipped :count meeting link with upcoming bookings|[2,*] Skipped :count meeting links with upcoming bookings',
+                            $totalCount - $successCount,
+                            ['count' => $totalCount - $successCount],
+                        ))
+                        ->missingBulkProcessingFailureNotificationMessage('Turn those links off instead, or wait until their bookings have passed.'),
                 ]),
             ]);
+    }
+
+    /**
+     * Delete a meeting link, or say why it can't be: a link with upcoming bookings has to be turned off instead.
+     */
+    public static function deleteAction(): DeleteAction
+    {
+        return DeleteAction::make()
+            ->using(function (DeleteAction $action, SalesMeetingLink $record): bool {
+                try {
+                    return (bool) $record->delete();
+                } catch (MeetingLinkInUseException $exception) {
+                    $action->failureNotificationTitle($exception->getMessage());
+
+                    return false;
+                }
+            });
     }
 
     public static function getPages(): array

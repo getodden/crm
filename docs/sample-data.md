@@ -28,6 +28,7 @@ The paid add-ons can register their own sample data the same way.
 - **Nothing can reach a real person.** Every sample contact and company is on the reserved `.example` domain. The sequence runner also skips sample contacts, so no email is queued for them.
 - **It never creates a user.** The first existing user owns the sample records, so the cockpits and quotas have someone's work to show. With no users, the records are simply unowned.
 - **Removing it is exact.** Every sample record is listed in the `odden_demo_records` table, and `--remove` deletes only what is listed, with any activity logged on it. Your own records are never touched, even if they sit beside sample ones. The table name is configurable with `tables.demo_records` in `config/odden-core.php`.
+- **A booking on the sample booking page is cancelled, then removed.** Anyone with the link can book the sample page. `--remove` cancels its upcoming bookings first, which fires `MeetingBookingCancelled` for each, so a calendar that mirrors bookings drops them.
 - **Running it twice leaves one set.** A second run removes the first set before loading a new one.
 
 The dates in the sample data are relative to the day you load it, so deals close in the future and tasks fall due soon.
@@ -63,4 +64,6 @@ final class SupportDemoSeeder implements DemoSeeder
 $this->callAfterResolving(DemoRegistry::class, fn (DemoRegistry $registry) => $registry->register(SupportDemoSeeder::class));
 ```
 
-Use `$context->remember($group, $key, $model)` and `$context->find($group, $key)` to share records with later seeders, and `$context->ownerId()` for the owner. A module can also add its own checks to `odden:install` by registering an `Odden\Core\Console\InstallStep` with `Odden\Core\Console\InstallSteps`.
+Use `$context->remember($group, $key, $model)` and `$context->find($group, $key)` to share records with later seeders, and `$context->ownerId()` for the owner. If something has to be settled before the module's sample records can be deleted, also implement `Odden\Core\Demo\PreparesDemoRemoval`: `--remove` (and a reload) calls its `prepareRemoval()` in the same transaction, just before the records go. Sales uses it to cancel upcoming bookings on the sample booking page, which would otherwise stop the page being deleted.
+
+A module can also add its own checks to `odden:install` by registering an `Odden\Core\Console\InstallStep` with `Odden\Core\Console\InstallSteps`.

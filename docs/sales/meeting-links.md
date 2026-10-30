@@ -106,8 +106,8 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 
 | Attribute | Notes |
 | --- | --- |
-| `uid` | UUID, also used as the calendar event's UID. |
-| `meeting_link_id` | The link booked. Deleting the link deletes its bookings. |
+| `uid` | UUID, also used as the calendar event's UID. It is the booking's stable key: never changes, so key external calendar events on it. |
+| `meeting_link_id` | The link booked. Deleting the link deletes its bookings, which is refused while any are upcoming and active. |
 | `user_id` | The rep (host). |
 | `contact_id`, `activity_id` | The contact and the meeting activity created for the booking. |
 | `invitee_name`, `invitee_email` | As entered by the visitor (email lower-cased). |
@@ -116,6 +116,23 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 | `cancelled_at` | Set by `$booking->cancel()`. Cancelled bookings no longer block the slot. |
 
 `$link->bookings` lists a link's bookings. Cancelling a booking doesn't change the meeting activity or send any email.
+
+### Booking events
+
+Two events in `Odden\Sales\Events` let a host app react to bookings, for example to write them to an external calendar. Each carries `$booking` (the `SalesMeetingBooking`) and `$uid` (its stable key). A queued listener gets the booking re-read from the database when it runs, so it fails if the row has been deleted by then (set `$deleteWhenMissingModels` on the listener to drop it instead).
+
+| Event | Fired |
+| --- | --- |
+| `MeetingBooked` | Once, when `BookMeetingAction` has committed a new booking. |
+| `MeetingBookingCancelled` | Once, when `$booking->cancel()` cancels an active booking. Cancelling a cancelled booking fires nothing. |
+
+Both are dispatched after the database transaction commits (immediately when none is open), so a listener never sees a booking that was rolled back. If a listener throws, the exception is reported and the booking stays. The package has no rescheduling, so there is no reschedule event.
+
+Cancel through `cancel()`: setting `cancelled_at` some other way fires nothing.
+
+### Deleting a link
+
+A link with upcoming bookings (not cancelled and not yet ended) can't be deleted through Eloquent, so deleting a link never takes a booking with it unannounced and invitees are never left with a meeting that no longer exists. `$link->delete()` throws `Odden\Sales\Exceptions\MeetingLinkInUseException`, and `$link->upcomingBookingsCount()` says how many block it. Turn the link off (`is_active`) to stop new bookings, then cancel the upcoming ones or wait until they have passed. Past and cancelled bookings don't block deletion and go with the link. The Filament delete action and bulk action show the reason, and the bulk action deletes the links it can and reports how many it skipped. Deletes that skip the model events bypass this rule and fire nothing: a raw query, and deleting the host user, whose links the database deletes with them. Removing the [sample data](../sample-data.md) cancels the sample link's upcoming bookings first.
 
 ## The booking page
 
