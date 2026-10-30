@@ -13,7 +13,8 @@ use Throwable;
  * Dispatches an event once the open transaction (if any) commits. A listener that throws is
  * reported and does not reach the caller, so it can neither undo a booking nor turn a committed
  * booking into an error page. Each listener runs on its own, so one that throws does not keep the
- * listeners after it from running. A listener that is queued is still queued, not run inline.
+ * listeners after it from running. A listener that returns false still stops the ones after it, as
+ * with Event::dispatch, and a queued listener is still queued, not run inline.
  */
 final class DispatchesAfterCommit
 {
@@ -29,17 +30,21 @@ final class DispatchesAfterCommit
             }
 
             foreach ($dispatcher->getListeners($event::class) as $listener) {
-                self::attempt(static fn () => $listener($event::class, [$event]));
+                if (self::attempt(static fn () => $listener($event::class, [$event])) === false) {
+                    break;
+                }
             }
         });
     }
 
-    private static function attempt(callable $run): void
+    private static function attempt(callable $run): mixed
     {
         try {
-            $run();
+            return $run();
         } catch (Throwable $e) {
             report($e);
+
+            return null;
         }
     }
 }

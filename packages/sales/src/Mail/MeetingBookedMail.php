@@ -49,11 +49,11 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
     {
         $booking = $this->booking;
         $link = $booking->meetingLink;
-        $hostName = UserModel::displayName($booking->user, 'your host');
+        $hostName = UserModel::displayName($booking->host(), 'your host');
         $when = $booking->starts_at->copy()->setTimezone($booking->timezone)->format('D, M j \a\t g:i A');
 
         $from = self::configuredFrom();
-        $hostEmail = $booking->user->getAttribute('email');
+        $hostEmail = $booking->host()?->getAttribute('email');
 
         $replyTo = $this->recipientRole === 'host'
             ? [new Address($booking->invitee_email, $booking->invitee_name)]
@@ -77,7 +77,7 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
             with: [
                 'booking' => $booking,
                 'link' => $booking->meetingLink,
-                'hostName' => UserModel::displayName($booking->user, 'your host'),
+                'hostName' => UserModel::displayName($booking->host(), 'your host'),
                 'recipientRole' => $this->recipientRole,
                 'cancelUrl' => $this->cancelUrl,
                 'startsAt' => $booking->starts_at->copy()->setTimezone($booking->timezone),

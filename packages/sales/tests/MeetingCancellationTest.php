@@ -149,6 +149,17 @@ it('still sends the invitee their cancellation when the host user no longer exis
         ->and(app(MeetingInvite::class)->cancelIcs($sent->booking))->toContain('METHOD:PUBLISH')->toContain('STATUS:CANCELLED')->not->toContain('ORGANIZER');
 });
 
+it('still sends the invitee their confirmation when the host user is deleted before the queue sends it', function (): void {
+    $queued = Mail::queued(MeetingBookedMail::class, fn (MeetingBookedMail $mail): bool => $mail->recipientRole === 'invitee')->first();
+    $payload = serialize($queued);
+    SalesMeetingBooking::query()->whereKey($this->booking->id)->update(['user_id' => User::query()->max('id') + 1000]);
+
+    $sent = unserialize($payload);
+
+    expect($sent->render())->toContain('Discovery call')
+        ->and($sent->envelope()->subject)->toContain('with your host');
+});
+
 it('keeps the cancel link working when the booking page moves to another host', function (): void {
     URL::forceRootUrl('http://old.odden.test');
     $url = (new MeetingBookedMail($this->booking, 'invitee'))->cancelUrl;
