@@ -96,7 +96,7 @@ class CalendarBusyTime implements ExternalBusyTime
 $this->app->bind(ExternalBusyTime::class, CalendarBusyTime::class);
 ```
 
-`MeetingAvailability` treats the returned periods like bookings: they remove slots in `slotsFor()` and `firstAvailableDate()`, and `isAvailable()` refuses them, so booking a clashing time throws `MeetingSlotUnavailableException`, including in the re-check under the lock. The link's buffer is kept clear around them. `firstAvailableDate()` asks once for the whole booking window.
+`MeetingAvailability` treats the returned periods like bookings: they remove slots in `slotsFor()` and `firstAvailableDate()`, and `isAvailable()` refuses them, so booking a clashing time throws `MeetingSlotUnavailableException`. A booking asks once, before it takes the booking lock; the re-check under the lock looks only at bookings (`isAvailable($link, $startsAt, withExternal: false)`), so a slow source never holds the lock. The link's buffer is kept clear around them. `firstAvailableDate()` asks once for the whole booking window.
 
 Implementations must not throw and should return quickly, because this runs on the public booking page and while booking. Cache inside the implementation, and decide there what a provider outage means. If one throws anyway, the exception is reported and the rep counts as free of external busy time.
 

@@ -7,6 +7,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Odden\Core\Enums\ActivityType;
@@ -404,6 +405,21 @@ describe('external busy time', function (): void {
         app(BookMeetingAction::class)->execute($link, 'Dana Scully', 'dana@example.com', Carbon::parse('2030-01-07 09:30'));
 
         expect(SalesMeetingBooking::query()->count())->toBe(1);
+    });
+
+    it('never asks the external source while holding the booking lock', function () use ($bindExternal): void {
+        $link = ($this->makeLink)();
+        $transactionLevels = [];
+        $bindExternal([], function () use (&$transactionLevels): void {
+            $transactionLevels[] = DB::transactionLevel();
+        });
+
+        $outsideBooking = DB::transactionLevel();
+
+        app(BookMeetingAction::class)->execute($link, 'Dana Scully', 'dana@example.com', Carbon::parse('2030-01-07 09:00'));
+
+        expect(SalesMeetingBooking::query()->count())->toBe(1)
+            ->and($transactionLevels)->toBe([$outsideBooking]);
     });
 
     it('skips a day blocked externally and asks the source once for the window', function () use ($bindExternal, $at): void {

@@ -72,6 +72,35 @@ class MeetingAvailability
      */
     public function slotsFor(SalesMeetingLink $link, CarbonInterface|string $date, ?array $busy = null): array
     {
+        return $this->openSlots($link, $date, $busy, true);
+    }
+
+    /**
+     * Whether a meeting can be booked starting exactly at $startsAt.
+     *
+     * With $withExternal false only the host's bookings are checked. BookMeetingAction does that in its
+     * re-check under the booking lock, so the external source is never called while the lock is held:
+     * the lock serializes bookings in this app, not changes in an external calendar.
+     */
+    public function isAvailable(SalesMeetingLink $link, CarbonInterface $startsAt, bool $withExternal = true): bool
+    {
+        $local = CarbonImmutable::instance($startsAt)->setTimezone($link->timezoneName());
+
+        foreach ($this->openSlots($link, $local->format('Y-m-d'), null, $withExternal) as $slot) {
+            if ($slot->getTimestamp() === $local->getTimestamp()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array{0: int, 1: int}>|null  $busy
+     * @return list<CarbonImmutable>
+     */
+    protected function openSlots(SalesMeetingLink $link, CarbonInterface|string $date, ?array $busy, bool $withExternal): array
+    {
         $timezone = $link->timezoneName();
         $dateString = $date instanceof CarbonInterface ? $date->format('Y-m-d') : $date;
 
@@ -116,7 +145,9 @@ class MeetingAvailability
         }
 
         ksort($candidates);
-        $busy ??= $this->allBusyPeriods($link, $day->subMinutes($buffer), $day->addDay()->addMinutes($buffer));
+        $from = $day->subMinutes($buffer);
+        $to = $day->addDay()->addMinutes($buffer);
+        $busy ??= $withExternal ? $this->allBusyPeriods($link, $from, $to) : $this->busyPeriods($link, $from, $to);
 
         $open = [];
 
@@ -133,22 +164,6 @@ class MeetingAvailability
         }
 
         return $open;
-    }
-
-    /**
-     * Whether a meeting can be booked starting exactly at $startsAt.
-     */
-    public function isAvailable(SalesMeetingLink $link, CarbonInterface $startsAt): bool
-    {
-        $local = CarbonImmutable::instance($startsAt)->setTimezone($link->timezoneName());
-
-        foreach ($this->slotsFor($link, $local->format('Y-m-d')) as $slot) {
-            if ($slot->getTimestamp() === $local->getTimestamp()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
