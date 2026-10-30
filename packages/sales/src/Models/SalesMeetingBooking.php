@@ -127,6 +127,16 @@ class SalesMeetingBooking extends Model
     }
 
     /**
+     * Active bookings that have not ended yet, the ones in progress included.
+     *
+     * @param  Builder<SalesMeetingBooking>  $query
+     */
+    public function scopeUpcoming(Builder $query): void
+    {
+        $query->whereNull('cancelled_at')->where('ends_at', '>', now());
+    }
+
+    /**
      * Free the slot and fire MeetingBookingCancelled after commit. Cancelling a cancelled booking
      * changes nothing and fires nothing. The meeting activity is left for the rep to update.
      *

@@ -112,7 +112,7 @@ class SalesMeetingLink extends Model
      */
     public function upcomingBookingsCount(): int
     {
-        return $this->bookings()->active()->where('ends_at', '>', now())->count();
+        return $this->bookings()->upcoming()->count();
     }
 
     /**
