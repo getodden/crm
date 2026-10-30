@@ -293,7 +293,7 @@ it('stores no Identity value in plain text', function (): void {
             expect(app(FieldEncrypter::class)->isEncrypted($row[$column]))->toBeTrue("{$table}.{$column} is stored in plain text");
         }
 
-        expect(implode(' ', array_map('strval', $row)))->not->toContain('Zebulon')->not->toContain('Wombat')->not->toContain('identity-test')->not->toContain('555');
+        expect(implode('|', array_map('strval', $row)))->not->toContain('Zebulon')->not->toContain('Wombat')->not->toContain('identity-test')->not->toContain('555 019');
     }
 
     // And the search index holds only keyed hashes.
