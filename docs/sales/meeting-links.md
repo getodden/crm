@@ -106,7 +106,7 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 
 | Attribute | Notes |
 | --- | --- |
-| `uid` | UUID, also used as the calendar event's UID. |
+| `uid` | UUID, also used as the calendar event's UID. It is the booking's stable key: never changes, so key external calendar events on it. |
 | `meeting_link_id` | The link booked. Deleting the link deletes its bookings. |
 | `user_id` | The rep (host). |
 | `contact_id`, `activity_id` | The contact and the meeting activity created for the booking. |
@@ -116,6 +116,17 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 | `cancelled_at` | Set by `$booking->cancel()`. Cancelled bookings no longer block the slot. |
 
 `$link->bookings` lists a link's bookings. Cancelling a booking doesn't change the meeting activity or send any email.
+
+### Booking events
+
+Two events in `Odden\Sales\Events` let a host app react to bookings, for example to write them to an external calendar. Each carries `$booking` (the `SalesMeetingBooking`) and `$uid` (its stable key, still available if a queued listener runs after the row is gone).
+
+| Event | Fired |
+| --- | --- |
+| `MeetingBooked` | Once, when `BookMeetingAction` has committed a new booking. |
+| `MeetingBookingCancelled` | Once, when `$booking->cancel()` cancels an active booking. Cancelling a cancelled booking fires nothing. |
+
+Both are dispatched after the database transaction commits (immediately when none is open), so a listener never sees a booking that was rolled back. If a listener throws, the exception is reported and the booking stays. The package has no rescheduling, so there is no reschedule event.
 
 ## The booking page
 

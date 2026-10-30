@@ -12,12 +12,14 @@ use Odden\Core\Encryption\Casts\EncryptedString;
 use Odden\Core\Models\Activity;
 use Odden\Core\Models\Contact;
 use Odden\Core\Support\UserModel;
+use Odden\Sales\Events\MeetingBookingCancelled;
+use Odden\Sales\Support\DispatchesAfterCommit;
 
 /**
  * A slot booked on a meeting link. Active (not cancelled) bookings block the host's calendar.
  *
  * @property int $id
- * @property string $uid
+ * @property string $uid Stable key of the booking: the .ics event UID, and what an external calendar should key on.
  * @property int $meeting_link_id
  * @property int $user_id
  * @property int|null $contact_id
@@ -125,11 +127,18 @@ class SalesMeetingBooking extends Model
     }
 
     /**
-     * Free the slot. The meeting activity is left for the rep to update.
+     * Free the slot and fire MeetingBookingCancelled after commit. Cancelling a cancelled booking
+     * changes nothing and fires nothing. The meeting activity is left for the rep to update.
      */
     public function cancel(): self
     {
+        if ($this->cancelled_at !== null) {
+            return $this;
+        }
+
         $this->update(['cancelled_at' => now()]);
+
+        DispatchesAfterCommit::dispatch(new MeetingBookingCancelled($this, $this->uid));
 
         return $this;
     }
