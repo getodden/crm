@@ -6,8 +6,10 @@ namespace Odden\Sales\Services;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Odden\Sales\Contracts\ExternalBusyTime;
 use Odden\Sales\Models\SalesMeetingBooking;
 use Odden\Sales\Models\SalesMeetingLink;
+use Throwable;
 
 /**
  * Computes the open booking slots of a meeting link.
@@ -19,10 +21,13 @@ use Odden\Sales\Models\SalesMeetingLink;
  * Slots start at the beginning of each window and repeat every duration + buffer minutes while the
  * meeting still ends inside the window. Slots in the past, beyond the booking window, or overlapping
  * one of the host's active bookings (on any of their links, widened by this link's buffer) are left out.
+ * So are slots overlapping the host's busy time outside this app, from the bound ExternalBusyTime.
  */
 class MeetingAvailability
 {
     public const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    public function __construct(protected ExternalBusyTime $externalBusyTime) {}
 
     /**
      * The link's working hours, normalized to day => list of [startMinutes, endMinutes].
@@ -62,7 +67,7 @@ class MeetingAvailability
      * Open slot start times on a date, in the link's timezone, earliest first.
      *
      * @param  CarbonInterface|string  $date  A Y-m-d date in the link's timezone (a Carbon instance's own date is used).
-     * @param  list<array{0: int, 1: int}>|null  $busy  The host's bookings covering that day, when already loaded.
+     * @param  list<array{0: int, 1: int}>|null  $busy  The host's busy periods (bookings and external time) covering that day, when already loaded.
      * @return list<CarbonImmutable>
      */
     public function slotsFor(SalesMeetingLink $link, CarbonInterface|string $date, ?array $busy = null): array
@@ -111,7 +116,7 @@ class MeetingAvailability
         }
 
         ksort($candidates);
-        $busy ??= $this->busyPeriods($link, $day->subMinutes($buffer), $day->addDay()->addMinutes($buffer));
+        $busy ??= $this->allBusyPeriods($link, $day->subMinutes($buffer), $day->addDay()->addMinutes($buffer));
 
         $open = [];
 
@@ -154,9 +159,9 @@ class MeetingAvailability
         $date = CarbonImmutable::now($link->timezoneName())->startOfDay();
         $last = $this->lastBookableDate($link);
 
-        // The host's bookings over the whole window in one query, rather than one query per day.
+        // The host's busy periods over the whole window in one query and one external call, rather than per day.
         $buffer = max(0, $link->buffer_minutes);
-        $busy = $this->busyPeriods($link, $date->subMinutes($buffer), $last->addDay()->addMinutes($buffer));
+        $busy = $this->allBusyPeriods($link, $date->subMinutes($buffer), $last->addDay()->addMinutes($buffer));
 
         while ($date->lte($last)) {
             if ($this->slotsFor($link, $date->format('Y-m-d'), $busy) !== []) {
@@ -198,6 +203,33 @@ class MeetingAvailability
         }
 
         return [$start, $end];
+    }
+
+    /**
+     * The host's bookings and external busy time overlapping a period, as [start, end] Unix timestamps.
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    protected function allBusyPeriods(SalesMeetingLink $link, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        return [...$this->busyPeriods($link, $from, $to), ...$this->externalPeriods($link, $from, $to)];
+    }
+
+    /**
+     * The host's busy time outside this app. A failing source is reported and counts as no busy time,
+     * so it cannot take the public booking page down.
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    protected function externalPeriods(SalesMeetingLink $link, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        try {
+            return $this->externalBusyTime->busyPeriods($link, $from, $to);
+        } catch (Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**
