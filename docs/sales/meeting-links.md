@@ -115,7 +115,7 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 | `timezone` | The link's timezone at booking time. Times in the confirmation are shown in it. |
 | `cancelled_at` | Set by `$booking->cancel()`. Cancelled bookings no longer block the slot. |
 
-`$link->bookings` lists a link's bookings. Cancelling a booking doesn't change the meeting activity or send any email.
+`$link->bookings` lists a link's bookings. Cancelling a booking emails the invitee and the host (see [Cancelling a booking](#cancelling-a-booking)). It doesn't change the meeting activity.
 
 ### Booking events
 
@@ -124,7 +124,7 @@ Two events in `Odden\Sales\Events` let a host app react to bookings, for example
 | Event | Fired |
 | --- | --- |
 | `MeetingBooked` | Once, when `BookMeetingAction` has committed a new booking. |
-| `MeetingBookingCancelled` | Once, when `$booking->cancel()` cancels an active booking. Cancelling a cancelled booking fires nothing. |
+| `MeetingBookingCancelled` | Once, when `$booking->cancel()` cancels an active booking. Cancelling a cancelled booking fires nothing. Also carries `$cancelledBy` (`MeetingCancelledBy::Invitee` or `Staff`), `$actorName` and `$reason`. |
 
 Both are dispatched after the database transaction commits (immediately when none is open), so a listener never sees a booking that was rolled back. If a listener throws, the exception is reported and the booking stays. The package has no rescheduling, so there is no reschedule event.
 
@@ -132,7 +132,29 @@ Cancel through `cancel()`: setting `cancelled_at` some other way fires nothing.
 
 ### Deleting a link
 
-A link with upcoming bookings (not cancelled and not yet ended) can't be deleted through Eloquent, so deleting a link never takes a booking with it unannounced and invitees are never left with a meeting that no longer exists. `$link->delete()` throws `Odden\Sales\Exceptions\MeetingLinkInUseException`, and `$link->upcomingBookingsCount()` says how many block it. Turn the link off (`is_active`) to stop new bookings, then cancel the upcoming ones or wait until they have passed. Past and cancelled bookings don't block deletion and go with the link. The Filament delete action and bulk action show the reason, and the bulk action deletes the links it can and reports how many it skipped. Deletes that skip the model events bypass this rule and fire nothing: a raw query, and deleting the host user, whose links the database deletes with them. Removing the [sample data](../sample-data.md) cancels the sample link's upcoming bookings first.
+A link with upcoming bookings (not cancelled and not yet ended) can't be deleted through Eloquent, so deleting a link never takes a booking with it unannounced and invitees are never left with a meeting that no longer exists. `$link->delete()` throws `Odden\Sales\Exceptions\MeetingLinkInUseException`, and `$link->upcomingBookingsCount()` says how many block it. Turn the link off (`is_active`) to stop new bookings, then cancel the upcoming ones (the **Cancel booking** action on the link's Bookings tab) or wait until they have passed. The message the delete action shows says the same. Past and cancelled bookings don't block deletion and go with the link. The Filament delete action and bulk action show the reason, and the bulk action deletes the links it can and reports how many it skipped. Deletes that skip the model events bypass this rule and fire nothing: a raw query, and deleting the host user, whose links the database deletes with them. Removing the [sample data](../sample-data.md) cancels the sample link's upcoming bookings first.
+
+## Cancelling a booking
+
+A booking can be cancelled by the team or by the invitee. Both paths call `$booking->cancel()`, so both fire `MeetingBookingCancelled` once, and the emails below are sent by a listener on that event (`Odden\Sales\Listeners\SendMeetingCancellationMails`). Cancelling a cancelled booking sends nothing.
+
+```php
+use Odden\Sales\Enums\MeetingCancelledBy;
+
+$booking->cancel(MeetingCancelledBy::Staff, actorName: 'Beth Caldwell', reason: 'Out sick');
+```
+
+`$actorName` and `$reason` are optional and are not stored: they travel on the event to the emails.
+
+**Staff.** The meeting link's edit page in the [Filament admin](../filament/resources.md#other-sales-resources) has a **Bookings** tab, upcoming bookings first, then past and cancelled ones. An upcoming booking has a **Cancel booking** action that asks for confirmation and an optional reason. It is shown only to users allowed to update the meeting link (the link's policy `update` ability, like the rest of the resource).
+
+**Invitee.** The confirmation email to the invitee has a **Cancel this meeting** link to `GET /meet/bookings/{uid}/cancel` (`odden.meetings.cancel.show`), on the same host as the booking page. The URL is signed with the app key (`URL::signedRoute`), so it can't be guessed or edited, and the signature covers the host: the link is built when the mail is created during the booking (`MeetingBookedMail::$cancelUrl`), not when a queue worker sends it, so it keeps the booking page's host. A host app that serves booking pages on hosts of its own, or filters which routes it serves, must serve both cancel routes wherever it serves `odden.meetings.show`. and one that fails the signature, or names no booking, is a 404. Opening it only shows the meeting and a confirm button, with an optional reason: a mail scanner that prefetches the link cancels nothing. The button posts to the same URL (`odden.meetings.cancel`, `POST`, CSRF-protected and rate limited by Core's `odden-public` limiter like the booking form) and redirects back to the page. A booking that is already cancelled, or whose meeting has started, shows a plain message instead of the button. The host's copy has no cancel link.
+
+### Cancellation emails
+
+`Odden\Sales\Mail\MeetingCancelledMail` is queued like `MeetingBookedMail`, with the same mailer, queue and from address. The invitee gets `Cancelled: {link title} on {date}` with the rep as reply-to, and the rep gets the same subject with the invitee as reply-to (no rep email address, no host copy). The body says who cancelled (the person's name, or "you" in the invitee's own copy), when the meeting was, and the reason if one was given. It carries a copy of the booking, its link's title, description and slug, and the host's name and email, not model identifiers, so it is still sent when the link (and with it the booking) is deleted before the queue gets to it. Override the `odden-sales::mail.meeting-cancelled` view like the others.
+
+Both copies attach `cancelled.ics` (`text/calendar; method=CANCEL`), built by `MeetingInvite::cancelIcs()`: the booking's `uid`, `STATUS:CANCELLED`, and `SEQUENCE:1` (when the host has no email address the confirmation was `METHOD:PUBLISH`, so the cancellation is too, since `CANCEL` needs an organizer), so calendar apps remove the event the confirmation added (the confirmation's invite has `SEQUENCE:0`). There is no rescheduling, so a booking is only ever at sequence 0 or 1.
 
 ## The booking page
 

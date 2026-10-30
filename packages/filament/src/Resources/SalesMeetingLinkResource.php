@@ -28,6 +28,7 @@ use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\CreateSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\EditSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\ListSalesMeetingLinks;
+use Odden\Filament\Resources\SalesMeetingLinkResource\RelationManagers\BookingsRelationManager;
 use Odden\Sales\Exceptions\MeetingLinkInUseException;
 use Odden\Sales\Models\SalesMeetingLink;
 use Odden\Sales\Services\MeetingAvailability;
@@ -213,7 +214,7 @@ class SalesMeetingLinkResource extends Resource
                             $totalCount - $successCount,
                             ['count' => $totalCount - $successCount],
                         ))
-                        ->missingBulkProcessingFailureNotificationMessage('Turn those links off instead, or wait until their bookings have passed.'),
+                        ->missingBulkProcessingFailureNotificationMessage('Cancel their upcoming bookings first, or wait until they have passed.'),
                 ]),
             ]);
     }
@@ -233,6 +234,13 @@ class SalesMeetingLinkResource extends Resource
                     return false;
                 }
             });
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            BookingsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
