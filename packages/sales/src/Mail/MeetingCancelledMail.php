@@ -12,7 +12,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Arr;
 use Odden\Core\Support\UserModel;
 use Odden\Sales\Enums\MeetingCancelledBy;
 use Odden\Sales\Models\SalesMeetingBooking;
@@ -20,10 +20,13 @@ use Odden\Sales\Services\MeetingInvite;
 
 /**
  * Tells the invitee or the host that a booked meeting was cancelled, with an .ics (METHOD:CANCEL) that removes it from their calendar.
+ *
+ * Unlike the other mails it carries a copy of the booking, its link and its host, not model identifiers: a cancelled booking no longer
+ * blocks deleting its link, and deleting the link deletes its bookings, often before the queue sends this.
  */
 class MeetingCancelledMail extends Mailable implements ShouldBeEncrypted, ShouldQueue
 {
-    use ConfiguresSalesMail, Queueable, SerializesModels;
+    use ConfiguresSalesMail, Queueable;
 
     /**
      * @param  'invitee'|'host'  $recipientRole
@@ -35,7 +38,23 @@ class MeetingCancelledMail extends Mailable implements ShouldBeEncrypted, Should
         public ?string $actorName = null,
         public ?string $reason = null,
     ) {
+        $this->booking = self::snapshot($booking);
         $this->configureSalesMail();
+    }
+
+    /**
+     * The booking with only the columns the mail and the .ics read from its link and host, so no other host attribute rides in the job.
+     * The raw (still encrypted) values are copied, so nothing is decrypted here.
+     */
+    private static function snapshot(SalesMeetingBooking $booking): SalesMeetingBooking
+    {
+        $link = $booking->meetingLink;
+        $host = $booking->user;
+
+        return $booking->withoutRelations()->setRelations([
+            'meetingLink' => $link->newInstance([], true)->setRawAttributes(Arr::only($link->getAttributes(), [$link->getKeyName(), 'title', 'description', 'slug'])),
+            'user' => $host->newInstance([], true)->setRawAttributes(Arr::only($host->getAttributes(), [$host->getKeyName(), 'name', 'email'])),
+        ]);
     }
 
     public function envelope(): Envelope
@@ -85,7 +104,7 @@ class MeetingCancelledMail extends Mailable implements ShouldBeEncrypted, Should
     {
         return [
             Attachment::fromData(fn (): string => app(MeetingInvite::class)->cancelIcs($this->booking), 'cancelled.ics')
-                ->withMime('text/calendar; charset=UTF-8; method=CANCEL'),
+                ->withMime('text/calendar; charset=UTF-8; method='.app(MeetingInvite::class)->cancelMethod($this->booking)),
         ];
     }
 

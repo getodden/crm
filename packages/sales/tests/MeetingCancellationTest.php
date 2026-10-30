@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
@@ -90,6 +91,46 @@ it('puts a signed cancel link in the invitee confirmation only', function (): vo
 
     expect($invitee)->toContain('Cancel this meeting')->toContain("/meet/bookings/{$this->booking->uid}/cancel?signature=")
         ->and($host)->not->toContain('Cancel this meeting');
+});
+
+it('builds the cancel link with the host the booking was made on, not the queue worker URL', function (): void {
+    URL::forceRootUrl('http://book.odden.test');
+    $mail = new MeetingBookedMail($this->booking, 'invitee');
+
+    URL::forceRootUrl('http://worker.odden.test');
+    $html = unserialize(serialize($mail))->render();
+    URL::forceRootUrl(null);
+
+    expect($mail->cancelUrl)->toStartWith("http://book.odden.test/meet/bookings/{$this->booking->uid}/cancel?signature=")
+        ->and($html)->toContain(e($mail->cancelUrl));
+
+    $this->get((string) $mail->cancelUrl)->assertOk()->assertSee('Cancel this meeting');
+});
+
+it('still sends the cancellation emails when the link and its bookings are deleted before the queue runs them', function (): void {
+    DB::transaction(function (): void {
+        $this->booking->cancel(MeetingCancelledBy::Staff, 'Beth Caldwell', 'Out sick');
+        SalesMeetingBooking::query()->whereKey($this->booking->id)->delete();
+        SalesMeetingLink::query()->whereKey($this->link->id)->delete();
+    });
+
+    $queued = Mail::queued(MeetingCancelledMail::class);
+    expect($queued)->toHaveCount(2);
+
+    foreach ($queued as $mail) {
+        $sent = unserialize(serialize($mail));
+
+        expect($sent->render())->toContain('Discovery call')->toContain('Out sick')
+            ->and(app(MeetingInvite::class)->cancelIcs($sent->booking))->toContain('METHOD:CANCEL')->toContain("UID:{$this->booking->uid}@getodden");
+    }
+});
+
+it('cancels a published invite by publishing it again when the host has no email address', function (): void {
+    $this->booking->user->forceFill(['email' => ''])->save();
+    $booking = $this->booking->fresh();
+
+    expect(app(MeetingInvite::class)->ics($booking))->toContain('METHOD:PUBLISH')
+        ->and(app(MeetingInvite::class)->cancelIcs($booking))->toContain('METHOD:PUBLISH')->toContain('STATUS:CANCELLED')->toContain('SEQUENCE:1')->not->toContain('ORGANIZER');
 });
 
 it('shows the cancel page on GET without cancelling anything', function (): void {

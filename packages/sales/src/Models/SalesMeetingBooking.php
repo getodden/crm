@@ -168,6 +168,9 @@ class SalesMeetingBooking extends Model
         $this->forceFill(['cancelled_at' => $now, self::UPDATED_AT => $now])
             ->syncOriginalAttributes(['cancelled_at', self::UPDATED_AT]);
 
+        // Loaded now, inside the caller's transaction: the listener runs after commit, when the link may already be deleted.
+        $this->loadMissing(['meetingLink', 'user']);
+
         DispatchesAfterCommit::dispatch(new MeetingBookingCancelled($this, $this->uid, $by, $actorName, $reason));
 
         return $this;

@@ -19,8 +19,8 @@ class MeetingInvite
     }
 
     /**
-     * The invite that removes the event from a calendar: METHOD:CANCEL with the booking's UID and a higher SEQUENCE
-     * than the original (a booking is created at 0 and can be cancelled once, so the cancellation is 1).
+     * The invite that removes the event from a calendar: the booking's UID, STATUS:CANCELLED and a higher SEQUENCE than the
+     * original (a booking is created at 0 and can be cancelled once, so the cancellation is 1). See cancelMethod() for the METHOD.
      */
     public function cancelIcs(SalesMeetingBooking $booking): string
     {
@@ -43,7 +43,7 @@ class MeetingInvite
             'VERSION:2.0',
             'PRODID:-//Odden CRM//Sales Meetings//EN',
             'CALSCALE:GREGORIAN',
-            'METHOD:'.($cancelled ? 'CANCEL' : $this->method($booking)),
+            'METHOD:'.($cancelled ? $this->cancelMethod($booking) : $this->method($booking)),
             'BEGIN:VEVENT',
             "UID:{$booking->uid}@getodden",
             'DTSTAMP:'.self::utc(CarbonImmutable::now()),
@@ -74,6 +74,14 @@ class MeetingInvite
         $hostEmail = $booking->user->getAttribute('email');
 
         return is_string($hostEmail) && $hostEmail !== '' ? 'REQUEST' : 'PUBLISH';
+    }
+
+    /**
+     * CANCEL needs an organizer like REQUEST does, so an event that was published is updated by publishing it again, cancelled.
+     */
+    public function cancelMethod(SalesMeetingBooking $booking): string
+    {
+        return $this->method($booking) === 'REQUEST' ? 'CANCEL' : 'PUBLISH';
     }
 
     protected static function utc(CarbonImmutable $time): string

@@ -41,7 +41,7 @@ class SalesMeetingCancellationController extends Controller
         if ($this->state($booking) === 'open') {
             $reason = isset($validated['reason']) ? trim((string) $validated['reason']) : '';
 
-            $booking->cancel(MeetingCancelledBy::Invitee, $booking->invitee_name, $reason !== '' ? $reason : null);
+            $booking->cancel(MeetingCancelledBy::Invitee, reason: $reason !== '' ? $reason : null);
         }
 
         return redirect()->to($request->fullUrl());

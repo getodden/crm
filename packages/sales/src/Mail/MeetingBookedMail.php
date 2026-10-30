@@ -26,12 +26,21 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
     use ConfiguresSalesMail, Queueable, SerializesModels;
 
     /**
+     * The invitee's signed cancel link (null in the host's copy). Built when the mail is created, during the booking, so it has the
+     * host the booking page was opened on: the signature covers the host, and a queue worker would build it with the app URL instead.
+     */
+    public ?string $cancelUrl;
+
+    /**
      * @param  'invitee'|'host'  $recipientRole
      */
     public function __construct(
         public SalesMeetingBooking $booking,
         public string $recipientRole = 'invitee',
     ) {
+        $this->cancelUrl = $recipientRole === 'invitee'
+            ? URL::signedRoute('odden.meetings.cancel.show', ['uid' => $booking->uid])
+            : null;
         $this->configureSalesMail();
     }
 
@@ -69,9 +78,7 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
                 'link' => $booking->meetingLink,
                 'hostName' => UserModel::displayName($booking->user, 'your host'),
                 'recipientRole' => $this->recipientRole,
-                'cancelUrl' => $this->recipientRole === 'invitee'
-                    ? URL::signedRoute('odden.meetings.cancel.show', ['uid' => $booking->uid])
-                    : null,
+                'cancelUrl' => $this->cancelUrl,
                 'startsAt' => $booking->starts_at->copy()->setTimezone($booking->timezone),
                 'endsAt' => $booking->ends_at->copy()->setTimezone($booking->timezone),
             ],
