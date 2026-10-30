@@ -6,9 +6,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Odden\Sales\Actions\BookMeetingAction;
 use Odden\Sales\Events\MeetingBooked;
 use Odden\Sales\Events\MeetingBookingCancelled;
+use Odden\Sales\Exceptions\MeetingLinkInUseException;
 use Odden\Sales\Exceptions\MeetingSlotUnavailableException;
 use Odden\Sales\Models\SalesMeetingBooking;
 use Odden\Sales\Models\SalesMeetingLink;
@@ -120,4 +122,33 @@ it('does not fire MeetingBookingCancelled when the cancelling transaction rolls 
 
     Event::assertNotDispatched(MeetingBookingCancelled::class);
     expect($booking->fresh()->cancelled_at)->toBeNull();
+});
+
+it('refuses to delete a link with an upcoming active booking and keeps the booking', function (): void {
+    ($this->book)();
+
+    expect(fn () => $this->link->delete())->toThrow(MeetingLinkInUseException::class, 'This link has 1 upcoming booking.');
+
+    expect(SalesMeetingLink::query()->whereKey($this->link->id)->exists())->toBeTrue()
+        ->and(SalesMeetingBooking::query()->count())->toBe(1);
+});
+
+it('deletes a link whose bookings are only past or cancelled', function (): void {
+    ['booking' => $upcoming] = ($this->book)();
+    $upcoming->cancel();
+
+    SalesMeetingBooking::query()->create([
+        'uid' => (string) Str::uuid(),
+        'meeting_link_id' => $this->link->id,
+        'user_id' => $this->link->user_id,
+        'invitee_name' => 'Past Invitee',
+        'invitee_email' => 'past@example.com',
+        'starts_at' => '2030-01-01 09:00:00',
+        'ends_at' => '2030-01-01 09:30:00',
+        'timezone' => 'UTC',
+    ]);
+
+    $this->link->delete();
+
+    expect(SalesMeetingLink::query()->whereKey($this->link->id)->exists())->toBeFalse();
 });

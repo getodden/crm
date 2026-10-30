@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Tests;
 
+use Carbon\CarbonInterface;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\CreateSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\EditSalesMeetingLink;
+use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\ListSalesMeetingLinks;
 use Odden\Filament\Tests\Fixtures\User;
 use Odden\Sales\Database\Seeders\SalesDatabaseSeeder;
 use Odden\Sales\Enums\LeadRoutingStrategy;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\LeadRoutingRule;
 use Odden\Sales\Models\Pipeline;
+use Odden\Sales\Models\SalesMeetingBooking;
 use Odden\Sales\Models\SalesMeetingLink;
 use Odden\Sales\Models\SalesPlaybook;
 use Odden\Sales\Models\SalesSequence;
@@ -150,6 +155,79 @@ class EnterpriseSalesResourcesTest extends TestCase
             ]);
 
         $this->assertFalse(SalesMeetingLink::query()->where('slug', 'discovery-call')->exists());
+    }
+
+    public function test_meeting_link_with_an_upcoming_booking_cannot_be_deleted_from_the_edit_page_or_table(): void
+    {
+        $user = User::factory()->create();
+        $link = $this->meetingLinkWithBooking($user, 'busy-link', now()->addDay());
+
+        Livewire::actingAs($user)
+            ->test(EditSalesMeetingLink::class, ['record' => $link->getRouteKey()])
+            ->callAction('delete')
+            ->assertNotified('This link has 1 upcoming booking. Turn the link off instead, or wait until they have passed.');
+
+        Livewire::actingAs($user)
+            ->test(ListSalesMeetingLinks::class)
+            ->callAction(TestAction::make('delete')->table($link))
+            ->assertNotified('This link has 1 upcoming booking. Turn the link off instead, or wait until they have passed.');
+
+        $this->assertTrue(SalesMeetingLink::query()->whereKey($link->id)->exists());
+        $this->assertSame(1, SalesMeetingBooking::query()->count());
+    }
+
+    public function test_meeting_link_without_upcoming_bookings_can_be_deleted_from_the_edit_page(): void
+    {
+        $user = User::factory()->create();
+        $link = $this->meetingLinkWithBooking($user, 'quiet-link', now()->subDay());
+
+        Livewire::actingAs($user)
+            ->test(EditSalesMeetingLink::class, ['record' => $link->getRouteKey()])
+            ->callAction('delete')
+            ->assertNotified('Deleted');
+
+        $this->assertFalse(SalesMeetingLink::query()->whereKey($link->id)->exists());
+    }
+
+    public function test_bulk_delete_skips_links_with_upcoming_bookings_and_reports_how_many(): void
+    {
+        $user = User::factory()->create();
+        $busyOne = $this->meetingLinkWithBooking($user, 'busy-one', now()->addDay());
+        $busyTwo = $this->meetingLinkWithBooking($user, 'busy-two', now()->addDays(2));
+        $quiet = $this->meetingLinkWithBooking($user, 'quiet-one', now()->subDay());
+
+        Livewire::actingAs($user)
+            ->test(ListSalesMeetingLinks::class)
+            ->selectTableRecords([$busyOne->id, $busyTwo->id, $quiet->id])
+            ->callAction(TestAction::make('delete')->table()->bulk())
+            ->assertNotified('Skipped 2 meeting links with upcoming bookings');
+
+        $this->assertTrue(SalesMeetingLink::query()->whereKey([$busyOne->id, $busyTwo->id])->count() === 2);
+        $this->assertFalse(SalesMeetingLink::query()->whereKey($quiet->id)->exists());
+    }
+
+    private function meetingLinkWithBooking(User $user, string $slug, CarbonInterface $startsAt): SalesMeetingLink
+    {
+        $link = SalesMeetingLink::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Call '.$slug,
+            'slug' => $slug,
+            'duration_minutes' => 30,
+            'is_active' => true,
+        ]);
+
+        SalesMeetingBooking::query()->create([
+            'uid' => (string) Str::uuid(),
+            'meeting_link_id' => $link->id,
+            'user_id' => $user->id,
+            'invitee_name' => 'Dana',
+            'invitee_email' => 'dana@example.com',
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addMinutes(30),
+            'timezone' => 'UTC',
+        ]);
+
+        return $link;
     }
 
     public function test_authenticated_user_can_access_lead_routing_rules_index(): void
