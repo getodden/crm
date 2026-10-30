@@ -10,8 +10,8 @@ use Odden\Sales\Models\SalesMeetingBooking;
 
 /**
  * A new meeting booking was committed. Dispatched after the database transaction commits.
- * $uid is the booking's stable key (the same UUID as the .ics event UID), kept on the event
- * so a queued listener can still key on it if the booking row is gone by the time it runs.
+ * $uid is the booking's stable key (the same UUID as the .ics event UID). A queued listener gets the
+ * booking re-read from the database, so it fails (or is dropped, with $deleteWhenMissingModels) if the row is gone.
  */
 class MeetingBooked
 {

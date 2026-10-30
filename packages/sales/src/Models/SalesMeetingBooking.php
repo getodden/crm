@@ -129,6 +129,9 @@ class SalesMeetingBooking extends Model
     /**
      * Free the slot and fire MeetingBookingCancelled after commit. Cancelling a cancelled booking
      * changes nothing and fires nothing. The meeting activity is left for the rep to update.
+     *
+     * The update only matches a row that is still active, so when two requests cancel the same booking at
+     * once only the one that changed the row fires; the other takes the stored cancellation time.
      */
     public function cancel(): self
     {
@@ -136,7 +139,21 @@ class SalesMeetingBooking extends Model
             return $this;
         }
 
-        $this->update(['cancelled_at' => now()]);
+        $now = $this->freshTimestamp();
+        $changed = static::query()
+            ->whereKey($this->getKey())
+            ->whereNull('cancelled_at')
+            ->update(['cancelled_at' => $now, self::UPDATED_AT => $now]);
+
+        if ($changed === 0) {
+            $this->forceFill(['cancelled_at' => static::query()->whereKey($this->getKey())->value('cancelled_at')])
+                ->syncOriginalAttribute('cancelled_at');
+
+            return $this;
+        }
+
+        $this->forceFill(['cancelled_at' => $now, self::UPDATED_AT => $now])
+            ->syncOriginalAttributes(['cancelled_at', self::UPDATED_AT]);
 
         DispatchesAfterCommit::dispatch(new MeetingBookingCancelled($this, $this->uid));
 

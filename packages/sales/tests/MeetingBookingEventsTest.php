@@ -92,6 +92,22 @@ it('fires MeetingBookingCancelled once, and not again for a second cancel', func
     expect($booking->fresh()->cancelled_at)->not->toBeNull();
 });
 
+it('fires MeetingBookingCancelled once when two copies of an active booking are cancelled', function (): void {
+    $booking = ($this->book)()['booking'];
+    $first = $booking->fresh();
+    $second = $booking->fresh();
+    Event::fake([MeetingBookingCancelled::class]);
+
+    $first->cancel();
+    Carbon::setTestNow(now()->addMinute());
+    $second->cancel();
+
+    Event::assertDispatchedTimes(MeetingBookingCancelled::class, 1);
+    expect($first->cancelled_at)->not->toBeNull()
+        ->and($second->cancelled_at?->equalTo($first->cancelled_at))->toBeTrue()
+        ->and($booking->fresh()->cancelled_at->equalTo($first->cancelled_at))->toBeTrue();
+});
+
 it('does not fire MeetingBookingCancelled when the cancelling transaction rolls back', function (): void {
     $booking = ($this->book)()['booking'];
     Event::fake([MeetingBookingCancelled::class]);

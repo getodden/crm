@@ -119,7 +119,7 @@ Each booking is an `Odden\Sales\Models\SalesMeetingBooking` in `odden_sales_meet
 
 ### Booking events
 
-Two events in `Odden\Sales\Events` let a host app react to bookings, for example to write them to an external calendar. Each carries `$booking` (the `SalesMeetingBooking`) and `$uid` (its stable key, still available if a queued listener runs after the row is gone).
+Two events in `Odden\Sales\Events` let a host app react to bookings, for example to write them to an external calendar. Each carries `$booking` (the `SalesMeetingBooking`) and `$uid` (its stable key). A queued listener gets the booking re-read from the database when it runs, so it fails if the row has been deleted by then (set `$deleteWhenMissingModels` on the listener to drop it instead).
 
 | Event | Fired |
 | --- | --- |
@@ -127,6 +127,8 @@ Two events in `Odden\Sales\Events` let a host app react to bookings, for example
 | `MeetingBookingCancelled` | Once, when `$booking->cancel()` cancels an active booking. Cancelling a cancelled booking fires nothing. |
 
 Both are dispatched after the database transaction commits (immediately when none is open), so a listener never sees a booking that was rolled back. If a listener throws, the exception is reported and the booking stays. The package has no rescheduling, so there is no reschedule event.
+
+Cancel through `cancel()`: setting `cancelled_at` some other way fires nothing. Deleting a meeting link deletes its bookings, upcoming ones included, without firing `MeetingBookingCancelled`.
 
 ## The booking page
 
