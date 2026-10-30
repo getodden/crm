@@ -13,6 +13,7 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 use Odden\Core\Support\UserModel;
 use Odden\Sales\Models\SalesMeetingBooking;
 use Odden\Sales\Services\MeetingInvite;
@@ -68,6 +69,9 @@ class MeetingBookedMail extends Mailable implements ShouldBeEncrypted, ShouldQue
                 'link' => $booking->meetingLink,
                 'hostName' => UserModel::displayName($booking->user, 'your host'),
                 'recipientRole' => $this->recipientRole,
+                'cancelUrl' => $this->recipientRole === 'invitee'
+                    ? URL::signedRoute('odden.meetings.cancel.show', ['uid' => $booking->uid])
+                    : null,
                 'startsAt' => $booking->starts_at->copy()->setTimezone($booking->timezone),
                 'endsAt' => $booking->ends_at->copy()->setTimezone($booking->timezone),
             ],

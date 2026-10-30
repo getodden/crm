@@ -7,14 +7,19 @@ namespace Odden\Filament\Tests;
 use Carbon\CarbonInterface;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\CreateSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\EditSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\ListSalesMeetingLinks;
+use Odden\Filament\Resources\SalesMeetingLinkResource\RelationManagers\BookingsRelationManager;
 use Odden\Filament\Tests\Fixtures\User;
 use Odden\Sales\Database\Seeders\SalesDatabaseSeeder;
 use Odden\Sales\Enums\LeadRoutingStrategy;
+use Odden\Sales\Events\MeetingBookingCancelled;
+use Odden\Sales\Mail\MeetingCancelledMail;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\LeadRoutingRule;
 use Odden\Sales\Models\Pipeline;
@@ -165,12 +170,12 @@ class EnterpriseSalesResourcesTest extends TestCase
         Livewire::actingAs($user)
             ->test(EditSalesMeetingLink::class, ['record' => $link->getRouteKey()])
             ->callAction('delete')
-            ->assertNotified('This link has 1 upcoming booking. Turn the link off instead, or wait until they have passed.');
+            ->assertNotified('This link has 1 upcoming booking. Cancel them, or wait until they have passed. Turn the link off to stop new bookings.');
 
         Livewire::actingAs($user)
             ->test(ListSalesMeetingLinks::class)
             ->callAction(TestAction::make('delete')->table($link))
-            ->assertNotified('This link has 1 upcoming booking. Turn the link off instead, or wait until they have passed.');
+            ->assertNotified('This link has 1 upcoming booking. Cancel them, or wait until they have passed. Turn the link off to stop new bookings.');
 
         $this->assertTrue(SalesMeetingLink::query()->whereKey($link->id)->exists());
         $this->assertSame(1, SalesMeetingBooking::query()->count());
@@ -204,6 +209,101 @@ class EnterpriseSalesResourcesTest extends TestCase
 
         $this->assertTrue(SalesMeetingLink::query()->whereKey([$busyOne->id, $busyTwo->id])->count() === 2);
         $this->assertFalse(SalesMeetingLink::query()->whereKey($quiet->id)->exists());
+    }
+
+    public function test_staff_can_cancel_an_upcoming_booking_from_the_link_page_and_both_parties_are_emailed(): void
+    {
+        Mail::fake();
+        Event::fake([MeetingBookingCancelled::class]);
+        $user = User::factory()->create(['name' => 'Beth Caldwell', 'email' => 'beth@example.com']);
+        $link = $this->meetingLinkWithBooking($user, 'cancel-me', now()->addDay());
+        $booking = $link->bookings()->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test(BookingsRelationManager::class, ['ownerRecord' => $link, 'pageClass' => EditSalesMeetingLink::class])
+            ->assertCanSeeTableRecords([$booking])
+            ->callAction(TestAction::make('cancelBooking')->table($booking), ['reason' => 'Out sick'])
+            ->assertNotified('Booking cancelled');
+
+        $this->assertNotNull($booking->fresh()?->cancelled_at);
+        Event::assertDispatchedTimes(MeetingBookingCancelled::class, 1);
+        Event::assertDispatched(MeetingBookingCancelled::class, fn (MeetingBookingCancelled $event): bool => $event->reason === 'Out sick' && $event->actorName === 'Beth Caldwell' && $event->uid === $booking->uid);
+    }
+
+    public function test_cancelling_from_the_link_page_sends_the_invitee_and_host_emails_once(): void
+    {
+        Mail::fake();
+        $user = User::factory()->create(['email' => 'beth@example.com']);
+        $link = $this->meetingLinkWithBooking($user, 'mail-me', now()->addDay());
+        $booking = $link->bookings()->firstOrFail();
+
+        $component = Livewire::actingAs($user)
+            ->test(BookingsRelationManager::class, ['ownerRecord' => $link, 'pageClass' => EditSalesMeetingLink::class])
+            ->callAction(TestAction::make('cancelBooking')->table($booking), ['reason' => 'Out sick']);
+
+        Mail::assertQueued(MeetingCancelledMail::class, 2);
+        Mail::assertQueued(MeetingCancelledMail::class, fn (MeetingCancelledMail $mail): bool => $mail->hasTo('dana@example.com') && str_contains($mail->render(), 'Out sick'));
+        Mail::assertQueued(MeetingCancelledMail::class, fn (MeetingCancelledMail $mail): bool => $mail->hasTo('beth@example.com'));
+        $component->assertTableActionHidden('cancelBooking', $booking);
+    }
+
+    public function test_cancel_booking_is_hidden_for_past_and_cancelled_bookings(): void
+    {
+        $user = User::factory()->create();
+        $past = $this->meetingLinkWithBooking($user, 'past-link', now()->subDay())->bookings()->firstOrFail();
+        $cancelled = $this->meetingLinkWithBooking($user, 'done-link', now()->addDay())->bookings()->firstOrFail();
+        $cancelled->cancel();
+
+        foreach ([$past, $cancelled] as $booking) {
+            Livewire::actingAs($user)
+                ->test(BookingsRelationManager::class, ['ownerRecord' => $booking->meetingLink, 'pageClass' => EditSalesMeetingLink::class])
+                ->assertTableActionHidden('cancelBooking', $booking);
+        }
+    }
+
+    public function test_cancel_booking_is_hidden_and_does_nothing_when_policy_denies_updating_the_link(): void
+    {
+        $this->denyAbilities([SalesMeetingLink::class], ['update']);
+        Mail::fake();
+        $user = User::factory()->create();
+        $link = $this->meetingLinkWithBooking($user, 'locked-link', now()->addDay());
+        $booking = $link->bookings()->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test(BookingsRelationManager::class, ['ownerRecord' => $link, 'pageClass' => EditSalesMeetingLink::class])
+            ->assertTableActionHidden('cancelBooking', $booking)
+            ->mountAction(TestAction::make('cancelBooking')->table($booking))
+            ->callMountedAction();
+
+        $this->assertNull($booking->fresh()?->cancelled_at);
+        Mail::assertNotQueued(MeetingCancelledMail::class);
+    }
+
+    public function test_bookings_list_upcoming_first(): void
+    {
+        $user = User::factory()->create();
+        $link = $this->meetingLinkWithBooking($user, 'ordered', now()->addDays(3));
+        $past = $this->booking($link, now()->subDays(2));
+        $soon = $this->booking($link, now()->addDay());
+        $later = $link->bookings()->where('starts_at', '>', now()->addDays(2))->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test(BookingsRelationManager::class, ['ownerRecord' => $link, 'pageClass' => EditSalesMeetingLink::class])
+            ->assertCanSeeTableRecords([$soon, $later, $past], inOrder: true);
+    }
+
+    private function booking(SalesMeetingLink $link, CarbonInterface $startsAt): SalesMeetingBooking
+    {
+        return SalesMeetingBooking::query()->create([
+            'uid' => (string) Str::uuid(),
+            'meeting_link_id' => $link->id,
+            'user_id' => $link->user_id,
+            'invitee_name' => 'Pat',
+            'invitee_email' => 'pat@example.com',
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addMinutes(30),
+            'timezone' => 'UTC',
+        ]);
     }
 
     private function meetingLinkWithBooking(User $user, string $slug, CarbonInterface $startsAt): SalesMeetingLink
