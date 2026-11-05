@@ -11,6 +11,7 @@ use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenDrawer;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
+use Odden\Livewire\Concerns\AuthorizesScreen;
 use Odden\Livewire\Pages\Contacts\ListContacts;
 
 final class LivewireScreens
@@ -45,7 +46,10 @@ final class LivewireScreens
      */
     public static function routes(string $prefix = '', array $middleware = ['web', 'auth']): void
     {
+        Route::getRoutes()->refreshNameLookups();
+
         $routable = [];
+        $paths = [];
 
         foreach (Screens::all() as $screen) {
             $drawer = Screens::drawerFor($screen->key, self::SHELL);
@@ -54,7 +58,17 @@ final class LivewireScreens
                 continue;
             }
 
-            $routable[] = [$screen, Screens::replacements()[$drawer->class] ?? $drawer->class];
+            $class = Screens::replacements()[$drawer->class] ?? $drawer->class;
+            $path = self::path($screen);
+
+            self::guardRoutable($screen, $class);
+
+            if (isset($paths[$path])) {
+                throw new InvalidScreenRegistrationException("The screens [{$paths[$path]}] and [{$screen->key}] both map to the path [{$path}].");
+            }
+
+            $paths[$path] = $screen->key;
+            $routable[] = [$screen, $class, $path];
         }
 
         usort($routable, fn (array $a, array $b): int => $a[0]->record <=> $b[0]->record);
@@ -63,10 +77,25 @@ final class LivewireScreens
             ->middleware($middleware)
             ->name(self::ROUTE_PREFIX)
             ->group(function () use ($routable): void {
-                foreach ($routable as [$screen, $class]) {
-                    Route::livewire(self::path($screen), $class)->name($screen->key);
+                foreach ($routable as [$screen, $class, $path]) {
+                    Route::livewire($path, $class)->name($screen->key);
                 }
             });
+    }
+
+    private static function guardRoutable(Screen $screen, string $class): void
+    {
+        if (! is_subclass_of($class, Component::class)) {
+            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is drawn by [{$class}], which is not a Livewire component.");
+        }
+
+        if (! in_array(AuthorizesScreen::class, class_uses_recursive($class), true)) {
+            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is drawn by [{$class}], which does not use ".AuthorizesScreen::class.' and would be served without a permission check.');
+        }
+
+        if (Route::has(self::ROUTE_PREFIX.$screen->key)) {
+            throw new InvalidScreenRegistrationException('The route ['.self::ROUTE_PREFIX."{$screen->key}] for the screen [{$screen->key}] is already registered.");
+        }
     }
 
     private static function path(Screen $screen): string

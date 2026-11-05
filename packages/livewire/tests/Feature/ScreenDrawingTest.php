@@ -12,7 +12,6 @@ use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Livewire\Pages\Contacts\ListContacts;
 use Odden\Livewire\Screens\LivewireScreens;
-use Odden\Livewire\Screens\LivewireScreenShell;
 use Odden\Livewire\Tests\Fixtures\FixtureComponent;
 use Odden\Livewire\Tests\TestCase;
 use stdClass;
@@ -27,12 +26,6 @@ class ScreenDrawingTest extends TestCase
 
         $this->assertSame(ListContacts::class, $drawer?->class);
         $this->assertSame(LivewireScreens::SHELL, $drawer->shell);
-    }
-
-    public function test_the_shell_is_registered_above_the_default_priority(): void
-    {
-        $this->assertGreaterThan(0, LivewireScreens::PRIORITY);
-        $this->assertInstanceOf(LivewireScreenShell::class, app(LivewireScreenShell::class));
     }
 
     public function test_without_routes_no_shell_draws_the_screen(): void

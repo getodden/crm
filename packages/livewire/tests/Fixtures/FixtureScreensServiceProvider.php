@@ -14,11 +14,15 @@ class FixtureScreensServiceProvider extends ServiceProvider
     /** @var list<string> */
     public static array $exceptions = [];
 
+    /** @var array<class-string, class-string> */
+    public static array $replacements = [];
+
     public static ?Closure $configure = null;
 
     public static function reset(): void
     {
         self::$exceptions = [];
+        self::$replacements = [];
         self::$configure = null;
     }
 
@@ -36,6 +40,10 @@ class FixtureScreensServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->callAfterResolving(ScreenRegistry::class, function (ScreenRegistry $screens): void {
+            foreach (self::$replacements as $original => $replacement) {
+                $screens->replace($original, $replacement);
+            }
+
             $screens->except(...self::$exceptions);
 
             if (self::$configure !== null) {
