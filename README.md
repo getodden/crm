@@ -53,6 +53,7 @@ graph TD
 | **`getodden/crm-sales`** | `Odden\Sales\` | Revenue acceleration: Multi-pipeline Kanban, CPQ quoting, deal health scoring, stage gates, cadences, quotas, and forecasting. | [`packages/sales/README.md`](packages/sales/README.md) |
 | **`getodden/mail`**| `Odden\MailBuilder\`| *Separate Odden package* ([`getodden/mail`](https://github.com/getodden/mail)), used by Odden Marketing and usable on its own. Email builder & compiler: 29 modular responsive slots, MJML/HTML reverse ingestion, WCAG 2.1 contrast audits, CID transport embedding. | [`getodden/mail`](https://github.com/getodden/mail#readme) |
 | **`getodden/crm-filament`**| `Odden\Filament\` | Unified RevOps Cockpit: Single-plugin Filament v5 administration, auto-discovery of installed modules, and executive analytics. | [`packages/filament/README.md`](packages/filament/README.md) |
+| **`getodden/crm-livewire`**| `Odden\Livewire\` | Livewire 4 screens drawn from the screen registry, side by side with the Filament admin. First slice: the contact list. | [`packages/livewire/README.md`](packages/livewire/README.md) |
 
 ### Paid add-ons
 

@@ -18,7 +18,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PACKAGES=(core sales filament)
+PACKAGES=(core sales filament livewire)
 BASE="${SPLIT_REMOTE_BASE:-git@github.com:getodden}"
 
 dry=0
@@ -38,7 +38,6 @@ done
 git fetch -q origin main
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "main is not at origin/main." >&2; exit 1; }
 
-# Split every package first, so a failure to split stops everything before anything is pushed.
 SPLITS=()
 for package in "${PACKAGES[@]}"; do
     split="$(git subtree split -q --prefix="packages/$package" HEAD)"
@@ -52,14 +51,16 @@ for index in "${!PACKAGES[@]}"; do
     package="${PACKAGES[$index]}"
     split="${SPLITS[$index]}"
     remote="$BASE/crm-${package}.git"
-    current="$(git ls-remote "$remote" refs/heads/main | cut -f1)"
+    if ! current="$(git ls-remote "$remote" refs/heads/main | cut -f1)"; then
+        echo "crm-$package: repository not reachable" >&2; failed+=("$package")
+        continue
+    fi
 
     if [ "$current" = "$split" ]; then
         echo "crm-$package: up to date (${split:0:7})"
         continue
     fi
 
-    # One repository refusing the push does not stop the others; the script reports it and fails at the end.
     if [ "$dry" -eq 1 ]; then
         if git push -q --dry-run "$remote" "$split:refs/heads/main"; then
             echo "crm-$package: would push ${split:0:7} (now ${current:0:7})"

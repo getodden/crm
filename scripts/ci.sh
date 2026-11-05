@@ -16,7 +16,7 @@
 # written only by a complete run (no --quick, no --only) that passed on a clean tree. It is a local file: delete it, or use --fresh,
 # after changing the machine's PHP extensions, a database server or the vendor folder in a way the tree does not show.
 #
-# Steps: Pint, the docs check (pages, navigation and links), PHPStan and the Workbench tests at the root, then the suites of packages/core, packages/sales and packages/filament on
+# Steps: Pint, the docs check (pages, navigation and links), PHPStan and the Workbench tests at the root, then the suites of packages/core, packages/sales, packages/filament and packages/livewire on
 # SQLite, on PostgreSQL and on MariaDB/MySQL. The two server databases use their own throwaway databases, dropped and created each
 # run; point them at your servers with the variables below. Nothing else on those servers is touched.
 #
@@ -40,7 +40,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-PACKAGES=(core sales filament)
+PACKAGES=(core sales filament livewire)
 
 only=""
 keep_going=0
@@ -60,7 +60,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# --report is refused up front, not after the suites have run: a run that cannot be reported is a wasted run.
 if [ "$report" -eq 1 ]; then
     if [ "$quick" -eq 1 ]; then echo "Not reporting: --quick is not the gate." >&2; exit 1; fi
     if [ -n "$only" ]; then echo "Not reporting: --only ran part of the steps." >&2; exit 1; fi
@@ -79,7 +78,6 @@ results=()
 failed=0
 log="$(mktemp -d)"
 
-# A database name that is not a plain identifier is refused: it is put into DROP DATABASE.
 for name in "$PG_DATABASE" "$MY_DATABASE"; do
     case "$name" in
         *[!A-Za-z0-9_]*|"") echo "Refusing database name '$name': letters, digits and underscores only." >&2; exit 2 ;;
@@ -87,7 +85,6 @@ for name in "$PG_DATABASE" "$MY_DATABASE"; do
 done
 
 find_client() {
-    # $1 = names to try, in order; also looks in Laravel Herd's bin directory.
     local name
     for name in $1; do
         if command -v "$name" >/dev/null 2>&1; then command -v "$name"; return 0; fi
@@ -113,7 +110,6 @@ run_step() {
     fi
 }
 
-# The suites of every package, each from its own directory (the path repositories link the packages to one another there).
 suites() {
     local package
     for package in "${PACKAGES[@]}"; do
@@ -122,7 +118,6 @@ suites() {
     done
 }
 
-# Shuts down the RAM-disk MariaDB, if this run started one, and frees its disk. Safe to call twice.
 stop_ram_mariadb() {
     local CI_RAM_MY_PORT CI_RAM_MY_DEVICE CI_RAM_MY_DIR CI_RAM_MY_PID
     [ -f "$log/ram-mariadb.env" ] || return 0
@@ -143,7 +138,6 @@ step_setup() {
 
 step_pint() { vendor/bin/pint --test; }
 
-# The check .github/workflows/docs.yml ran on pull requests: every page in the navigation exists, every page is listed, every link resolves.
 step_docs() { php .github/scripts/check-docs.php docs; }
 
 step_phpstan() { vendor/bin/phpstan analyse --no-progress --memory-limit=2G; }
@@ -223,7 +217,6 @@ printf '%s\n' "${results[@]}"
 
 if [ "$failed" -ne 0 ]; then exit 1; fi
 
-# Only a complete pass of a clean tree is remembered.
 if [ -z "$reused" ] && [ "$quick" -eq 0 ] && [ -z "$only" ] && [ -z "$(git status --porcelain --untracked-files=no)" ]; then
     echo "$green_key $(git rev-parse HEAD) $(date -u +%Y-%m-%dT%H:%MZ)" >> "$green_file"
 fi
@@ -233,6 +226,6 @@ if [ "$report" -eq 1 ]; then
     sha="$(git rev-parse HEAD)"
     repo="$report_repo"
     gh api "repos/$repo/statuses/$sha" -f state=success -f context=local-ci \
-        -f description="${reuse_note:-Pint, PHPStan, Workbench, three package suites on SQLite, PostgreSQL, MariaDB passed locally ($(date -u +%Y-%m-%dT%H:%MZ))}" >/dev/null || exit 1
+        -f description="${reuse_note:-Pint, PHPStan, Workbench, four package suites on SQLite, PostgreSQL, MariaDB passed locally ($(date -u +%Y-%m-%dT%H:%MZ))}" >/dev/null || exit 1
     echo "Set the local-ci status on $sha"
 fi

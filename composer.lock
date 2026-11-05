@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "82a5d08bf280fbf83fe62e2330818ea5",
+    "content-hash": "8f23b9d3ed7890f1f2ce3621e9aabfbc",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1708,9 +1708,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/core",
-                "reference": "c9a79664cc2fb7ef0f07feff29b2844c510a8a5b"
+                "reference": "154ba8f9d405138abf4266e8e8a351e21b76482a"
             },
             "require": {
+                "ext-sodium": "*",
                 "laravel/framework": "^12.0 || ^13.0",
                 "php": "^8.3"
             },
@@ -1781,7 +1782,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/filament",
-                "reference": "c5cfe17d28e473a104a40962f758d5bd6b51dfc8"
+                "reference": "4c25df9e8e7b8237b72543068f2574efbaa88a86"
             },
             "require": {
                 "filament/filament": "^5.9",
@@ -1796,9 +1797,7 @@
                 "pestphp/pest-plugin-laravel": "^3.0 || ^4.0 || ^5.0"
             },
             "suggest": {
-                "getodden/crm-marketing": "Adds Campaigns, Workflows, Forms, and the Marketing Cockpit",
-                "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit",
-                "getodden/crm-service": "Adds Tickets, SLAs, Knowledge Articles, and the Service Cockpit"
+                "getodden/crm-sales": "Adds Deals, Pipelines, Quotes, Sequences, and the Sales Cockpit"
             },
             "type": "library",
             "extra": {
@@ -1855,12 +1854,84 @@
             }
         },
         {
+            "name": "getodden/crm-livewire",
+            "version": "0.2.x-dev",
+            "dist": {
+                "type": "path",
+                "url": "packages/livewire",
+                "reference": "80b032e679b5eb5e9f641ccb414d65118d05190f"
+            },
+            "require": {
+                "getodden/crm-core": "self.version",
+                "getodden/ui": "^0.1",
+                "laravel/framework": "^13.0",
+                "livewire/livewire": "^4.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^3.8 || ^4.0 || ^5.0",
+                "pestphp/pest-plugin-laravel": "^3.0 || ^4.0 || ^5.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Odden\\Livewire\\LivewireServiceProvider"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-main": "0.2.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Odden\\Livewire\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Odden\\Livewire\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "vendor/bin/pest"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "CaskStack, LLC",
+                    "homepage": "https://odden.io"
+                }
+            ],
+            "description": "Livewire screens for Odden CRM",
+            "homepage": "https://odden.io",
+            "keywords": [
+                "crm",
+                "getodden",
+                "laravel",
+                "livewire"
+            ],
+            "support": {
+                "issues": "https://github.com/getodden/crm/issues",
+                "source": "https://github.com/getodden/crm"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "getodden/crm-sales",
             "version": "0.2.x-dev",
             "dist": {
                 "type": "path",
                 "url": "packages/sales",
-                "reference": "876f6834e0bdf040767122f707b56fd8be3f8d9f"
+                "reference": "6effb1a0033d4b5fa2c0ab099a267005c9c54547"
             },
             "require": {
                 "getodden/crm-core": "self.version",
@@ -2005,6 +2076,73 @@
                 "source": "https://github.com/getodden/mail"
             },
             "time": "2026-10-02T21:44:50+00:00"
+        },
+        {
+            "name": "getodden/ui",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/getodden/ui.git",
+                "reference": "a592f678d677965778a8f9e88546901d66f54966"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/getodden/ui/zipball/a592f678d677965778a8f9e88546901d66f54966",
+                "reference": "a592f678d677965778a8f9e88546901d66f54966",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^13.0",
+                "livewire/livewire": "^4.0",
+                "owenvoke/blade-fontawesome": "^3.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "laravel/pint": "^1.32",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^4.0 || ^5.0",
+                "pestphp/pest-plugin-browser": "^4.0 || ^5.0",
+                "pestphp/pest-plugin-laravel": "^4.0 || ^5.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Odden\\Ui\\UiServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Odden\\Ui\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "CaskStack, LLC",
+                    "homepage": "https://odden.io"
+                }
+            ],
+            "description": "Blade components, Livewire traits and Tailwind 4 theme tokens for accessible Laravel Livewire screens.",
+            "homepage": "https://odden.io",
+            "keywords": [
+                "accessibility",
+                "blade",
+                "components",
+                "laravel",
+                "livewire",
+                "tailwind"
+            ],
+            "support": {
+                "issues": "https://github.com/getodden/ui/issues",
+                "source": "https://github.com/getodden/ui"
+            },
+            "time": "2026-11-05T05:23:51+00:00"
         },
         {
             "name": "graham-campbell/result-type",
@@ -4453,6 +4591,66 @@
                 }
             ],
             "time": "2025-09-03T16:03:54+00:00"
+        },
+        {
+            "name": "owenvoke/blade-fontawesome",
+            "version": "v3.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/owenvoke/blade-fontawesome.git",
+                "reference": "e1f679a1da22e75bdad9fe19865c3b0bff83c5e3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/owenvoke/blade-fontawesome/zipball/e1f679a1da22e75bdad9fe19865c3b0bff83c5e3",
+                "reference": "e1f679a1da22e75bdad9fe19865c3b0bff83c5e3",
+                "shasum": ""
+            },
+            "require": {
+                "blade-ui-kit/blade-icons": "^1.8",
+                "illuminate/support": "^12.0|^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.25",
+                "orchestra/testbench": "^10.6|^11.0",
+                "pestphp/pest": "^4.1",
+                "phpstan/phpstan": "^2.1",
+                "symfony/var-dumper": "^7.3"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "OwenVoke\\BladeFontAwesome\\BladeFontAwesomeServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "OwenVoke\\BladeFontAwesome\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "A package to easily make use of Font Awesome in your Laravel Blade views",
+            "support": {
+                "issues": "https://github.com/owenvoke/blade-fontawesome/issues",
+                "source": "https://github.com/owenvoke/blade-fontawesome/tree/v3.3.1"
+            },
+            "funding": [
+                {
+                    "url": "https://ecologi.com/owenvoke?gift-trees",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/owenvoke",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-07-16T08:22:20+00:00"
         },
         {
             "name": "paragonie/constant_time_encoding",
@@ -12807,12 +13005,14 @@
     "stability-flags": {
         "getodden/crm-core": 20,
         "getodden/crm-filament": 20,
+        "getodden/crm-livewire": 20,
         "getodden/crm-sales": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "ext-sodium": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"

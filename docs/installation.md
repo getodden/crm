@@ -59,6 +59,8 @@ composer require getodden/crm-filament
 
 Then register the plugin in your panel provider. See [Filament admin](filament/index.md) for the details.
 
+The Livewire screens in `getodden/crm-livewire` (Laravel 13, early slice) run beside the Filament admin; its package README explains how to turn them on.
+
 ## Publish configuration (optional)
 
 Each package works with its defaults. Publish a config file only when you need to change something:

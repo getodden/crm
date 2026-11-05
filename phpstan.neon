@@ -6,6 +6,7 @@ parameters:
         - app
         - packages/core/src
         - packages/filament/src
+        - packages/livewire/src
         - packages/sales/src
 
     # The level 8 is the highest level before 9 (mixed type enforcement)
