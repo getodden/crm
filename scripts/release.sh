@@ -36,6 +36,10 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 status="$(gh api "repos/$repo/commits/$sha/statuses" --jq '[.[] | select(.context=="local-ci")][0].state')"
 [ "$status" = "success" ] || { echo "HEAD has no successful local-ci status (run scripts/ci.sh --report). Got: ${status:-none}" >&2; exit 1; }
 
+for package in "${PACKAGES[@]}"; do
+    git ls-remote -q "git@github.com:getodden/crm-${package}.git" >/dev/null || { echo "getodden/crm-$package is not reachable; nothing was tagged." >&2; exit 1; }
+done
+
 SPLITS=()
 for package in "${PACKAGES[@]}"; do
     split="$(git subtree split -q --prefix="packages/$package" HEAD)"
