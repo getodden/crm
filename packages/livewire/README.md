@@ -28,6 +28,14 @@ Livewire update requests re-run only persistent middleware, and `auth` is persis
 
 Every component that draws a screen must use `Odden\Livewire\Concerns\AuthorizesScreen`, which checks the screen's permissions on every request and update. `routes()` refuses a component without it, including a replacement set with `Screens::replace()`, and also refuses a route name or path that is already taken.
 
+To serve only some screens from Livewire, pass the keys as the third argument:
+
+```php
+LivewireScreens::routes('crm', ['web', 'auth'], only: ['contacts.index']);
+```
+
+With a list, only those keys get routes, so a host that serves both shells at the same paths opts in key by key. An empty list registers no screen routes. A key that is unknown, excepted, in a disabled module or not drawn by the Livewire shell throws `InvalidScreenRegistrationException` naming it.
+
 A screen the registry excepts or whose module is disabled gets no route. For a tenant prefix such as `{workspace}/crm`, bind a `ScreenTenantParameters` that returns the `workspace` value, and set `URL::defaults(['workspace' => ...])` for the request, because the layout's navigation builds its links without a tenant.
 
 ## Styles
@@ -42,4 +50,34 @@ Tailwind 4 must scan the package views, and the `getodden/ui` theme must be impo
 
 ## Layout
 
-Screens use `odden-livewire::layouts.app`. Publish nothing: create `resources/views/vendor/odden-livewire/layouts/app.blade.php` in your application and it replaces the package layout.
+Screens use `odden-livewire::layouts.app`, a sidebar and top bar workspace layout with a skip link, a `main` landmark, grouped navigation that marks the current page with `aria-current="page"` and one toast region. It sets the `dark` class on `<html>` from `localStorage` key `theme` (`dark`, `light` or `system`).
+
+Each region is a partial. Replace one by creating `resources/views/vendor/odden-livewire/layouts/partials/{name}.blade.php` in your application:
+
+| Partial | Default |
+| --- | --- |
+| `head` | empty; put `@vite` here |
+| `brand` | `config('app.name')` as text |
+| `navigation` | the screens the user can open, grouped, with their icons |
+| `header-actions` | empty |
+| `user-menu` | the user's name and a sign-out form |
+| `before-content` | empty; host banners |
+| `body-end` | empty; host scripts |
+
+The sign-out form posts to the route named by `logout_route` in `config/odden-livewire.php` (default `logout`) and is left out when that route does not exist. The route must resolve with no parameters, or with `URL::defaults`. The inline theme script carries `Vite::cspNonce()` when a nonce is set. Publish the file with `php artisan vendor:publish --tag=odden-livewire-config`.
+
+To replace the whole layout, create `resources/views/vendor/odden-livewire/layouts/app.blade.php`.
+
+## Read-only sessions
+
+A host can make a request read-only by binding `Odden\Livewire\Contracts\WriteGuard`:
+
+```php
+$this->app->bind(WriteGuard::class, SupportSessionGuard::class);
+```
+
+`refusal(Authenticatable $user)` returns a message when the request may not change anything, and `null` otherwise. The default binding, `AllowAllWrites`, always returns `null`. The guard is resolved on every call; keep no user or answer in a static or a singleton.
+
+Every component that uses `AuthorizesScreen` (and so `GuardsWrites`) is then default-deny: any action method is refused, with a danger `ui-toast` carrying the message, unless it carries `#[Odden\Livewire\Attributes\Reads]` or is one of the framework read methods (`$refresh`, `$set`, `$sync`, `$commit`, pagination, `sortBy` and `resetFilters` of `WithRecordTable`, `cancelConfirmation` of `WithConfirmation`). `runConfirmation` is refused because it runs the confirmed write. Property updates are not refused. An event listener is judged by its own method; a refused listener and a refused `#[Json]` method answer 403 instead of a toast, because Livewire runs listeners and JSON methods itself, so returning early cannot stop them. Livewire's lazy-loading calls are never refused. WithFileUploads' `_startUpload`, `_finishUpload`, `_uploadErrored` and `_removeUpload` are refused on purpose: a read-only session may not upload.
+
+Only components that use `GuardsWrites` are guarded. Child components that are not screens (a bell, a search box, a modal) are not, unless they use `GuardsWrites` themselves.

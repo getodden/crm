@@ -36,3 +36,11 @@ arch('no debug functions are left in the code')
 arch('the screens do not use the DB facade')
     ->expect('Odden\Livewire')
     ->not->toUse('Illuminate\Support\Facades\DB');
+
+arch('every page component authorizes its screen and guards writes')
+    ->expect('Odden\Livewire\Pages')
+    ->toUseTrait('Odden\Livewire\Concerns\AuthorizesScreen');
+
+arch('the write guard contract is an interface')
+    ->expect('Odden\Livewire\Contracts')
+    ->toBeInterfaces();

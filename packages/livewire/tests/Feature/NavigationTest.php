@@ -48,4 +48,21 @@ class NavigationTest extends RoutedTestCase
             ->get('/crm/contacts')
             ->assertSee('href="http://localhost/crm/reports"', false);
     }
+
+    #[DefineEnvironment('defineNavigationScreens')]
+    public function test_a_screen_without_an_icon_draws_none(): void
+    {
+        $html = $this->actingAs(User::factory()->create())->get('/crm/contacts')->getContent();
+
+        $this->assertMatchesRegularExpression('#href="http://localhost/crm/notes"[^>]*>\s*Notes#', $html);
+    }
+
+    #[DefineEnvironment('defineNavigationScreens')]
+    public function test_the_menu_is_hidden_on_narrow_screens_before_alpine_starts(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get('/crm/contacts')
+            ->assertSee('class="mt-2 hidden md:mt-0 md:block"', false)
+            ->assertSee('aria-expanded="false"', false);
+    }
 }
