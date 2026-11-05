@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, sales, filament]
+        package: [core, sales, filament, livewire]
 
     steps:
       - name: Checkout full history

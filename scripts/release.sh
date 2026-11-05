@@ -14,7 +14,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PACKAGES=(core sales filament)
+PACKAGES=(core sales filament livewire)
 
 version="${1:-}"
 dry=0
@@ -22,7 +22,7 @@ dry=0
 
 case "$version" in
     v[0-9]*.[0-9]*.[0-9]*) ;;
-    *) echo "Usage: scripts/release.sh vX.Y.Z [--dry-run]" >&2; exit 2 ;;
+    *) sed -n '2,11p' "$0" >&2; exit 2 ;;
 esac
 
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "Not on main." >&2; exit 1; }
@@ -36,8 +36,6 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 status="$(gh api "repos/$repo/commits/$sha/statuses" --jq '[.[] | select(.context=="local-ci")][0].state')"
 [ "$status" = "success" ] || { echo "HEAD has no successful local-ci status (run scripts/ci.sh --report). Got: ${status:-none}" >&2; exit 1; }
 
-# Split every package first, so a failure to split stops the release before anything is tagged or pushed. (Plain arrays: macOS ships
-# bash 3.2, which has no associative ones. SPLITS[i] is the split of PACKAGES[i].)
 SPLITS=()
 for package in "${PACKAGES[@]}"; do
     split="$(git subtree split -q --prefix="packages/$package" HEAD)"

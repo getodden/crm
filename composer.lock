@@ -1859,11 +1859,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/livewire",
-                "reference": "80b032e679b5eb5e9f641ccb414d65118d05190f"
+                "reference": "47ce177c44e96e13ed7f8d4f49d5890b415cae25"
             },
             "require": {
                 "getodden/crm-core": "self.version",
-                "getodden/ui": "^0.1",
+                "getodden/ui": "^0.2",
                 "laravel/framework": "^13.0",
                 "livewire/livewire": "^4.0",
                 "php": "^8.3"
@@ -2079,16 +2079,16 @@
         },
         {
             "name": "getodden/ui",
-            "version": "v0.1.0",
+            "version": "v0.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/getodden/ui.git",
-                "reference": "a592f678d677965778a8f9e88546901d66f54966"
+                "reference": "bb998f9839111c30c608ee27fb7b6e1c126774db"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/getodden/ui/zipball/a592f678d677965778a8f9e88546901d66f54966",
-                "reference": "a592f678d677965778a8f9e88546901d66f54966",
+                "url": "https://api.github.com/repos/getodden/ui/zipball/bb998f9839111c30c608ee27fb7b6e1c126774db",
+                "reference": "bb998f9839111c30c608ee27fb7b6e1c126774db",
                 "shasum": ""
             },
             "require": {
@@ -2142,7 +2142,7 @@
                 "issues": "https://github.com/getodden/ui/issues",
                 "source": "https://github.com/getodden/ui"
             },
-            "time": "2026-11-05T05:23:51+00:00"
+            "time": "2026-11-05T16:55:53+00:00"
         },
         {
             "name": "graham-campbell/result-type",

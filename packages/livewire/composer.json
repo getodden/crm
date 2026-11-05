@@ -23,7 +23,7 @@
     "require": {
         "php": "^8.3",
         "getodden/crm-core": "self.version",
-        "getodden/ui": "^0.1",
+        "getodden/ui": "^0.2",
         "laravel/framework": "^13.0",
         "livewire/livewire": "^4.0"
     },
