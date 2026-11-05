@@ -8,8 +8,9 @@ use Odden\Core\Models\Company;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Livewire\Screens\LivewireScreens;
-use Odden\Livewire\Tests\Fixtures\FixtureComponent;
 use Odden\Livewire\Tests\Fixtures\FixtureScreensServiceProvider;
+use Odden\Livewire\Tests\Fixtures\Screens\Notes;
+use Odden\Livewire\Tests\Fixtures\Screens\Reports;
 use Odden\Livewire\Tests\Fixtures\User;
 use Odden\Livewire\Tests\RoutedTestCase;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
@@ -23,8 +24,8 @@ class NavigationTest extends RoutedTestCase
                 Screen::page('reports', 'Reports', viewAnyOf: [Company::class]),
                 Screen::page('notes', 'Notes'),
             );
-            LivewireScreens::component($screens, 'reports', FixtureComponent::class);
-            LivewireScreens::component($screens, 'notes', FixtureComponent::class);
+            LivewireScreens::component($screens, 'reports', Reports::class);
+            LivewireScreens::component($screens, 'notes', Notes::class);
         };
     }
 

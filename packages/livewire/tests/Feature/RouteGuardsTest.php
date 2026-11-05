@@ -9,9 +9,11 @@ use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Livewire\Pages\Contacts\ListContacts;
 use Odden\Livewire\Screens\LivewireScreens;
-use Odden\Livewire\Tests\Fixtures\FixtureComponent;
 use Odden\Livewire\Tests\Fixtures\FixtureScreensServiceProvider;
 use Odden\Livewire\Tests\Fixtures\PlainComponent;
+use Odden\Livewire\Tests\Fixtures\Screens\Things;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsIndex;
+use Odden\Livewire\Tests\Fixtures\Screens\WrongKey;
 use Odden\Livewire\Tests\TestCase;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
 use stdClass;
@@ -32,8 +34,8 @@ class RouteGuardsTest extends TestCase
     {
         FixtureScreensServiceProvider::$configure = function (ScreenRegistry $screens): void {
             $screens->define(new Screen(key: 'things', label: 'Things'), new Screen(key: 'things.index', label: 'Things'));
-            LivewireScreens::component($screens, 'things', FixtureComponent::class);
-            LivewireScreens::component($screens, 'things.index', FixtureComponent::class);
+            LivewireScreens::component($screens, 'things', Things::class);
+            LivewireScreens::component($screens, 'things.index', ThingsIndex::class);
         };
     }
 
@@ -43,6 +45,7 @@ class RouteGuardsTest extends TestCase
         $this->expectException(InvalidScreenRegistrationException::class);
         $this->expectExceptionMessage('contacts.index');
         $this->expectExceptionMessage(stdClass::class);
+        $this->expectExceptionMessage('not a Livewire component');
 
         LivewireScreens::routes('crm');
     }
@@ -72,6 +75,22 @@ class RouteGuardsTest extends TestCase
     {
         $this->expectException(InvalidScreenRegistrationException::class);
         $this->expectExceptionMessage('things');
+
+        LivewireScreens::routes('crm');
+    }
+
+    protected function replaceWithAComponentForAnotherScreen(): void
+    {
+        FixtureScreensServiceProvider::$replacements = [ListContacts::class => WrongKey::class];
+    }
+
+    #[DefineEnvironment('replaceWithAComponentForAnotherScreen')]
+    public function test_a_replacement_that_authorizes_another_screen_is_refused(): void
+    {
+        $this->expectException(InvalidScreenRegistrationException::class);
+        $this->expectExceptionMessage('contacts.index');
+        $this->expectExceptionMessage('contacts.view');
+        $this->expectExceptionMessage(WrongKey::class);
 
         LivewireScreens::routes('crm');
     }

@@ -51,7 +51,7 @@ for index in "${!PACKAGES[@]}"; do
     package="${PACKAGES[$index]}"
     split="${SPLITS[$index]}"
     remote="$BASE/crm-${package}.git"
-    if ! current="$(git ls-remote "$remote" refs/heads/main 2>/dev/null | cut -f1)"; then
+    if ! current="$(git ls-remote "$remote" refs/heads/main | cut -f1)"; then
         echo "crm-$package: repository not reachable" >&2; failed+=("$package")
         continue
     fi

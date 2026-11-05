@@ -32,7 +32,7 @@ class FixtureScreensServiceProvider extends ServiceProvider
             $screens->shell(FixtureShell::NAME, FixtureShell::class);
 
             foreach ($keys as $key) {
-                $screens->draw($key, new ScreenDrawer(FixtureShell::NAME, FixtureComponent::class));
+                $screens->draw($key, new ScreenDrawer(FixtureShell::NAME, PlainComponent::class));
             }
         };
     }

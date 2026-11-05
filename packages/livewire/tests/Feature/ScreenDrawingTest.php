@@ -12,7 +12,7 @@ use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Livewire\Pages\Contacts\ListContacts;
 use Odden\Livewire\Screens\LivewireScreens;
-use Odden\Livewire\Tests\Fixtures\FixtureComponent;
+use Odden\Livewire\Tests\Fixtures\Screens\NowhereIndex;
 use Odden\Livewire\Tests\TestCase;
 use stdClass;
 
@@ -41,7 +41,7 @@ class ScreenDrawingTest extends TestCase
     {
         $registry = new ScreenRegistry;
 
-        LivewireScreens::component($registry, 'nowhere.index', FixtureComponent::class);
+        LivewireScreens::component($registry, 'nowhere.index', NowhereIndex::class);
 
         $this->expectException(UnknownScreenException::class);
 

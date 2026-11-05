@@ -10,11 +10,11 @@ use Odden\Core\Screens\Screens;
 
 trait AuthorizesScreen
 {
-    abstract protected function screenKey(): string;
+    abstract public static function screenKey(): string;
 
     public function bootAuthorizesScreen(): void
     {
-        $key = $this->screenKey();
+        $key = static::screenKey();
 
         if (Screens::get($key)->record) {
             throw new LogicException("The screen [{$key}] needs a record, and record screens are not supported yet.");

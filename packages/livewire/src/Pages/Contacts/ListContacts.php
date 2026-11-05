@@ -35,7 +35,7 @@ final class ListContacts extends Component
         return view('odden-livewire::pages.contacts.list-contacts', ['contacts' => $contacts, 'rows' => $rows]);
     }
 
-    protected function screenKey(): string
+    public static function screenKey(): string
     {
         return 'contacts.index';
     }

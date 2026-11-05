@@ -13,6 +13,7 @@ use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Livewire\Concerns\AuthorizesScreen;
 use Odden\Livewire\Pages\Contacts\ListContacts;
+use ReflectionMethod;
 
 final class LivewireScreens
 {
@@ -91,6 +92,12 @@ final class LivewireScreens
 
         if (! in_array(AuthorizesScreen::class, class_uses_recursive($class), true)) {
             throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is drawn by [{$class}], which does not use ".AuthorizesScreen::class.' and would be served without a permission check.');
+        }
+
+        $authorizedKey = (new ReflectionMethod($class, 'screenKey'))->invoke(null);
+
+        if ($authorizedKey !== $screen->key) {
+            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is drawn by [{$class}], which authorizes the screen [{$authorizedKey}] instead.");
         }
 
         if (Route::has(self::ROUTE_PREFIX.$screen->key)) {

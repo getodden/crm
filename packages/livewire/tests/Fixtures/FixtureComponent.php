@@ -9,14 +9,9 @@ use Livewire\Component;
 use Odden\Livewire\Concerns\AuthorizesScreen;
 
 #[Layout('odden-livewire::layouts.app')]
-class FixtureComponent extends Component
+abstract class FixtureComponent extends Component
 {
     use AuthorizesScreen;
-
-    protected function screenKey(): string
-    {
-        return 'contacts.index';
-    }
 
     public function render(): string
     {

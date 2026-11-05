@@ -9,8 +9,16 @@ use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Livewire\Screens\LivewireScreens;
-use Odden\Livewire\Tests\Fixtures\FixtureComponent;
 use Odden\Livewire\Tests\Fixtures\FixtureScreensServiceProvider;
+use Odden\Livewire\Tests\Fixtures\Screens\Dashboard;
+use Odden\Livewire\Tests\Fixtures\Screens\DisabledIndex;
+use Odden\Livewire\Tests\Fixtures\Screens\Profile;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsCreate;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsEdit;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsHistory;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsImport;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsIndex;
+use Odden\Livewire\Tests\Fixtures\Screens\ThingsView;
 use Odden\Livewire\Tests\Fixtures\User;
 use Odden\Livewire\Tests\RoutedTestCase;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
@@ -32,8 +40,8 @@ class RoutePathsTest extends RoutedTestCase
                 new Screen(key: 'disabled.index', label: 'Disabled', module: 'sales'),
             );
 
-            foreach (['things.view', 'things.history', 'things.edit', 'things.create', 'things.index', 'things.import', 'dashboard', 'profile', 'disabled.index'] as $key) {
-                LivewireScreens::component($screens, $key, FixtureComponent::class);
+            foreach ([ThingsView::class, ThingsHistory::class, ThingsEdit::class, ThingsCreate::class, ThingsIndex::class, ThingsImport::class, Dashboard::class, Profile::class, DisabledIndex::class] as $component) {
+                LivewireScreens::component($screens, $component::screenKey(), $component);
             }
 
             $screens->disableModules('sales');
