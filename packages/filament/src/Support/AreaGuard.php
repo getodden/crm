@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Areas\Areas;
 use Odden\Core\Areas\DataArea;
 use Odden\Core\Areas\DataAreas;
+use Odden\Core\Encryption\EncryptedSearch;
 use Odden\Core\Encryption\SensitiveProperties;
 
 /**
@@ -106,6 +107,6 @@ final class AreaGuard
      */
     public static function lacks(DataArea $area): bool
     {
-        return ! app(Areas::class)->holds($area);
+        return EncryptedSearch::lacks($area);
     }
 }

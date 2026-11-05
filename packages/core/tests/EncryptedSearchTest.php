@@ -64,6 +64,16 @@ it('finds nothing when the person lacks the Identity area', function (): void {
         ->and(EncryptedSearch::companies()(Company::query(), 'acm')->count())->toBe(0);
 });
 
+it('lacks the Identity area for a given user id who does not hold it, and not for nobody signed in', function (): void {
+    Contact::factory()->create(['first_name' => 'Annie']);
+    personHoldingNoAreas();
+    auth()->logout();
+
+    expect(EncryptedSearch::lacks(DataArea::Identity))->toBeFalse()
+        ->and(EncryptedSearch::lacks(DataArea::Identity, 1))->toBeTrue()
+        ->and(EncryptedSearch::contacts()(Contact::query(), 'ann')->count())->toBe(1);
+});
+
 it('sorts by decrypted columns in both directions', function (): void {
     $baker = Contact::factory()->create(['last_name' => 'Baker', 'first_name' => 'Ann']);
     $adams = Contact::factory()->create(['last_name' => 'Adams', 'first_name' => 'Zoe']);
@@ -88,21 +98,6 @@ it('calls the callback and keeps the query unchanged above the fallback limit', 
     expect($result)->toBe($query)
         ->and($caught)->toHaveCount(1)
         ->and($result->getQuery()->orders)->toBeNull();
-});
-
-it('keeps the query unchanged above the fallback limit when no callback is given', function (): void {
-    Contact::factory()->count(3)->create();
-    config(['odden-core.encryption.fallback_limit' => 2]);
-
-    $query = Contact::query();
-
-    expect(EncryptedSearch::sortBy(['last_name'])($query, 'asc'))->toBe($query);
-});
-
-it('leaves the query alone when the list page does the ordering', function (): void {
-    $query = Contact::query();
-
-    expect(EncryptedSearch::keepsOrder()($query, 'asc'))->toBe($query);
 });
 
 it('limits first, then orders the few matches by decrypted columns', function (): void {

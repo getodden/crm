@@ -94,8 +94,8 @@ final class EncryptedSearch
         )->values();
     }
 
-    public static function lacks(DataArea $area): bool
+    public static function lacks(DataArea $area, int|string|null $userId = null): bool
     {
-        return ! app(Areas::class)->holds($area);
+        return ! app(Areas::class)->holds($area, $userId);
     }
 }

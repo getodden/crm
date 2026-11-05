@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Odden\Core\Encryption\EncryptedSearch as CoreEncryptedSearch;
-use Odden\Core\Encryption\Index\TooManyToFilter;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Sales\Models\Deal;
@@ -74,7 +73,7 @@ final class EncryptedSearch
      */
     public static function sortBy(array $columns): Closure
     {
-        return CoreEncryptedSearch::sortBy($columns, static function (TooManyToFilter $e): void {
+        return CoreEncryptedSearch::sortBy($columns, static function (): void {
             Notification::make()
                 ->title('Too many records to sort by this column')
                 ->body('Names are encrypted, so sorting by them needs every record decrypted. Narrow the list with a filter or a search first.')
