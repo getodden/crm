@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Filament\Tests\Fixtures;
 
+use Closure;
 use Illuminate\Support\ServiceProvider;
 use Odden\Core\Screens\ScreenRegistry;
 
@@ -18,8 +19,11 @@ class GlobalScreensServiceProvider extends ServiceProvider
     /** @var list<string> */
     public static array $disabledModules = [];
 
+    public static ?Closure $configure = null;
+
     public static function reset(): void
     {
+        self::$configure = null;
         self::$replacements = [];
         self::$exceptions = [];
         self::$disabledModules = [];
@@ -34,6 +38,10 @@ class GlobalScreensServiceProvider extends ServiceProvider
 
             $screens->except(...self::$exceptions);
             $screens->disableModules(...self::$disabledModules);
+
+            if (self::$configure !== null) {
+                (self::$configure)($screens);
+            }
         });
     }
 }

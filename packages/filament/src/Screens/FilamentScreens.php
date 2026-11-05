@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Odden\Filament\Screens;
 
 use Filament\Pages\Page;
-use Filament\Resources\Resource;
 use Odden\Core\Screens\ScreenDrawer;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Filament\Pages\DataQuality;
@@ -25,13 +24,14 @@ use Odden\Filament\Resources\SalesPlaybookResource;
 use Odden\Filament\Resources\SalesQuotaResource;
 use Odden\Filament\Resources\SalesSequenceResource;
 use Odden\Filament\Support\OddenPackages;
+use Odden\Sales\SalesServiceProvider;
 
 final class FilamentScreens
 {
     public const SHELL = 'filament';
 
     /**
-     * @param  class-string<resource>  $resource
+     * @param  class-string<\Filament\Resources\Resource>  $resource
      * @param  array<string, string>  $keys
      */
     public static function resource(ScreenRegistry $screens, string $resource, array $keys, ?string $panel = null): void
@@ -60,7 +60,7 @@ final class FilamentScreens
         self::page($screens, 'executive-overview', ExecutiveOverview::class);
         self::page($screens, 'data-quality', DataQuality::class);
 
-        if (! OddenPackages::hasSales()) {
+        if (! OddenPackages::hasSales() || app()->getProviders(SalesServiceProvider::class) === []) {
             return;
         }
 

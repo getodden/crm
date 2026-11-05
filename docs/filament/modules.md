@@ -39,7 +39,7 @@ Only class names and closures are stored, so registering costs nothing when the 
 | `executiveCards` | Summary cards on the Executive Overview. Each entry has a `view`, a `data` closure that returns the view's data, and a `position` (`before` or `after` the Sales card; `after` by default). |
 | `authorizationResources` | Resources whose permissions decide who can open the Executive Overview, in addition to the built-in ones. |
 
-The plugin's options apply to a module's screens like any other: `disableModules('billing')` leaves out its resources and pages, `except()` leaves out one class, and `replace()` swaps one for a subclass. See [Customizing](customizing.md). Disabling a module doesn't remove the contact tabs, company actions or Executive Overview cards it added; leave out the add-on's package if you don't want them.
+The plugin's options apply to a module's screens like any other: `disableModules('billing')` leaves out its resources and pages, `except()` leaves out one class, and `replace()` swaps one for a subclass. See [Customizing](customizing.md). Disabling a module on a panel also drops the contact tabs, company actions and Executive Overview cards it added, on that panel.
 
 ## Screen keys for a module
 
@@ -66,7 +66,7 @@ public function register(): void
 }
 ```
 
-The module name on the screens ties them to `disableModules('billing')`, both on the registry and on the plugin. See [Customizing](customizing.md#screens).
+The module name on the screens ties them to `disableModules('billing')` on the registry. The plugin's own `disableModules()` accepts only `sales`, `service` and `marketing`, so disable any other module through the registry. See [Customizing](customizing.md#screens).
 
 ## Keeping the package optional
 

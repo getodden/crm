@@ -74,6 +74,10 @@ public function register(): void
 | `except(string ...$patterns)` | Patterns match keys (`contacts.*`). A resource or page is left out of the panel when every key it draws is excepted. |
 | `disableModules(string ...$modules)` | Leaves out the modules' resources and pages, and makes their keys unavailable. |
 
+A key drawn for a named panel (`FilamentScreens::resource(..., panel: 'central')`) is available or not according to that panel, not the current one; a key without a panel follows the current or default panel.
+
+`except()` hides a screen from navigation and from `Screens::url()`, and leaves its page out of the panel when every key it draws is excepted, but it is not access control: routes may stay reachable, so use a policy to forbid access.
+
 `OddenPlugin::replace()`, `except()` and `disableModules()` still work and stay local to the one panel; where both set a replacement for the same class, the plugin's wins on that panel. The registry is frozen once the application has booted, so changing it later throws.
 
 ## Adding your own resources and pages

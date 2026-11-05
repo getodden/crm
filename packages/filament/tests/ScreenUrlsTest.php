@@ -10,12 +10,16 @@ use Filament\PanelProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Odden\Core\Exceptions\ScreenNotAvailableException;
 use Odden\Core\Models\Contact;
+use Odden\Core\Screens\Screen;
+use Odden\Core\Screens\ScreenDrawer;
+use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Filament\OddenPlugin;
 use Odden\Filament\Pages\DataQuality;
 use Odden\Filament\Pages\SalesCockpit;
 use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Resources\DealResource;
+use Odden\Filament\Screens\FilamentScreens;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Tests\Fixtures\GlobalScreensServiceProvider;
 use Odden\Filament\Tests\Fixtures\User;
@@ -51,6 +55,18 @@ class ScreenUrlsTest extends TestCase
     protected function exceptTheContactListGlobally(): void
     {
         GlobalScreensServiceProvider::$exceptions = ['contacts.index'];
+    }
+
+    protected function drawNamedPanelKeys(): void
+    {
+        GlobalScreensServiceProvider::$configure = function (ScreenRegistry $screens): void {
+            $screens->define(
+                Screen::page('admin-contacts', 'Admin contacts'),
+                Screen::page('admin-deals', 'Admin deals', module: 'sales'),
+            );
+            $screens->draw('admin-contacts', new ScreenDrawer(FilamentScreens::SHELL, ContactResource::class, 'index', 'admin'));
+            $screens->draw('admin-deals', new ScreenDrawer(FilamentScreens::SHELL, DealResource::class, 'index', 'admin'));
+        };
     }
 
     protected function disableSalesGlobally(): void
@@ -188,6 +204,7 @@ class ScreenUrlsTest extends TestCase
     public function test_a_module_disabled_globally_is_left_out_of_the_panel_and_the_keys(): void
     {
         $panel = Filament::getPanel('admin');
+        Filament::setCurrentPanel($panel);
 
         $this->assertNotContains(DealResource::class, $panel->getResources());
         $this->assertNotContains(SalesCockpit::class, $panel->getPages());
@@ -199,6 +216,32 @@ class ScreenUrlsTest extends TestCase
         Filament::setCurrentPanel(null);
 
         $this->assertSame(['sales'], Modules::disabledOnCurrentPanel());
+    }
+
+    #[DefineEnvironment('drawNamedPanelKeys')]
+    public function test_a_key_drawn_on_a_named_panel_uses_that_panel_whatever_panel_is_current(): void
+    {
+        $expected = ContactResource::getUrl('index', panel: 'admin');
+
+        Filament::setCurrentPanel(Filament::getPanel('local'));
+
+        $this->assertSame($expected, Screens::url('admin-contacts'));
+        $this->assertStringContainsString('/admin/contacts', $expected);
+    }
+
+    #[DefineEnvironment('drawNamedPanelKeys')]
+    public function test_a_module_left_out_of_one_panel_makes_its_keys_unavailable_there_only(): void
+    {
+        $this->assertContains(DealResource::class, Filament::getPanel('admin')->getResources());
+        $this->assertNotContains(DealResource::class, Filament::getPanel('local')->getResources());
+
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $this->assertTrue(Screens::available('deals.index'));
+
+        Filament::setCurrentPanel(Filament::getPanel('local'));
+        $this->assertFalse(Screens::available('deals.index'));
+        $this->assertTrue(Screens::available('admin-deals'));
+        $this->assertSame(DealResource::getUrl('index', panel: 'admin'), Screens::url('admin-deals'));
     }
 
     public function test_nothing_is_disabled_when_nothing_is_registered_globally(): void
@@ -237,7 +280,7 @@ class LocallyReplacedScreensPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         return $panel->id('local')->path('local')->plugins([
-            OddenPlugin::make()->replace(ContactResource::class, PeopleContactResource::class)->except(DataQuality::class),
+            OddenPlugin::make()->replace(ContactResource::class, PeopleContactResource::class)->except(DataQuality::class)->disableModules('sales'),
         ]);
     }
 }
