@@ -39,7 +39,34 @@ Only class names and closures are stored, so registering costs nothing when the 
 | `executiveCards` | Summary cards on the Executive Overview. Each entry has a `view`, a `data` closure that returns the view's data, and a `position` (`before` or `after` the Sales card; `after` by default). |
 | `authorizationResources` | Resources whose permissions decide who can open the Executive Overview, in addition to the built-in ones. |
 
-The plugin's options apply to a module's screens like any other: `disableModules('billing')` leaves out its resources and pages, `except()` leaves out one class, and `replace()` swaps one for a subclass. See [Customizing](customizing.md). Disabling a module doesn't remove the contact tabs, company actions or Executive Overview cards it added; leave out the add-on's package if you don't want them.
+The options apply to a module's screens like any other: `except()` leaves out one class and `replace()` swaps one for a subclass, on the plugin or on the `Screens` registry. Disabling a module that is not built in goes through the registry (`disableModules('billing')`), because the plugin's own `disableModules()` accepts only `sales`, `service` and `marketing`. See [Customizing](customizing.md). Disabling a module on a panel also drops the contact tabs, company actions and Executive Overview cards it added, on that panel.
+
+## Screen keys for a module
+
+A module can also give its screens keys in the `Screens` registry, so links to them are built with `Screens::url()` and follow the same replace, except and disable options as the built-in screens. Define the keys and draw them from the provider's `register()` method, through `callAfterResolving`:
+
+```php
+use Odden\Core\Screens\Screen;
+use Odden\Core\Screens\ScreenRegistry;
+use Odden\Filament\Screens\FilamentScreens;
+
+public function register(): void
+{
+    $this->callAfterResolving(ScreenRegistry::class, function (ScreenRegistry $screens): void {
+        $screens->define(...Screen::forModel('invoices', Invoice::class, 'Invoices', 'Billing', module: 'billing', pages: ['index', 'create', 'edit']));
+        $screens->define(Screen::page('revenue', 'Revenue', 'Billing', module: 'billing'));
+
+        FilamentScreens::resource($screens, InvoiceResource::class, [
+            'index' => 'invoices.index',
+            'create' => 'invoices.create',
+            'edit' => 'invoices.edit',
+        ]);
+        FilamentScreens::page($screens, 'revenue', RevenueCockpit::class);
+    });
+}
+```
+
+The module name on the screens ties them to `disableModules('billing')` on the registry. The plugin's own `disableModules()` accepts only `sales`, `service` and `marketing`, so disable any other module through the registry. See [Customizing](customizing.md#screens).
 
 ## Keeping the package optional
 

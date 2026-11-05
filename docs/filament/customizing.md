@@ -34,6 +34,52 @@ A module whose package isn't installed is skipped either way. The options apply 
 
 A replacement should be a subclass that keeps the resource's slug, as described below.
 
+## Screens
+
+Every screen the plugin draws has a key in the `Screens` registry from Odden Core: one key per page, such as `contacts.index`, `contacts.create`, `contacts.view`, `contacts.edit`, `deals.board`, or one for a standalone page such as `data-quality`, `executive-overview` and `sales-overview`. The Filament plugin draws each key with the resource or page that serves it.
+
+Build a link to a screen with its key instead of a resource class. The result is the same URL the resource's own `getUrl()` returns, including query parameters, replacements and Filament tenancy:
+
+```php
+use Odden\Core\Screens\Screens;
+
+Screens::url('contacts.index');
+Screens::url('contacts.view', $contact);
+Screens::url('contacts.index', parameters: ['tab' => 'mine']);
+Screens::url('contacts.view', $contact, tenant: $team);
+Screens::available('deals.board');
+```
+
+`url()` throws `ScreenNotAvailableException` when the module is disabled, the key is excepted, or the current panel doesn't register the page. Pass `tenant` only when the panel uses Filament tenancy; on a panel without tenancy it is ignored.
+
+The same options exist on the registry. Set them from a service provider's `register()` method, through `callAfterResolving`, so they are known before any panel is built:
+
+```php
+use Illuminate\Support\ServiceProvider;
+use Odden\Core\Screens\ScreenRegistry;
+
+public function register(): void
+{
+    $this->callAfterResolving(ScreenRegistry::class, function (ScreenRegistry $screens): void {
+        $screens->replace(ContactResource::class, AppContactResource::class);
+        $screens->except('lead-routing-rules.*');
+        $screens->disableModules('marketing');
+    });
+}
+```
+
+| Registry method | Effect on the panels |
+| --- | --- |
+| `replace($original, $replacement)` | Every Odden panel registers your class in place of the original, and `Screens::url()` uses it. |
+| `except(string ...$patterns)` | Patterns match keys (`contacts.*`). A resource or page is left out of the panel when every key it draws is excepted. |
+| `disableModules(string ...$modules)` | Leaves out the modules' resources and pages, and makes their keys unavailable. |
+
+A key drawn for a named panel (`FilamentScreens::resource(..., panel: 'central')`) is available or not according to that panel, not the current one; a key without a panel follows the current or default panel.
+
+`except()` hides a screen from navigation and from `Screens::url()`, and leaves its page out of the panel when every key it draws is excepted, but it is not access control: routes may stay reachable, so use a policy to forbid access.
+
+`OddenPlugin::replace()`, `except()` and `disableModules()` still work and stay local to the one panel; where both set a replacement for the same class, the plugin's wins on that panel. The registry is frozen once the application has booted, so changing it later throws.
+
 ## Adding your own resources and pages
 
 The plugin only adds to the panel, so your own resources, pages and widgets work alongside it as usual:
