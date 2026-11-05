@@ -2,7 +2,7 @@
 
 Livewire 4 screens for Odden CRM, built on `getodden/ui`. They draw keys from the screen registry in `getodden/crm-core`, side by side with the Filament panel.
 
-Status: **0.2, first slice.** One read-only screen, the contact list (`contacts.index`).
+Status: **first slice.** One read-only screen, the contact list (`contacts.index`).
 
 ## Install
 
@@ -22,7 +22,7 @@ Each screen the Livewire shell draws gets a route named `odden-livewire.{key}`. 
 
 The routes need Laravel's `auth` middleware, and your application ships its own login. A guest is sent to the `login` route.
 
-A screen the registry excepts or whose module is disabled gets no route. For a tenant prefix such as `{workspace}/crm`, bind a `ScreenTenantParameters` that returns the `workspace` value.
+A screen the registry excepts or whose module is disabled gets no route. For a tenant prefix such as `{workspace}/crm`, bind a `ScreenTenantParameters` that returns the `workspace` value, and set `URL::defaults(['workspace' => ...])` for the request, because the layout's navigation builds its links without a tenant.
 
 ## Styles
 
