@@ -41,6 +41,33 @@ Only class names and closures are stored, so registering costs nothing when the 
 
 The plugin's options apply to a module's screens like any other: `disableModules('billing')` leaves out its resources and pages, `except()` leaves out one class, and `replace()` swaps one for a subclass. See [Customizing](customizing.md). Disabling a module doesn't remove the contact tabs, company actions or Executive Overview cards it added; leave out the add-on's package if you don't want them.
 
+## Screen keys for a module
+
+A module can also give its screens keys in the `Screens` registry, so links to them are built with `Screens::url()` and follow the same replace, except and disable options as the built-in screens. Define the keys and draw them from the provider's `register()` method, through `callAfterResolving`:
+
+```php
+use Odden\Core\Screens\Screen;
+use Odden\Core\Screens\ScreenRegistry;
+use Odden\Filament\Screens\FilamentScreens;
+
+public function register(): void
+{
+    $this->callAfterResolving(ScreenRegistry::class, function (ScreenRegistry $screens): void {
+        $screens->define(...Screen::forModel('invoices', Invoice::class, 'Invoices', 'Billing', module: 'billing', pages: ['index', 'create', 'edit']));
+        $screens->define(Screen::page('revenue', 'Revenue', 'Billing', module: 'billing'));
+
+        FilamentScreens::resource($screens, InvoiceResource::class, [
+            'index' => 'invoices.index',
+            'create' => 'invoices.create',
+            'edit' => 'invoices.edit',
+        ]);
+        FilamentScreens::page($screens, 'revenue', RevenueCockpit::class);
+    });
+}
+```
+
+The module name on the screens ties them to `disableModules('billing')`, both on the registry and on the plugin. See [Customizing](customizing.md#screens).
+
 ## Keeping the package optional
 
 A module that works without the admin should keep its Filament code apart from its domain code (for example in a `filament/` folder with its own namespace), and register only when `Modules` exists, as above. Views can live under a namespace of their own, loaded with `loadViewsFrom()` in the same provider.
