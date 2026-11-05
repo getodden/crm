@@ -39,7 +39,7 @@ Only class names and closures are stored, so registering costs nothing when the 
 | `executiveCards` | Summary cards on the Executive Overview. Each entry has a `view`, a `data` closure that returns the view's data, and a `position` (`before` or `after` the Sales card; `after` by default). |
 | `authorizationResources` | Resources whose permissions decide who can open the Executive Overview, in addition to the built-in ones. |
 
-The plugin's options apply to a module's screens like any other: `disableModules('billing')` leaves out its resources and pages, `except()` leaves out one class, and `replace()` swaps one for a subclass. See [Customizing](customizing.md). Disabling a module on a panel also drops the contact tabs, company actions and Executive Overview cards it added, on that panel.
+The options apply to a module's screens like any other: `except()` leaves out one class and `replace()` swaps one for a subclass, on the plugin or on the `Screens` registry. Disabling a module that is not built in goes through the registry (`disableModules('billing')`), because the plugin's own `disableModules()` accepts only `sales`, `service` and `marketing`. See [Customizing](customizing.md). Disabling a module on a panel also drops the contact tabs, company actions and Executive Overview cards it added, on that panel.
 
 ## Screen keys for a module
 
