@@ -35,6 +35,13 @@ class ScreenUrlsTest extends TestCase
         return [...parent::getPackageProviders($app), TenantedScreensPanelProvider::class, LocallyReplacedScreensPanelProvider::class, GlobalScreensServiceProvider::class];
     }
 
+    protected function setUp(): void
+    {
+        GlobalScreensServiceProvider::reset();
+
+        parent::setUp();
+    }
+
     protected function tearDown(): void
     {
         GlobalScreensServiceProvider::reset();
