@@ -59,7 +59,7 @@ Each region is a partial. Replace one by creating `resources/views/vendor/odden-
 | `head` | empty; put `@vite` here |
 | `brand` | `config('app.name')` as text |
 | `navigation` | the screens the user can open, grouped, with their icons |
-| `header-actions` | empty |
+| `header-actions` | the global search, when `search.enabled` and a user is signed in |
 | `user-menu` | the user's name and a sign-out form |
 | `before-content` | empty; host banners |
 | `body-end` | empty; host scripts |
@@ -81,3 +81,23 @@ $this->app->bind(WriteGuard::class, SupportSessionGuard::class);
 Every component that uses `AuthorizesScreen` (and so `GuardsWrites`) is then default-deny: any action method is refused, with a danger `ui-toast` carrying the message, unless it carries `#[Odden\Livewire\Attributes\Reads]` or is one of the framework read methods (`$refresh`, `$set`, `$sync`, `$commit`, pagination, `sortBy` and `resetFilters` of `WithRecordTable`, `cancelConfirmation` of `WithConfirmation`). `runConfirmation` is refused because it runs the confirmed write. Property updates are not refused. An event listener is judged by its own method; a refused listener and a refused `#[Json]` method answer 403 instead of a toast, because Livewire runs listeners and JSON methods itself, so returning early cannot stop them. Livewire's lazy-loading calls are never refused. WithFileUploads' `_startUpload`, `_finishUpload`, `_uploadErrored` and `_removeUpload` are refused on purpose: a read-only session may not upload.
 
 Only components that use `GuardsWrites` are guarded. Child components that are not screens (a bell, a search box, a modal) are not, unless they use `GuardsWrites` themselves.
+
+## Global search
+
+`<livewire:odden-livewire.global-search />` is a header button and a dialog (Cmd+K or Ctrl+K) that searches the configured sources and lists the hits as links under one heading per source. The default `header-actions` partial draws it for signed-in users; set `odden-livewire.search.enabled` to `false` to leave it out. Type at least 2 characters (at most 100 are used); the arrow keys move between the field and the results and Enter follows a link. The component only reads, so it does not use `GuardsWrites`, and a result count is announced through a polite live region.
+
+Sources are class strings in `odden-livewire.search.sources`, resolved from the container on every request:
+
+```php
+'search' => [
+    'enabled' => true,
+    'sources' => [
+        Odden\Livewire\Search\Sources\ContactSearch::class,
+        Odden\Livewire\Search\Sources\CompanySearch::class,
+    ],
+],
+```
+
+A source implements `Odden\Livewire\Contracts\SearchSource`: `label()` is the group heading, `screenKey()` is the screen the user must be able to open for the source to be searched at all, and `search($term, $user, $limit)` returns up to `$limit` `Odden\Livewire\Search\SearchHit` objects (title, url, details). The component asks for 5 per source. A class that does not implement the contract throws.
+
+`ContactSearch` and `CompanySearch` match through `EncryptedSearch`, never by comparing encrypted columns in SQL, so a user without the Identity data area finds nothing. Their queries carry the host's own scopes. A hit's URL comes from `Screens::url('contacts.view', $record)` (or `companies.view`), and a hit whose view screen the user cannot open on that record is dropped.
