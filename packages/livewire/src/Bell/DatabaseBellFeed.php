@@ -10,6 +10,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Odden\Core\Actions\MarkNotificationsReadAction;
 use Odden\Livewire\Contracts\BellFeed;
@@ -20,7 +21,7 @@ class DatabaseBellFeed implements BellFeed
 
     public function visible(Authenticatable $user): bool
     {
-        return $user instanceof Model && method_exists($user, 'notifications');
+        return $user instanceof Model && in_array(Notifiable::class, class_uses_recursive($user), true);
     }
 
     public function items(Authenticatable $user, int $limit): array

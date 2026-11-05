@@ -90,6 +90,8 @@ interface BellFeed
 
 The default `DatabaseBellFeed` reads the user's Laravel database notifications (the user model must use `Notifiable`; the `notifications` table ids must be UUIDs, as Laravel creates them). The title is `data['title']`, the body `data['body']`, the link `data['actions'][0]['url']` or `data['url']` (the format Filament stores), and only `http(s)` and root-relative links are kept. Reading is scoped to the notifiable and writes go through `Odden\Core\Actions\MarkNotificationsReadAction`.
 
+The default feed needs the `notifications` table (`php artisan make:notifications-table`). A host without one should set `odden-livewire.bell.enabled` to false or bind its own feed. A multi-tenant host must bind a feed scoped to its tenant, because the default filters only by notifiable. A host whose notification ids are not UUIDs (ULIDs, integers) must bind its own feed too, or nothing can be marked read.
+
 Bind your own feed to replace it:
 
 ```php
