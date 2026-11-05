@@ -75,6 +75,7 @@ abstract class TestCase extends Orchestra
     {
         after_resolving($this->app, 'migrator', static function ($migrator): void {
             $migrator->path(default_migration_path());
+            $migrator->path(__DIR__.'/Fixtures/migrations');
         });
     }
 }
