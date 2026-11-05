@@ -7,11 +7,12 @@
         type="button"
         class="rounded-control border border-gray-400 px-3 py-1.5 text-sm text-gray-900 hover:bg-gray-50 md:hidden dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
         aria-controls="main-navigation"
+        aria-expanded="false"
         x-bind:aria-expanded="open.toString()"
         x-on:click="open = ! open"
     >Menu</button>
 
-    <nav aria-label="Main" id="main-navigation" class="mt-2 md:mt-0" x-bind:class="open ? 'block' : 'hidden md:block'">
+    <nav aria-label="Main" id="main-navigation" class="mt-2 hidden md:mt-0 md:block" x-bind:class="open ? '!block' : ''">
         @foreach (\Odden\Core\Screens\Screens::navigation(auth()->user()) as $section)
             <div class="mb-3">
                 @if ($section['group'])

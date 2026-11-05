@@ -6,6 +6,7 @@ namespace Odden\Livewire\Tests\Feature;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Vite;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Livewire\Screens\LivewireScreens;
@@ -102,5 +103,19 @@ class LayoutTest extends RoutedTestCase
         $this->actingAs(User::factory()->create())
             ->get('/crm/notes')
             ->assertSee('<svg', false);
+    }
+
+    #[DefineEnvironment('defineNotes')]
+    public function test_the_theme_script_carries_the_csp_nonce(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get('/crm/notes')
+            ->assertDontSee('<script nonce=', false);
+
+        Vite::useCspNonce('abc123');
+
+        $this->actingAs(User::factory()->create())
+            ->get('/crm/notes')
+            ->assertSee('nonce="abc123"', false);
     }
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name') }}</title>
-    <script>
+    <script @if (\Illuminate\Support\Facades\Vite::cspNonce()) nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}" @endif>
         (() => {
             let theme = 'system'
             try {

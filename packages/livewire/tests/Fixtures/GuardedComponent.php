@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Livewire\Tests\Fixtures;
 
+use Livewire\Attributes\Json;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -22,6 +23,12 @@ final class GuardedComponent extends Component
     public function bump(): void
     {
         $this->count++;
+    }
+
+    #[Json]
+    public function jsonBump(): int
+    {
+        return ++$this->count;
     }
 
     #[Reads]

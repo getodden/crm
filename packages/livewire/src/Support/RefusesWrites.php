@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Features\SupportEvents\SupportEvents;
+use Livewire\Features\SupportJson\BaseJson;
 use Livewire\WithPagination;
 use Odden\Livewire\Attributes\Reads;
 use Odden\Livewire\Concerns\GuardsWrites;
@@ -22,7 +23,7 @@ use function Livewire\before;
 
 final class RefusesWrites
 {
-    private const array MAGIC_READS = ['$refresh', '$set', '$sync', '$commit'];
+    private const array MAGIC_READS = ['$refresh', '$set', '$sync', '$commit', '__lazyLoad', '__lazyLoadIsland'];
 
     private const array FRAMEWORK_READS = [
         WithPagination::class => ['gotoPage', 'nextPage', 'previousPage', 'setPage', 'resetPage'],
@@ -62,7 +63,7 @@ final class RefusesWrites
             return;
         }
 
-        if ($isEvent) {
+        if ($isEvent || self::isJsonMethod($component, $target)) {
             throw new HttpException(403, $refusal);
         }
 
@@ -82,6 +83,13 @@ final class RefusesWrites
         }
 
         return SupportEvents::getListenerMethodName($component, $event);
+    }
+
+    private static function isJsonMethod(Component $component, string $method): bool
+    {
+        return $component->getAttributes()->contains(
+            fn (mixed $attribute): bool => $attribute instanceof BaseJson && $attribute->getName() === $method,
+        );
     }
 
     private static function reads(Component $component, string $method): bool

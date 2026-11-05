@@ -64,7 +64,7 @@ Each region is a partial. Replace one by creating `resources/views/vendor/odden-
 | `before-content` | empty; host banners |
 | `body-end` | empty; host scripts |
 
-The sign-out form posts to the route named by `logout_route` in `config/odden-livewire.php` (default `logout`) and is left out when that route does not exist. Publish the file with `php artisan vendor:publish --tag=odden-livewire-config`.
+The sign-out form posts to the route named by `logout_route` in `config/odden-livewire.php` (default `logout`) and is left out when that route does not exist. The route must resolve with no parameters, or with `URL::defaults`. The inline theme script carries `Vite::cspNonce()` when a nonce is set. Publish the file with `php artisan vendor:publish --tag=odden-livewire-config`.
 
 To replace the whole layout, create `resources/views/vendor/odden-livewire/layouts/app.blade.php`.
 
@@ -78,4 +78,6 @@ $this->app->bind(WriteGuard::class, SupportSessionGuard::class);
 
 `refusal(Authenticatable $user)` returns a message when the request may not change anything, and `null` otherwise. The default binding, `AllowAllWrites`, always returns `null`. The guard is resolved on every call; keep no user or answer in a static or a singleton.
 
-Every component that uses `AuthorizesScreen` (and so `GuardsWrites`) is then default-deny: any action method is refused, with a danger `ui-toast` carrying the message, unless it carries `#[Odden\Livewire\Attributes\Reads]` or is one of the framework read methods (`$refresh`, `$set`, `$sync`, `$commit`, pagination, `sortBy` and `resetFilters` of `WithRecordTable`, `cancelConfirmation` of `WithConfirmation`). `runConfirmation` is refused because it runs the confirmed write. Property updates are not refused. An event listener is judged by its own method; a refused listener answers 403 instead of a toast, because Livewire runs listeners before they can be intercepted.
+Every component that uses `AuthorizesScreen` (and so `GuardsWrites`) is then default-deny: any action method is refused, with a danger `ui-toast` carrying the message, unless it carries `#[Odden\Livewire\Attributes\Reads]` or is one of the framework read methods (`$refresh`, `$set`, `$sync`, `$commit`, pagination, `sortBy` and `resetFilters` of `WithRecordTable`, `cancelConfirmation` of `WithConfirmation`). `runConfirmation` is refused because it runs the confirmed write. Property updates are not refused. An event listener is judged by its own method; a refused listener and a refused `#[Json]` method answer 403 instead of a toast, because Livewire runs listeners and JSON methods itself, so returning early cannot stop them. Livewire's lazy-loading calls are never refused. WithFileUploads' `_startUpload`, `_finishUpload`, `_uploadErrored` and `_removeUpload` are refused on purpose: a read-only session may not upload.
+
+Only components that use `GuardsWrites` are guarded. Child components that are not screens (a bell, a search box, a modal) are not, unless they use `GuardsWrites` themselves.

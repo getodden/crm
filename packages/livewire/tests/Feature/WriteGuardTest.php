@@ -8,6 +8,7 @@ use Livewire\Livewire;
 use Odden\Livewire\Contracts\WriteGuard;
 use Odden\Livewire\Support\AllowAllWrites;
 use Odden\Livewire\Tests\Fixtures\GuardedComponent;
+use Odden\Livewire\Tests\Fixtures\LazyGuardedComponent;
 use Odden\Livewire\Tests\Fixtures\RefusingWriteGuard;
 use Odden\Livewire\Tests\Fixtures\User;
 use Odden\Livewire\Tests\RoutedTestCase;
@@ -66,12 +67,17 @@ class WriteGuardTest extends RoutedTestCase
             ->test(GuardedComponent::class)
             ->call('peek')
             ->assertSet('name', 'peeked')
+            ->assertNotDispatched('ui-toast')
             ->call('gotoPage', 2)
             ->assertSet('paginators.page', 2)
+            ->assertNotDispatched('ui-toast')
             ->call('nextPage')
             ->assertSet('paginators.page', 3)
+            ->assertNotDispatched('ui-toast')
             ->call('cancelConfirmation')
+            ->assertNotDispatched('ui-toast')
             ->call('$refresh')
+            ->assertNotDispatched('ui-toast')
             ->set('name', 'typed')
             ->assertSet('name', 'typed')
             ->assertNotDispatched('ui-toast');
@@ -86,6 +92,40 @@ class WriteGuardTest extends RoutedTestCase
         $component->dispatch('look')->assertSet('name', 'looked');
 
         $component->dispatch('poke')->assertStatus(403)->assertSet('count', 0);
+    }
+
+    public function test_a_json_method_is_refused_with_403_and_does_not_run(): void
+    {
+        $this->refuseWrites();
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(GuardedComponent::class)
+            ->call('jsonBump')
+            ->assertStatus(403)
+            ->assertSet('count', 0);
+    }
+
+    public function test_a_json_method_runs_when_writes_are_allowed(): void
+    {
+        Livewire::actingAs(User::factory()->create())
+            ->test(GuardedComponent::class)
+            ->call('jsonBump')
+            ->assertSet('count', 1);
+    }
+
+    public function test_lazy_loading_is_not_refused(): void
+    {
+        $this->refuseWrites();
+
+        Livewire::actingAs(User::factory()->create())
+            ->withoutLazyLoading()
+            ->test(LazyGuardedComponent::class)
+            ->assertSee('lazy loaded')
+            ->assertNotDispatched('ui-toast');
+
+        Livewire::actingAs(User::factory()->create())
+            ->test(LazyGuardedComponent::class, ['x' => 1])
+            ->assertNotDispatched('ui-toast');
     }
 
     public function test_the_guard_is_asked_on_every_call(): void
