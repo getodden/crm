@@ -10,6 +10,8 @@ use Odden\Core\Screens\Screens;
 
 trait AuthorizesScreen
 {
+    use GuardsWrites;
+
     abstract public static function screenKey(): string;
 
     public function bootAuthorizesScreen(): void

@@ -44,8 +44,9 @@ final class LivewireScreens
 
     /**
      * @param  list<string>  $middleware
+     * @param  list<string>|null  $only
      */
-    public static function routes(string $prefix = '', array $middleware = ['web', 'auth']): void
+    public static function routes(string $prefix = '', array $middleware = ['web', 'auth'], ?array $only = null): void
     {
         Route::getRoutes()->refreshNameLookups();
 
@@ -56,6 +57,10 @@ final class LivewireScreens
             $drawer = Screens::drawerFor($screen->key, self::SHELL);
 
             if ($drawer === null || Screens::isExcepted($screen->key) || ! Screens::moduleEnabled($screen->module)) {
+                continue;
+            }
+
+            if ($only !== null && ! in_array($screen->key, $only, true)) {
                 continue;
             }
 
@@ -72,6 +77,8 @@ final class LivewireScreens
             $routable[] = [$screen, $class, $path];
         }
 
+        self::guardOnly($only, array_map(fn (array $entry): string => $entry[0]->key, $routable));
+
         usort($routable, fn (array $a, array $b): int => $a[0]->record <=> $b[0]->record);
 
         Route::prefix($prefix)
@@ -82,6 +89,19 @@ final class LivewireScreens
                     Route::livewire($path, $class)->name($screen->key);
                 }
             });
+    }
+
+    /**
+     * @param  list<string>|null  $only
+     * @param  list<string>  $routableKeys
+     */
+    private static function guardOnly(?array $only, array $routableKeys): void
+    {
+        foreach ($only ?? [] as $key) {
+            if (! in_array($key, $routableKeys, true)) {
+                throw new InvalidScreenRegistrationException("The screen [{$key}] is listed in only, but it is unknown, excepted, in a disabled module or not drawn by the Livewire shell, so it cannot get a route.");
+            }
+        }
     }
 
     private static function guardRoutable(Screen $screen, string $class): void
