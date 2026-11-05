@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Core\Screens;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -128,6 +129,8 @@ final class ScreenRegistry
 
     public function freeze(): void
     {
+        $this->guardAgainstUnknownModels();
+
         $undefined = array_values(array_diff(array_unique([...array_keys($this->drawers), ...array_keys($this->viewAnyRequirements)]), array_keys($this->screens)));
 
         if ($undefined !== []) {
@@ -229,8 +232,12 @@ final class ScreenRegistry
             return false;
         }
 
+        if ($record !== null && $screen->model !== null && ! $record instanceof $screen->model) {
+            return false;
+        }
+
         foreach ($this->viewAnyModels($screen) as $model) {
-            if (class_exists($model) && ! $this->policyAllows($user, 'viewAny', $model)) {
+            if (! $this->policyAllows($user, 'viewAny', $model)) {
                 return false;
             }
         }
@@ -325,11 +332,34 @@ final class ScreenRegistry
     {
         $policy = Gate::getPolicyFor($subject);
 
-        if ($policy === null || ! method_exists($policy, $ability)) {
-            return true;
+        if ($policy !== null && method_exists($policy, $ability)) {
+            return Gate::forUser($user)->allows($ability, $subject);
         }
 
-        return Gate::forUser($user)->allows($ability, $subject);
+        $result = Gate::forUser($user)->raw($ability, $subject);
+
+        return match (true) {
+            $result === null => true,
+            $result instanceof Response => $result->allowed(),
+            default => (bool) $result,
+        };
+    }
+
+    private function guardAgainstUnknownModels(): void
+    {
+        $models = array_values(array_map(fn (Screen $screen): array => $screen->viewAnyOf, $this->screens));
+
+        foreach ($this->viewAnyRequirements as $requirements) {
+            foreach ($requirements as $requirement) {
+                $models[] = $requirement['models'];
+            }
+        }
+
+        $missing = array_values(array_unique(array_filter(array_merge([], ...$models), fn (string $model): bool => ! class_exists($model))));
+
+        if ($missing !== []) {
+            throw new InvalidScreenRegistrationException('Screens require viewAny on classes that do not exist: ['.implode(', ', $missing).'].');
+        }
     }
 
     private function guardAgainstChanges(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
+use Odden\Core\Exceptions\InvalidScreenRegistrationException;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenDrawer;
 use Odden\Core\Screens\ScreenRegistry;
@@ -119,7 +120,7 @@ it('denies a record screen when no record is given instead of calling the policy
         ->and($registry->can('tickets.edit', $user, new Ticket))->toBeTrue();
 });
 
-it('requires viewAny on every model a page lists, skipping missing classes', function (): void {
+it('requires viewAny on every model a page lists', function (): void {
     $policy = new class
     {
         public function viewAny(User $user): bool
@@ -131,13 +132,11 @@ it('requires viewAny on every model a page lists, skipping missing classes', fun
     $registry = new ScreenRegistry;
     $registry->define(
         Screen::page('listed', 'Listed', viewAnyOf: [Ticket::class]),
-        Screen::page('missing', 'Missing', viewAnyOf: ['App\\DoesNotExist']),
         Screen::page('unlisted', 'Unlisted'),
     );
     $user = userWithoutAbilities();
 
     expect($registry->can('listed', $user))->toBeFalse()
-        ->and($registry->can('missing', $user))->toBeTrue()
         ->and($registry->can('unlisted', $user))->toBeTrue();
 });
 
@@ -160,4 +159,59 @@ it('adds required models to a page defined elsewhere only while their module is 
     $registry->disableModules('service');
 
     expect($registry->can('overview', $user))->toBeTrue();
+});
+
+it('refuses to freeze while a required class does not exist', function (): void {
+    $listed = new ScreenRegistry;
+    $listed->define(Screen::page('a', 'A', viewAnyOf: ['App\\Misspelled']));
+
+    $required = new ScreenRegistry;
+    $required->define(Screen::page('a', 'A'));
+    $required->requireViewAny('a', null, 'App\\Misspelled');
+
+    expect(fn () => $listed->freeze())->toThrow(InvalidScreenRegistrationException::class, 'App\\Misspelled')
+        ->and(fn () => $required->freeze())->toThrow(InvalidScreenRegistrationException::class, 'App\\Misspelled');
+});
+
+it('denies a record of another model than the screen shows', function (): void {
+    $registry = new ScreenRegistry;
+    $registry->define(...Screen::forModel('tickets', Ticket::class, 'Tickets'));
+
+    expect($registry->can('tickets.edit', userWithoutAbilities(), new User))->toBeFalse()
+        ->and($registry->can('tickets.edit', userWithoutAbilities(), new Ticket))->toBeTrue();
+});
+
+it('lets a before callback deny a screen whose model has no policy, and an overview page', function (): void {
+    Gate::before(fn (): ?bool => false);
+    $registry = new ScreenRegistry;
+    $registry->define(...Screen::forModel('tickets', Ticket::class, 'Tickets'));
+    $registry->define(Screen::page('overview', 'Overview'));
+    $registry->requireViewAny('overview', null, Ticket::class);
+    $user = userWithoutAbilities();
+
+    expect($registry->can('tickets.index', $user))->toBeFalse()
+        ->and($registry->can('overview', $user))->toBeFalse();
+});
+
+it('lets a before callback allow what has no policy', function (): void {
+    Gate::before(fn (): ?bool => true);
+
+    expect(abilityRegistry()->can('reports', userWithoutAbilities()))->toBeTrue();
+});
+
+it('keeps the model requirements of a page that is redefined', function (): void {
+    $policy = new class
+    {
+        public function viewAny(User $user): bool
+        {
+            return false;
+        }
+    };
+    Gate::policy(Ticket::class, $policy::class);
+    $registry = new ScreenRegistry;
+    $registry->define(Screen::page('overview', 'Overview'));
+    $registry->requireViewAny('overview', null, Ticket::class);
+    $registry->redefine(Screen::page('overview', 'Renamed'));
+
+    expect($registry->can('overview', userWithoutAbilities()))->toBeFalse();
 });

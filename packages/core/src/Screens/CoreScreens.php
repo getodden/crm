@@ -22,8 +22,11 @@ final class CoreScreens
             ...Screen::forModel('companies', Company::class, 'Companies', 'CRM'),
             ...Screen::forModel('lists', CrmList::class, 'Lists', 'CRM', 3),
             ...Screen::forModel('custom-properties', PropertyDefinition::class, 'Custom properties', 'Settings', pages: ['index', 'create', 'edit']),
-            Screen::page('executive-overview', 'Executive overview', 'Executive', -10, viewAnyOf: [Contact::class, Company::class]),
-            Screen::page('data-quality', 'Data quality', 'CRM', 10, viewAnyOf: [Contact::class, Company::class]),
+            Screen::page('executive-overview', 'Executive overview', 'Executive', -10),
+            Screen::page('data-quality', 'Data quality', 'CRM', 10),
         ]);
+
+        $screens->requireViewAny('executive-overview', null, Contact::class, Company::class);
+        $screens->requireViewAny('data-quality', null, Contact::class, Company::class);
     }
 }

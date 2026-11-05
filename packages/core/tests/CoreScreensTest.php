@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Gate;
 use Odden\Core\Exceptions\InvalidScreenRegistrationException;
 use Odden\Core\Exceptions\ScreenNotAvailableException;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\CrmList;
 use Odden\Core\Models\PropertyDefinition;
+use Odden\Core\Screens\CoreScreens;
 use Odden\Core\Screens\NoScreenTenantParameters;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenDrawer;
@@ -102,9 +104,22 @@ it('delegates every facade method to the registry', function (): void {
     expect(fn () => Screens::freeze())->not->toThrow(Throwable::class);
 });
 
-it('requires viewAny on contacts and companies for the overview pages', function (): void {
+it('requires viewAny on contacts and companies for the overview pages even when redefined', function (): void {
     $registry = app(ScreenRegistry::class);
+    $policy = new class
+    {
+        public function viewAny(): bool
+        {
+            return false;
+        }
+    };
+    Gate::policy(Company::class, $policy::class);
+    $user = new User;
 
-    expect($registry->get('data-quality')->viewAnyOf)->toBe([Contact::class, Company::class])
-        ->and($registry->get('executive-overview')->viewAnyOf)->toBe([Contact::class, Company::class]);
+    $fresh = new ScreenRegistry;
+    CoreScreens::register($fresh);
+    $fresh->redefine(Screen::page('data-quality', 'Data health', 'CRM'));
+
+    expect($registry->can('executive-overview', $user))->toBeFalse()
+        ->and($fresh->can('data-quality', $user))->toBeFalse();
 });
