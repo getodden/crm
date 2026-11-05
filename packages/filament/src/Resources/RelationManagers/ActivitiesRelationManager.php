@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Odden\Core\Actions\CompleteActivityAction;
 use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Actions\RecordMentionsAction;
 use Odden\Core\Enums\ActivityStatus;
@@ -114,14 +115,12 @@ class ActivitiesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label('Log activity')
-                    // Through LogActivityAction, so ActivityLogged fires and completed_at is set as everywhere else.
                     ->using(function (array $data): Activity {
                         $userId = OddenAuthorization::userId();
                         $userId = is_numeric($userId) ? (int) $userId : null;
                         $dueAt = filled($data['due_at'] ?? null) ? Carbon::parse($data['due_at']) : null;
                         $body = MentionEditor::parse($data['body'] ?? null);
 
-                        // The note and its mentions are saved together, or not at all.
                         return DB::transaction(function () use ($data, $body, $dueAt, $userId): Activity {
                             $activity = app(LogActivityAction::class)->execute(
                                 subject: $this->getOwnerRecord(),
@@ -146,12 +145,10 @@ class ActivitiesRelationManager extends RelationManager
                     ->color('success')
                     ->visible(fn (Activity $record): bool => $record->status === ActivityStatus::Pending)
                     ->authorize(OddenAuthorization::forRecord('update'))
-                    ->action(fn (Activity $record) => $record->update([
-                        'status' => ActivityStatus::Completed,
-                        'completed_at' => now(),
-                    ])),
+                    ->action(function (Activity $record): void {
+                        app(CompleteActivityAction::class)->execute($record);
+                    }),
                 EditAction::make()
-                    // The body comes back from the editor as a document: kept as plain text, the people picked in it beside it.
                     ->using(function (Activity $record, array $data): Activity {
                         if (! array_key_exists('body', $data)) {
                             $record->update($data);
