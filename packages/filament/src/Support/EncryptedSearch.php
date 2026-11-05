@@ -9,81 +9,53 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Odden\Core\Areas\DataArea;
-use Odden\Core\Encryption\Index\DecryptedFilter;
-use Odden\Core\Encryption\Index\TooManyToFilter;
+use Odden\Core\Encryption\EncryptedSearch as CoreEncryptedSearch;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
+use Odden\Sales\Support\EncryptedSalesSearch;
 
-/**
- * Searching and sorting the tables and pickers of contacts and companies, whose names, addresses and phone numbers are encrypted.
- *
- * The database cannot search or sort ciphertext, so a search box matches the start of a name (and a full address or phone number)
- * through the search index, and sorting by name decrypts the records the table shows and sorts them in PHP, up to the fallback limit.
- */
 final class EncryptedSearch
 {
     /**
-     * For `->searchable(query: ...)` on a contact column.
-     *
      * @return Closure(Builder<Contact>, string): Builder<Contact>
      */
     public static function contacts(): Closure
     {
-        // Searching reaches into the Identity area: without it a search finds nothing, so it cannot be used to read what is masked.
-        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Identity)
-            ? $query->whereRaw('1 = 0')
-            : (new Contact)->scopeSearchIdentity($query, $search);
+        return CoreEncryptedSearch::contacts();
     }
 
     /**
-     * For `->searchable(query: ...)` on a company column: the start of a name, or a domain.
-     *
      * @return Closure(Builder<Company>, string): Builder<Company>
      */
     public static function companies(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Identity)
-            ? $query->whereRaw('1 = 0')
-            : self::companyMatches($query, $search);
+        return CoreEncryptedSearch::companies();
     }
 
     /**
-     * For `->searchable(query: ...)` on a deal column: the start of a word of the name. Names are in the Sales area.
-     *
      * @return Closure(Builder<Deal>, string): Builder<Deal>
      */
     public static function deals(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
-            ? $query->whereRaw('1 = 0')
-            : $query->whereNameStartsWith($search);
+        return EncryptedSalesSearch::deals();
     }
 
     /**
-     * For `->searchable(query: ...)` on a quote's title column: the start of a word of the title. Quotes are in the Sales area.
-     *
      * @return Closure(Builder<Quote>, string): Builder<Quote>
      */
     public static function quotes(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
-            ? $query->whereRaw('1 = 0')
-            : $query->whereTitleStartsWith($search);
+        return EncryptedSalesSearch::quotes();
     }
 
     /**
-     * For `->searchable(query: ...)` on a column of a table of quotes that shows the deal's name.
-     *
      * @return Closure(Builder<Quote>, string): Builder<Quote>
      */
     public static function quotesOfDeals(): Closure
     {
-        return static fn (Builder $query, string $search): Builder => AreaGuard::lacks(DataArea::Sales)
-            ? $query->whereRaw('1 = 0')
-            : $query->whereIn('deal_id', Deal::query()->whereNameStartsWith($search)->select((new Deal)->getQualifiedKeyName()));
+        return EncryptedSalesSearch::quotesOfDeals();
     }
 
     /**
@@ -92,51 +64,33 @@ final class EncryptedSearch
      */
     public static function companyMatches(Builder $query, string $search): Builder
     {
-        return $query->where(fn (Builder $q): Builder => $q
-            ->whereNameStartsWith($search)
-            ->orWhere(fn (Builder $domain): Builder => $domain->whereDomain($search)));
+        return CoreEncryptedSearch::companyMatches($query, $search);
     }
 
     /**
-     * For `->sortable(query: ...)`: order by decrypted columns, in turn. Above the fallback limit the table keeps its order and says why.
-     *
      * @param  list<string>  $columns
      * @return Closure(Builder<covariant Model>, string): Builder<covariant Model>
      */
     public static function sortBy(array $columns): Closure
     {
-        return static function (Builder $query, string $direction) use ($columns): Builder {
-            try {
-                $ids = app(DecryptedFilter::class)->sortedIds($query, $columns, $direction === 'desc');
-            } catch (TooManyToFilter $e) {
-                Notification::make()
-                    ->title('Too many records to sort by this column')
-                    ->body('Names are encrypted, so sorting by them needs every record decrypted. Narrow the list with a filter or a search first.')
-                    ->warning()
-                    ->send();
-
-                return $query;
-            }
-
-            return DecryptedFilter::orderByIds($query, $ids);
-        };
+        return CoreEncryptedSearch::sortBy($columns, static function (): void {
+            Notification::make()
+                ->title('Too many records to sort by this column')
+                ->body('Names are encrypted, so sorting by them needs every record decrypted. Narrow the list with a filter or a search first.')
+                ->warning()
+                ->send();
+        });
     }
 
     /**
-     * For `->sortable(query: ...)` on a column of a list page that uses SortsEncryptedColumns, which does the ordering itself when
-     * it pages the records.
-     *
      * @return Closure(Builder<covariant Model>, string): Builder<covariant Model>
      */
     public static function keepsOrder(): Closure
     {
-        return static fn (Builder $query): Builder => $query;
+        return CoreEncryptedSearch::keepsOrder();
     }
 
     /**
-     * Records for a picker, ordered by decrypted columns. Only the matches the query found are decrypted, so the limit is applied
-     * first and the (few) results are ordered here.
-     *
      * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
@@ -145,10 +99,6 @@ final class EncryptedSearch
      */
     public static function limitedAndSorted(Builder $query, array $columns, int $limit): Collection
     {
-        $records = $query->orderBy($query->getModel()->getQualifiedKeyName())->limit($limit)->get();
-
-        return $records->sortBy(
-            fn (Model $record): string => implode("\0", array_map(fn (string $column): string => mb_strtolower((string) $record->getAttribute($column)), $columns)),
-        )->values();
+        return CoreEncryptedSearch::limitedAndSorted($query, $columns, $limit);
     }
 }
