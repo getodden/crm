@@ -15,4 +15,9 @@ return [
             CompanySearch::class,
         ],
     ],
+
+    'bell' => [
+        'enabled' => true,
+        'limit' => 20,
+    ],
 ];

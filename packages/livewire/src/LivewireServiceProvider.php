@@ -7,6 +7,9 @@ namespace Odden\Livewire;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Odden\Core\Screens\ScreenRegistry;
+use Odden\Livewire\Bell\DatabaseBellFeed;
+use Odden\Livewire\Bell\NotificationBell;
+use Odden\Livewire\Contracts\BellFeed;
 use Odden\Livewire\Contracts\WriteGuard;
 use Odden\Livewire\Screens\LivewireScreens;
 use Odden\Livewire\Search\GlobalSearch;
@@ -19,6 +22,7 @@ class LivewireServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/odden-livewire.php', 'odden-livewire');
         $this->app->bindIf(WriteGuard::class, AllowAllWrites::class);
+        $this->app->bindIf(BellFeed::class, DatabaseBellFeed::class);
 
         $this->callAfterResolving(ScreenRegistry::class, fn (ScreenRegistry $screens) => LivewireScreens::register($screens));
     }
@@ -30,6 +34,7 @@ class LivewireServiceProvider extends ServiceProvider
         $this->publishes([__DIR__.'/../config/odden-livewire.php' => config_path('odden-livewire.php')], 'odden-livewire-config');
 
         Livewire::component('odden-livewire.global-search', GlobalSearch::class);
+        Livewire::component('odden-livewire.notification-bell', NotificationBell::class);
 
         RefusesWrites::listen();
     }

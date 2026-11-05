@@ -59,7 +59,7 @@ Each region is a partial. Replace one by creating `resources/views/vendor/odden-
 | `head` | empty; put `@vite` here |
 | `brand` | `config('app.name')` as text |
 | `navigation` | the screens the user can open, grouped, with their icons |
-| `header-actions` | the global search, when `search.enabled` and a user is signed in |
+| `header-actions` | the global search, when `search.enabled` and a user is signed in, and the notification bell for signed-in users (see Bell) |
 | `user-menu` | the user's name and a sign-out form |
 | `before-content` | empty; host banners |
 | `body-end` | empty; host scripts |
@@ -67,6 +67,36 @@ Each region is a partial. Replace one by creating `resources/views/vendor/odden-
 The sign-out form posts to the route named by `logout_route` in `config/odden-livewire.php` (default `logout`) and is left out when that route does not exist. The route must resolve with no parameters, or with `URL::defaults`. The inline theme script carries `Vite::cspNonce()` when a nonce is set. Publish the file with `php artisan vendor:publish --tag=odden-livewire-config`.
 
 To replace the whole layout, create `resources/views/vendor/odden-livewire/layouts/app.blade.php`.
+
+## Bell
+
+The default `header-actions` partial renders `<livewire:odden-livewire.notification-bell />` for signed-in users while `odden-livewire.bell.enabled` is true (the default). `odden-livewire.bell.limit` caps the list (default 20). The button's accessible name carries the unread count ("Notifications, 3 unread"), the count is polled every 30 seconds while the page is visible, and the panel is a `ui::modal` listing title, body, relative time, an Open link and "Mark as read", with "Mark all as read" when anything is unread.
+
+What the bell shows comes from `Odden\Livewire\Contracts\BellFeed`:
+
+```php
+interface BellFeed
+{
+    public function visible(Authenticatable $user): bool;
+    public function items(Authenticatable $user, int $limit): array;
+    public function unreadCount(Authenticatable $user): int;
+    public function find(Authenticatable $user, string $id): ?BellItem;
+    public function markRead(Authenticatable $user, string $id): void;
+    public function markAllRead(Authenticatable $user): void;
+}
+```
+
+`items` returns `BellItem`s newest first. `find` must return `null` for any id that is not this user's: the bell redirects only to the `url` of the item `find` returns, never to a value from the browser. When `visible` is false (a read-only support session, say) the bell renders nothing and every method does nothing.
+
+The default `DatabaseBellFeed` reads the user's Laravel database notifications (the user model must use `Notifiable`; the `notifications` table ids must be UUIDs, as Laravel creates them). The title is `data['title']`, the body `data['body']`, the link `data['actions'][0]['url']` or `data['url']` (the format Filament stores), and only `http(s)` and root-relative links are kept. Reading is scoped to the notifiable and writes go through `Odden\Core\Actions\MarkNotificationsReadAction`.
+
+Bind your own feed to replace it:
+
+```php
+$this->app->bind(BellFeed::class, WorkspaceBellFeed::class);
+```
+
+The bell does not use `GuardsWrites`: marking your own notification read is personal state. A feed that must refuse it in some sessions returns `false` from `visible`. The feed is resolved on every call; keep no user in a static or a singleton.
 
 ## Read-only sessions
 
