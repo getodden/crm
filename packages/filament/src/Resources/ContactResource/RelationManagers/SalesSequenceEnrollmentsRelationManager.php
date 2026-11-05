@@ -17,6 +17,7 @@ use Odden\Core\Models\Contact;
 use Odden\Filament\Resources\ContactResource;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\EnrollContactInSequenceAction;
+use Odden\Sales\Actions\UnenrollFromSequenceAction;
 use Odden\Sales\Models\SalesSequence;
 use Odden\Sales\Models\SalesSequenceEnrollment;
 
@@ -137,10 +138,7 @@ class SalesSequenceEnrollmentsRelationManager extends RelationManager
                     ->modalHeading('Unenroll from cadence')
                     ->modalDescription('Stop all scheduled outbound emails and tasks for this contact in this cadence.')
                     ->action(function (SalesSequenceEnrollment $record): void {
-                        $record->update([
-                            'status' => 'unenrolled',
-                            'next_step_due_at' => null,
-                        ]);
+                        app(UnenrollFromSequenceAction::class)->execute($record);
 
                         Notification::make()
                             ->title('Contact unenrolled')
