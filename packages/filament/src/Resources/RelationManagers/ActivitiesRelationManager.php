@@ -145,7 +145,9 @@ class ActivitiesRelationManager extends RelationManager
                     ->color('success')
                     ->visible(fn (Activity $record): bool => $record->status === ActivityStatus::Pending)
                     ->authorize(OddenAuthorization::forRecord('update'))
-                    ->action(fn (Activity $record) => app(CompleteActivityAction::class)->execute($record)),
+                    ->action(function (Activity $record): void {
+                        app(CompleteActivityAction::class)->execute($record);
+                    }),
                 EditAction::make()
                     ->using(function (Activity $record, array $data): Activity {
                         if (! array_key_exists('body', $data)) {

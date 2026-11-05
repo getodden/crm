@@ -16,7 +16,7 @@ function panelWriteCounts(): array
             continue;
         }
 
-        $writes = preg_match_all('/->update\(|->save\(\)|->delete\(\)|::create\(/', (string) file_get_contents($file->getPathname()));
+        $writes = preg_match_all('/->(?:update|save|delete|create|updateOrCreate|firstOrCreate|insert|upsert|increment|decrement|forceDelete|push|sync|attach|detach)(?:Quietly)?\(|::(?:create|destroy|insert)\(|DB::table\(/', (string) file_get_contents($file->getPathname()));
 
         if ($writes > 0) {
             $counts[$path] = $writes;
