@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Gate;
+use Odden\Core\Models\Contact;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
+use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\Quote;
+use Odden\Sales\Models\SalesSequence;
+use Odden\Sales\Tests\Fixtures\User;
 
 function salesScreens(): array
 {
@@ -62,4 +68,22 @@ it('registers alongside the core screens and is frozen', function (): void {
 
     expect($registry->has('contacts.index'))->toBeTrue()
         ->and($registry->isFrozen())->toBeTrue();
+});
+
+it('requires the sales models for its overview and adds them to the executive overview', function (): void {
+    $registry = app(ScreenRegistry::class);
+    $policy = new class
+    {
+        public function viewAny(): bool
+        {
+            return false;
+        }
+    };
+    Gate::policy(Deal::class, $policy::class);
+    $user = new User;
+
+    expect($registry->get('sales-overview')->viewAnyOf)->toBe([Contact::class, Deal::class, Quote::class, SalesSequence::class])
+        ->and($registry->can('sales-overview', $user))->toBeFalse()
+        ->and($registry->can('executive-overview', $user))->toBeFalse()
+        ->and($registry->can('data-quality', $user))->toBeTrue();
 });

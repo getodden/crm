@@ -56,6 +56,14 @@ final class Screens
         self::registry()->disableModules(...$modules);
     }
 
+    /**
+     * @param  class-string<Model>  ...$models
+     */
+    public static function requireViewAny(string $key, ?string $module, string ...$models): void
+    {
+        self::registry()->requireViewAny($key, $module, ...$models);
+    }
+
     public static function freeze(): void
     {
         self::registry()->freeze();
@@ -137,15 +145,20 @@ final class Screens
         return self::registry()->available($key);
     }
 
-    public static function can(string $key, ?Authenticatable $user, ?Model $record = null): bool
+    public static function can(string $key, Authenticatable $user, ?Model $record = null): bool
     {
         return self::registry()->can($key, $user, $record);
+    }
+
+    public static function canOpen(string $key, Authenticatable $user, ?Model $record = null): bool
+    {
+        return self::registry()->canOpen($key, $user, $record);
     }
 
     /**
      * @return list<array{group: string|null, screens: list<Screen>}>
      */
-    public static function navigation(?Authenticatable $user = null): array
+    public static function navigation(Authenticatable $user): array
     {
         return self::registry()->navigation($user);
     }

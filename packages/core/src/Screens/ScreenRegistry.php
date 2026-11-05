@@ -36,9 +36,10 @@ final class ScreenRegistry
     /** @var list<string> */
     private array $disabledModules = [];
 
-    private bool $frozen = false;
+    /** @var array<string, list<array{module: string|null, models: list<class-string<Model>>}>> */
+    private array $viewAnyRequirements = [];
 
-    public function __construct(private readonly ScreenTenantParameters $tenantParameters) {}
+    private bool $frozen = false;
 
     public function define(Screen ...$screens): void
     {
@@ -115,12 +116,22 @@ final class ScreenRegistry
         $this->disabledModules = array_values(array_unique([...$this->disabledModules, ...$modules]));
     }
 
+    /**
+     * @param  class-string<Model>  ...$models
+     */
+    public function requireViewAny(string $key, ?string $module, string ...$models): void
+    {
+        $this->guardAgainstChanges();
+
+        $this->viewAnyRequirements[$key][] = ['module' => $module, 'models' => array_values($models)];
+    }
+
     public function freeze(): void
     {
-        $undefined = array_values(array_diff(array_keys($this->drawers), array_keys($this->screens)));
+        $undefined = array_values(array_diff(array_unique([...array_keys($this->drawers), ...array_keys($this->viewAnyRequirements)]), array_keys($this->screens)));
 
         if ($undefined !== []) {
-            throw new UnknownScreenException('Screens are drawn but never defined: ['.implode(', ', $undefined).'].');
+            throw new UnknownScreenException('Screens are drawn or constrained but never defined: ['.implode(', ', $undefined).'].');
         }
 
         $this->frozen = true;
@@ -210,12 +221,18 @@ final class ScreenRegistry
         return $this->has($key) && $this->enabled($this->screens[$key]) && $this->resolveDrawing($this->screens[$key]) !== null;
     }
 
-    public function can(string $key, ?Authenticatable $user, ?Model $record = null): bool
+    public function can(string $key, Authenticatable $user, ?Model $record = null): bool
     {
         $screen = $this->get($key);
 
-        if ($user === null) {
+        if ($screen->record && $record === null) {
             return false;
+        }
+
+        foreach ($this->viewAnyModels($screen) as $model) {
+            if (class_exists($model) && ! $this->policyAllows($user, 'viewAny', $model)) {
+                return false;
+            }
         }
 
         if ($screen->ability === null) {
@@ -228,23 +245,21 @@ final class ScreenRegistry
             return Gate::forUser($user)->allows($screen->ability);
         }
 
-        $policy = Gate::getPolicyFor($subject);
+        return $this->policyAllows($user, $screen->ability, $subject);
+    }
 
-        if ($policy === null || ! method_exists($policy, $screen->ability)) {
-            return true;
-        }
-
-        return Gate::forUser($user)->allows($screen->ability, $subject);
+    public function canOpen(string $key, Authenticatable $user, ?Model $record = null): bool
+    {
+        return $this->available($key) && $this->can($key, $user, $record);
     }
 
     /**
      * @return list<array{group: string|null, screens: list<Screen>}>
      */
-    public function navigation(?Authenticatable $user = null): array
+    public function navigation(Authenticatable $user): array
     {
         $visible = array_filter($this->screens, fn (Screen $screen): bool => $screen->navigation
-            && $this->available($screen->key)
-            && ($user === null || $this->can($screen->key, $user)));
+            && $this->canOpen($screen->key, $user));
 
         $byGroup = [];
 
@@ -285,9 +300,36 @@ final class ScreenRegistry
 
         [$shell, $drawer, $class] = $drawing;
 
-        $tenantParameters = $tenant === null ? [] : $this->tenantParameters->for($tenant);
+        $tenantParameters = $tenant === null ? [] : app(ScreenTenantParameters::class)->for($tenant);
 
-        return $shell->url($screen, $drawer, $class, $record, [...$tenantParameters, ...$parameters], $tenant, $absolute);
+        return $shell->url($screen, $drawer, $class, $record, [...$parameters, ...$tenantParameters], $tenant, $absolute);
+    }
+
+    /**
+     * @return list<class-string<Model>>
+     */
+    private function viewAnyModels(Screen $screen): array
+    {
+        $models = $screen->viewAnyOf;
+
+        foreach ($this->viewAnyRequirements[$screen->key] ?? [] as $requirement) {
+            if ($this->moduleEnabled($requirement['module'])) {
+                $models = [...$models, ...$requirement['models']];
+            }
+        }
+
+        return array_values(array_unique($models));
+    }
+
+    private function policyAllows(Authenticatable $user, string $ability, Model|string $subject): bool
+    {
+        $policy = Gate::getPolicyFor($subject);
+
+        if ($policy === null || ! method_exists($policy, $ability)) {
+            return true;
+        }
+
+        return Gate::forUser($user)->allows($ability, $subject);
     }
 
     private function guardAgainstChanges(): void

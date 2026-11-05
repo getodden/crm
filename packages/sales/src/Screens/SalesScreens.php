@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Sales\Screens;
 
+use Odden\Core\Models\Contact;
 use Odden\Core\Screens\Screen;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Sales\Models\Deal;
@@ -24,10 +25,12 @@ final class SalesScreens
     {
         $screens->defineGroup('Sales', 20);
 
+        $screens->requireViewAny('executive-overview', self::MODULE, Deal::class, SalesQuota::class);
+
         $dealScreens = Screen::forModel('deals', Deal::class, 'Deals', 'Sales', 1, module: self::MODULE, pages: ['index', 'board', 'create', 'view', 'edit']);
 
         $screens->define(...[
-            Screen::page('sales-overview', 'Sales overview', 'Sales', 0, module: self::MODULE),
+            Screen::page('sales-overview', 'Sales overview', 'Sales', 0, module: self::MODULE, viewAnyOf: [Contact::class, Deal::class, Quote::class, SalesSequence::class]),
             ...array_map(fn (Screen $screen): Screen => $screen->key === 'deals.board' ? $screen->with(label: 'Pipeline board') : $screen, $dealScreens),
             ...Screen::forModel('quotes', Quote::class, 'Quotes', 'Sales', 2, module: self::MODULE),
             ...Screen::forModel('quotas', SalesQuota::class, 'Quotas', 'Sales', 3, module: self::MODULE, pages: ['index', 'create', 'edit']),

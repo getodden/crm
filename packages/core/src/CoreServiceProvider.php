@@ -173,7 +173,10 @@ class CoreServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->scrubLogs();
 
-        $this->app->booted(fn () => $this->app->make(ScreenRegistry::class)->freeze());
+        $this->app->booted(function (): void {
+            $this->app->afterResolving(ScreenRegistry::class, fn (ScreenRegistry $screens) => $screens->freeze());
+            $this->app->make(ScreenRegistry::class)->freeze();
+        });
 
         RateLimiter::for('odden-public', fn (Request $request): Limit => Limit::perMinute((int) config('odden-core.rate_limits.public', 30))->by(self::rateLimitKey($request)));
         RateLimiter::for('odden-poll', fn (Request $request): Limit => Limit::perMinute((int) config('odden-core.rate_limits.poll', 120))->by(self::rateLimitKey($request)));

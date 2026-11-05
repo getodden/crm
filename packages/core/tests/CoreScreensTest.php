@@ -10,9 +10,12 @@ use Odden\Core\Models\CrmList;
 use Odden\Core\Models\PropertyDefinition;
 use Odden\Core\Screens\NoScreenTenantParameters;
 use Odden\Core\Screens\Screen;
+use Odden\Core\Screens\ScreenDrawer;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\Screens;
 use Odden\Core\Screens\ScreenTenantParameters;
+use Odden\Core\Tests\Fixtures\RecordingScreenShell;
+use Odden\Core\Tests\Fixtures\User;
 
 it('defines the core screens', function (): void {
     $keys = array_map(fn (Screen $screen): string => $screen->key, app(ScreenRegistry::class)->all());
@@ -64,4 +67,44 @@ it('reads through the static facade', function (): void {
         ->and(Screens::get('contacts.index')->label)->toBe('Contacts')
         ->and(Screens::available('contacts.index'))->toBeFalse()
         ->and(fn () => Screens::url('contacts.index'))->toThrow(ScreenNotAvailableException::class);
+});
+
+it('delegates every facade method to the registry', function (): void {
+    $registry = app(ScreenRegistry::class);
+    $user = new User;
+
+    expect(Screens::all())->toEqual($registry->all())
+        ->and(Screens::replacements())->toBe($registry->replacements())
+        ->and(Screens::exceptions())->toBe($registry->exceptions())
+        ->and(Screens::disabledModules())->toBe($registry->disabledModules())
+        ->and(Screens::isExcepted('contacts.index'))->toBeFalse()
+        ->and(Screens::moduleEnabled('sales'))->toBeTrue()
+        ->and(Screens::drawerFor('contacts.index', 'none'))->toBeNull()
+        ->and(Screens::keysDrawnBy('none', 'App\\X'))->toBe([])
+        ->and(Screens::can('data-quality', $user))->toBe($registry->can('data-quality', $user))
+        ->and(Screens::canOpen('data-quality', $user))->toBeFalse()
+        ->and(Screens::navigation($user))->toBe($registry->navigation($user));
+
+    foreach ([
+        fn () => Screens::define(Screen::page('x', 'X')),
+        fn () => Screens::redefine(Screen::page('data-quality', 'X')),
+        fn () => Screens::defineGroup('G', 1),
+        fn () => Screens::draw('x', new ScreenDrawer('s', 'App\\X')),
+        fn () => Screens::shell('s', RecordingScreenShell::class),
+        fn () => Screens::replace('App\\A', 'App\\B'),
+        fn () => Screens::except('x'),
+        fn () => Screens::disableModules('x'),
+        fn () => Screens::requireViewAny('data-quality', null, Contact::class),
+    ] as $mutation) {
+        expect($mutation)->toThrow(InvalidScreenRegistrationException::class);
+    }
+
+    expect(fn () => Screens::freeze())->not->toThrow(Throwable::class);
+});
+
+it('requires viewAny on contacts and companies for the overview pages', function (): void {
+    $registry = app(ScreenRegistry::class);
+
+    expect($registry->get('data-quality')->viewAnyOf)->toBe([Contact::class, Company::class])
+        ->and($registry->get('executive-overview')->viewAnyOf)->toBe([Contact::class, Company::class]);
 });

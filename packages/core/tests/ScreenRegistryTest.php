@@ -13,10 +13,11 @@ use Odden\Core\Screens\ScreenDrawer;
 use Odden\Core\Screens\ScreenRegistry;
 use Odden\Core\Screens\ScreenTenantParameters;
 use Odden\Core\Tests\Fixtures\RecordingScreenShell;
+use Odden\Core\Tests\Fixtures\User;
 
-function screenRegistry(?ScreenTenantParameters $tenantParameters = null): ScreenRegistry
+function screenRegistry(): ScreenRegistry
 {
-    $registry = new ScreenRegistry($tenantParameters ?? new NoScreenTenantParameters);
+    $registry = new ScreenRegistry;
     $registry->shell('alpha', RecordingScreenShell::class, 1);
     $registry->shell('beta', RecordingScreenShell::class, 5);
 
@@ -164,7 +165,7 @@ it('builds the url with the highest-priority shell that draws the key', function
 });
 
 it('tries shells registered with equal priority in registration order', function (): void {
-    $registry = new ScreenRegistry(new NoScreenTenantParameters);
+    $registry = new ScreenRegistry;
     $registry->shell('first', RecordingScreenShell::class);
     $registry->shell('second', RecordingScreenShell::class);
     $registry->define(Screen::page('a', 'A'));
@@ -188,23 +189,23 @@ it('needs a record for a record screen and passes it on', function (): void {
         ->and(RecordingScreenShell::$calls[0]['absolute'])->toBeFalse();
 });
 
-it('merges tenant parameters under the given parameters and passes the tenant on', function (): void {
-    $tenantParameters = new class implements ScreenTenantParameters
+it('lets tenant parameters win over the given parameters and passes the tenant on', function (): void {
+    app()->instance(ScreenTenantParameters::class, new class implements ScreenTenantParameters
     {
         public function for(Model $tenant): array
         {
-            return ['workspace' => 'acme', 'tab' => 'default'];
+            return ['workspace' => 'acme', 'tab' => 'tenant'];
         }
-    };
-    $registry = screenRegistry($tenantParameters);
+    });
+    $registry = screenRegistry();
     $registry->define(Screen::page('a', 'A'));
     $registry->draw('a', new ScreenDrawer('alpha', 'App\Alpha'));
     $tenant = new Contact;
 
-    $registry->url('a', null, ['tab' => 'mine'], $tenant);
+    $registry->url('a', null, ['tab' => 'mine', 'extra' => 'x', 'workspace' => 'other'], $tenant);
     $registry->url('a');
 
-    expect(RecordingScreenShell::$calls[0]['parameters'])->toBe(['workspace' => 'acme', 'tab' => 'mine'])
+    expect(RecordingScreenShell::$calls[0]['parameters'])->toBe(['tab' => 'tenant', 'extra' => 'x', 'workspace' => 'acme'])
         ->and(RecordingScreenShell::$calls[0]['tenant'])->toBe($tenant)
         ->and(RecordingScreenShell::$calls[1]['parameters'])->toBe([]);
 });
@@ -239,7 +240,7 @@ it('groups navigation by group sort then label and screens by sort then label', 
         $registry->draw($key, new ScreenDrawer('alpha', 'App\\'.$key));
     }
 
-    $navigation = $registry->navigation();
+    $navigation = $registry->navigation(new User);
 
     expect(array_column($navigation, 'group'))->toBe([null, 'Zed', 'Alpha', 'Other'])
         ->and(array_map(fn (Screen $screen): string => $screen->key, $navigation[1]['screens']))->toBe(['z1', 'z3', 'z2']);
@@ -256,5 +257,77 @@ it('leaves out screens that are excepted, in a disabled module, or not drawn', f
     $registry->except('b');
     $registry->disableModules('sales');
 
-    expect(array_map(fn (Screen $screen): string => $screen->key, $registry->navigation()[0]['screens']))->toBe(['a']);
+    expect(array_map(fn (Screen $screen): string => $screen->key, $registry->navigation(new User)[0]['screens']))->toBe(['a']);
+});
+
+it('resolves the tenant parameters on every call instead of holding one', function (): void {
+    $registry = screenRegistry();
+    $registry->define(Screen::page('a', 'A'));
+    $registry->draw('a', new ScreenDrawer('alpha', 'App\Alpha'));
+    $tenant = new Contact;
+
+    app()->instance(ScreenTenantParameters::class, new class implements ScreenTenantParameters
+    {
+        public function for(Model $tenant): array
+        {
+            return ['workspace' => 'first'];
+        }
+    });
+    $registry->url('a', null, [], $tenant);
+
+    app()->instance(ScreenTenantParameters::class, new class implements ScreenTenantParameters
+    {
+        public function for(Model $tenant): array
+        {
+            return ['workspace' => 'second'];
+        }
+    });
+    $registry->url('a', null, [], $tenant);
+
+    expect(RecordingScreenShell::$calls[0]['parameters'])->toBe(['workspace' => 'first'])
+        ->and(RecordingScreenShell::$calls[1]['parameters'])->toBe(['workspace' => 'second']);
+});
+
+it('opens a screen only when it is available and allowed', function (): void {
+    $registry = screenRegistry();
+    $registry->define(Screen::page('a', 'A'), Screen::page('b', 'B', ability: 'never'), Screen::page('c', 'C'));
+    $registry->draw('a', new ScreenDrawer('alpha', 'App\A'));
+    $registry->draw('b', new ScreenDrawer('alpha', 'App\B'));
+    $user = new User;
+
+    expect($registry->canOpen('a', $user))->toBeTrue()
+        ->and($registry->canOpen('b', $user))->toBeFalse()
+        ->and($registry->canOpen('c', $user))->toBeFalse();
+});
+
+it('lists plain pages and pages with their own ability and record need', function (): void {
+    $screens = Screen::forModel('contacts', Contact::class, 'Contacts', pages: ['index', 'merge' => ['ability' => 'update', 'record' => true], 'export' => ['ability' => null]]);
+
+    expect(array_map(fn (Screen $screen): string => $screen->key, $screens))->toBe(['contacts.index', 'contacts.merge', 'contacts.export'])
+        ->and($screens[1]->ability)->toBe('update')
+        ->and($screens[1]->record)->toBeTrue()
+        ->and($screens[2]->ability)->toBeNull()
+        ->and($screens[2]->record)->toBeFalse();
+});
+
+it('lets a page carry a model and with() change the ability', function (): void {
+    $screen = Screen::page('overview', 'Overview', model: Contact::class, viewAnyOf: [Contact::class])->with(ability: 'viewAny');
+
+    expect($screen->model)->toBe(Contact::class)
+        ->and($screen->ability)->toBe('viewAny')
+        ->and($screen->viewAnyOf)->toBe([Contact::class]);
+});
+
+it('freezes a registry that is resolved again after boot', function (): void {
+    app()->forgetInstance(ScreenRegistry::class);
+
+    expect(app(ScreenRegistry::class)->isFrozen())->toBeTrue()
+        ->and(app(ScreenRegistry::class)->has('contacts.index'))->toBeTrue();
+});
+
+it('refuses to freeze while a constrained key is undefined', function (): void {
+    $registry = screenRegistry();
+    $registry->requireViewAny('ghost', null, Contact::class);
+
+    expect(fn () => $registry->freeze())->toThrow(UnknownScreenException::class, 'ghost');
 });
