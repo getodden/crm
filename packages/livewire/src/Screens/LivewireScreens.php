@@ -132,13 +132,31 @@ final class LivewireScreens
             return;
         }
 
-        if ($explicitPath === '' || str_starts_with($explicitPath, '/') || str_ends_with($explicitPath, '/')) {
-            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which must not be empty or start or end with a slash.");
+        $segments = explode('/', $explicitPath);
+        $recordSegments = 0;
+
+        foreach ($segments as $segment) {
+            if ($segment === '{record}') {
+                $recordSegments++;
+
+                continue;
+            }
+
+            if (preg_match('/\A[a-z0-9]+(-[a-z0-9]+)*\z/', $segment) !== 1) {
+                throw self::invalidPath($screen, $explicitPath);
+            }
         }
 
-        if ($screen->record && ! str_contains($explicitPath, '{record}')) {
-            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is a record screen, so its path [{$explicitPath}] must contain {record}.");
+        if ($recordSegments !== ($screen->record ? 1 : 0)) {
+            throw self::invalidPath($screen, $explicitPath);
         }
+    }
+
+    private static function invalidPath(Screen $screen, string $explicitPath): InvalidScreenRegistrationException
+    {
+        $placeholder = $screen->record ? 'a record screen must contain {record} exactly once' : 'a screen that is not a record screen must not contain {record}';
+
+        return new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which is not allowed: a path is one or more segments separated by a slash, each lowercase letters and digits with single hyphens between them or exactly {record}, and {$placeholder}.");
     }
 
     private static function path(Screen $screen): string

@@ -56,7 +56,7 @@ class ExplicitPathRoutesTest extends RoutedTestCase
     }
 
     #[DefineEnvironment('defineRecordPathWithRecord')]
-    public function test_a_record_screen_path_with_the_record_placeholder_is_served(): void
+    public function test_the_record_placeholder_in_an_explicit_path_is_filled_when_the_url_is_generated(): void
     {
         $this->assertSame('/crm/thing/7', Screens::url('things.view', 7, absolute: false));
     }
