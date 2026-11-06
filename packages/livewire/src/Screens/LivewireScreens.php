@@ -26,13 +26,13 @@ final class LivewireScreens
     /**
      * @param  class-string<Component>  $component
      */
-    public static function component(ScreenRegistry $screens, string $key, string $component): void
+    public static function component(ScreenRegistry $screens, string $key, string $component, ?string $path = null): void
     {
         if (! is_subclass_of($component, Component::class)) {
             throw new InvalidScreenRegistrationException("[{$component}] is not a Livewire component, so it cannot draw the screen [{$key}].");
         }
 
-        $screens->draw($key, new ScreenDrawer(self::SHELL, $component));
+        $screens->draw($key, new ScreenDrawer(self::SHELL, $component, path: $path));
     }
 
     public static function register(ScreenRegistry $screens): void
@@ -65,9 +65,10 @@ final class LivewireScreens
             }
 
             $class = Screens::replacements()[$drawer->class] ?? $drawer->class;
-            $path = self::path($screen);
+            $path = $drawer->path ?? self::path($screen);
 
             self::guardRoutable($screen, $class);
+            self::guardPath($screen, $drawer->path);
 
             if (isset($paths[$path])) {
                 throw new InvalidScreenRegistrationException("The screens [{$paths[$path]}] and [{$screen->key}] both map to the path [{$path}].");
@@ -122,6 +123,21 @@ final class LivewireScreens
 
         if (Route::has(self::ROUTE_PREFIX.$screen->key)) {
             throw new InvalidScreenRegistrationException('The route ['.self::ROUTE_PREFIX."{$screen->key}] for the screen [{$screen->key}] is already registered.");
+        }
+    }
+
+    private static function guardPath(Screen $screen, ?string $explicitPath): void
+    {
+        if ($explicitPath === null) {
+            return;
+        }
+
+        if ($explicitPath === '' || str_starts_with($explicitPath, '/') || str_ends_with($explicitPath, '/')) {
+            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which must not be empty or start or end with a slash.");
+        }
+
+        if ($screen->record && ! str_contains($explicitPath, '{record}')) {
+            throw new InvalidScreenRegistrationException("The screen [{$screen->key}] is a record screen, so its path [{$explicitPath}] must contain {record}.");
         }
     }
 

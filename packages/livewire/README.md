@@ -36,6 +36,14 @@ LivewireScreens::routes('crm', ['web', 'auth'], only: ['contacts.index']);
 
 With a list, only those keys get routes, so a host that serves both shells at the same paths opts in key by key. An empty list registers no screen routes. A key that is unknown, excepted, in a disabled module or not drawn by the Livewire shell throws `InvalidScreenRegistrationException` naming it.
 
+By default a screen's path comes from its key (`admin.audit-log.index` is served at `admin.audit-log`). A host that namespaces its keys can name the path when it registers the component:
+
+```php
+LivewireScreens::component($screens, 'admin.audit-log.index', ListAuditLog::class, path: 'audit-log');
+```
+
+The path is relative to the route prefix, with no leading or trailing slash. A record screen's path must contain `{record}`. An explicit path goes through the same checks as a derived one, including `only` and the duplicate-path check, and `routes()` throws `InvalidScreenRegistrationException` naming the key and the path when it is invalid.
+
 A screen the registry excepts or whose module is disabled gets no route. For a tenant prefix such as `{workspace}/crm`, bind a `ScreenTenantParameters` that returns the `workspace` value, and set `URL::defaults(['workspace' => ...])` for the request, because the layout's navigation builds its links without a tenant.
 
 ## Styles
