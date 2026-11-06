@@ -26,13 +26,13 @@ final class LivewireScreens
     /**
      * @param  class-string<Component>  $component
      */
-    public static function component(ScreenRegistry $screens, string $key, string $component): void
+    public static function component(ScreenRegistry $screens, string $key, string $component, ?string $path = null): void
     {
         if (! is_subclass_of($component, Component::class)) {
             throw new InvalidScreenRegistrationException("[{$component}] is not a Livewire component, so it cannot draw the screen [{$key}].");
         }
 
-        $screens->draw($key, new ScreenDrawer(self::SHELL, $component));
+        $screens->draw($key, new ScreenDrawer(self::SHELL, $component, path: $path));
     }
 
     public static function register(ScreenRegistry $screens): void
@@ -65,9 +65,10 @@ final class LivewireScreens
             }
 
             $class = Screens::replacements()[$drawer->class] ?? $drawer->class;
-            $path = self::path($screen);
+            $path = $drawer->path ?? self::path($screen);
 
             self::guardRoutable($screen, $class);
+            self::guardPath($screen, $drawer->path);
 
             if (isset($paths[$path])) {
                 throw new InvalidScreenRegistrationException("The screens [{$paths[$path]}] and [{$screen->key}] both map to the path [{$path}].");
@@ -123,6 +124,43 @@ final class LivewireScreens
         if (Route::has(self::ROUTE_PREFIX.$screen->key)) {
             throw new InvalidScreenRegistrationException('The route ['.self::ROUTE_PREFIX."{$screen->key}] for the screen [{$screen->key}] is already registered.");
         }
+    }
+
+    private static function guardPath(Screen $screen, ?string $explicitPath): void
+    {
+        if ($explicitPath === null) {
+            return;
+        }
+
+        $segments = explode('/', $explicitPath);
+        $recordSegments = 0;
+
+        if ($segments[0] === '{record}') {
+            throw self::invalidPath($screen, $explicitPath);
+        }
+
+        foreach ($segments as $segment) {
+            if ($segment === '{record}') {
+                $recordSegments++;
+
+                continue;
+            }
+
+            if (preg_match('/\A[a-z0-9]+(-[a-z0-9]+)*\z/', $segment) !== 1) {
+                throw self::invalidPath($screen, $explicitPath);
+            }
+        }
+
+        if ($recordSegments !== ($screen->record ? 1 : 0)) {
+            throw self::invalidPath($screen, $explicitPath);
+        }
+    }
+
+    private static function invalidPath(Screen $screen, string $explicitPath): InvalidScreenRegistrationException
+    {
+        $placeholder = $screen->record ? 'a record screen must contain {record} exactly once' : 'a screen that is not a record screen must not contain {record}';
+
+        return new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which is not allowed: a path is one or more segments separated by a slash, each lowercase letters and digits with single hyphens between them or exactly {record}, the first segment is never {record}, and {$placeholder}.");
     }
 
     private static function path(Screen $screen): string
