@@ -135,6 +135,10 @@ final class LivewireScreens
         $segments = explode('/', $explicitPath);
         $recordSegments = 0;
 
+        if ($segments[0] === '{record}') {
+            throw self::invalidPath($screen, $explicitPath);
+        }
+
         foreach ($segments as $segment) {
             if ($segment === '{record}') {
                 $recordSegments++;
@@ -156,7 +160,7 @@ final class LivewireScreens
     {
         $placeholder = $screen->record ? 'a record screen must contain {record} exactly once' : 'a screen that is not a record screen must not contain {record}';
 
-        return new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which is not allowed: a path is one or more segments separated by a slash, each lowercase letters and digits with single hyphens between them or exactly {record}, and {$placeholder}.");
+        return new InvalidScreenRegistrationException("The screen [{$screen->key}] has the path [{$explicitPath}], which is not allowed: a path is one or more segments separated by a slash, each lowercase letters and digits with single hyphens between them or exactly {record}, the first segment is never {record}, and {$placeholder}.");
     }
 
     private static function path(Screen $screen): string

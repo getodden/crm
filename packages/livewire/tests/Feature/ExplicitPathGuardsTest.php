@@ -135,6 +135,11 @@ class ExplicitPathGuardsTest extends TestCase
             'record twice' => ['thing/{record}/{record}', true, '[thing/{record}/{record}]'],
             'other parameter instead of record' => ['thing/{id}', true, '[thing/{id}]'],
             'record screen without record' => ['thing', true, '[thing]'],
+            'trailing newline' => ["notes\n", false, "[notes\n]"],
+            'leading hyphen' => ['-notes', false, '[-notes]'],
+            'trailing hyphen' => ['notes-', false, '[notes-]'],
+            'record as the whole path' => ['{record}', true, '[{record}]'],
+            'record as the first segment' => ['{record}/edit', true, '[{record}/edit]'],
         ];
     }
 
