@@ -117,11 +117,6 @@ function relationshipFieldsKeepingTheDefaultSave(string $contents): int
 
 it('writes through actions: the panel holds only the model writes on this list, and the list only shrinks', function (): void {
     $allowed = [
-        'Resources/ContactResource/Pages/EditContact.php' => 1,
-        'Resources/DealResource/Pages/CreateDeal.php' => 1,
-        'Resources/PipelineResource.php' => 1,
-        'Resources/RelationManagers/ActivitiesRelationManager.php' => 2,
-        'Resources/SalesMeetingLinkResource.php' => 2,
     ];
 
     expect(panelWriteCounts())->toBe($allowed);
