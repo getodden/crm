@@ -19,13 +19,13 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\QuoteResource;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Actions\CreateQuoteAction;
+use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
 use Odden\Sales\Actions\UpdateQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
@@ -201,7 +201,7 @@ class QuotesRelationManager extends RelationManager
                     ->using(fn (Quote $record, array $data): Model => app(UpdateQuoteAction::class)->execute($record, $data))
                     ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
                 DeleteAction::make()
-                    ->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
+                    ->using(fn (Quote $record): bool => app(DeleteQuoteAction::class)->execute($record))
                     ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
             ]);
     }

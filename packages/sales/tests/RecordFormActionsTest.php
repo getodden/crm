@@ -3,23 +3,31 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Mail;
+use Odden\Core\Contracts\TenantContext;
+use Odden\Core\Exceptions\CrossTenantException;
 use Odden\Sales\Actions\BookMeetingAction;
 use Odden\Sales\Actions\CreateDealAction;
 use Odden\Sales\Actions\CreateMeetingLinkAction;
 use Odden\Sales\Actions\CreateQuoteAction;
 use Odden\Sales\Actions\DeleteMeetingLinkAction;
+use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\SaveDealProductAction;
 use Odden\Sales\Actions\SavePipelineAction;
 use Odden\Sales\Actions\SavePipelineStageAction;
 use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Actions\SaveStageAutomationsAction;
 use Odden\Sales\Actions\UpdateDealAction;
+use Odden\Sales\Actions\UpdateMeetingLinkAction;
 use Odden\Sales\Actions\UpdateQuoteAction;
 use Odden\Sales\Enums\DealStatus;
+use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\DealStageMismatchException;
 use Odden\Sales\Exceptions\MeetingLinkInUseException;
+use Odden\Sales\Exceptions\QuoteLockedException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\DealProduct;
 use Odden\Sales\Models\DealStageHistory;
@@ -29,6 +37,29 @@ use Odden\Sales\Models\QuoteItem;
 use Odden\Sales\Models\SalesMeetingLink;
 use Odden\Sales\Models\StageAutomation;
 use Odden\Sales\Tests\Fixtures\User;
+
+function actingInSalesTenantOne(): void
+{
+    app()->instance(TenantContext::class, new class implements TenantContext
+    {
+        public function id(): int|string|null
+        {
+            return 1;
+        }
+
+        public function scopeUsers(Builder $users): Builder
+        {
+            return $users;
+        }
+    });
+}
+
+function inAnotherTenant(Model $record): Model
+{
+    $record->setRawAttributes([...$record->getAttributes(), 'tenant_id' => 2]);
+
+    return $record;
+}
 
 it('creates a deal open with its first stage history, whatever the form says', function (): void {
     $pipeline = Pipeline::factory()->withStages()->create();
@@ -257,4 +288,87 @@ it('puts a quote in its deal currency for the deal owner and keeps its owner and
 
     expect($quote->fresh()->currency)->toBe('GBP')
         ->and($quote->fresh()->user_id)->toBe(4);
+});
+
+it('edits and adds quotes on a deal in the trash', function (): void {
+    $deal = Deal::factory()->create(['currency' => 'EUR', 'owner_id' => 4]);
+    $quote = app(CreateQuoteAction::class)->execute(['deal_id' => $deal->id, 'title' => 'First']);
+    $deal->delete();
+
+    app(UpdateQuoteAction::class)->execute($quote->fresh(), ['title' => 'Second']);
+    $added = app(CreateQuoteAction::class)->execute(['deal_id' => $deal->id, 'title' => 'Third']);
+
+    expect($quote->fresh()->title)->toBe('Second')
+        ->and($quote->fresh()->currency)->toBe('EUR')
+        ->and($added->currency)->toBe('EUR')
+        ->and($added->user_id)->toBe(4);
+});
+
+it('deletes a quote that was not signed and keeps one that was', function (): void {
+    $draft = Quote::factory()->create();
+    $signed = Quote::factory()->create();
+    Quote::query()->whereKey($signed->id)->update(['status' => QuoteStatus::Accepted]);
+
+    expect(app(DeleteQuoteAction::class)->execute($draft))->toBeTrue()
+        ->and(fn () => app(DeleteQuoteAction::class)->execute($signed->fresh()))->toThrow(QuoteLockedException::class)
+        ->and(Quote::query()->pluck('id')->all())->toBe([$signed->id]);
+});
+
+it('normalises the working hours of an edited meeting link and falls back to the default hours when none are left', function (): void {
+    $link = app(CreateMeetingLinkAction::class)->execute([
+        'slug' => 'edit',
+        'title' => 'Edit',
+        'duration_minutes' => 30,
+        'working_hours' => ['monday' => ['09:00-10:00']],
+        'user_id' => User::factory()->create()->id,
+        'is_active' => true,
+    ]);
+
+    app(UpdateMeetingLinkAction::class)->execute($link, ['title' => 'Tidied', 'working_hours' => ['monday' => [' 09:00-11:00 ', ''], 'tuesday' => []]]);
+
+    expect($link->fresh()->title)->toBe('Tidied')
+        ->and($link->fresh()->working_hours)->toBe(['monday' => ['09:00-11:00']]);
+
+    app(UpdateMeetingLinkAction::class)->execute($link, ['working_hours' => ['monday' => ['']]]);
+
+    expect($link->fresh()->working_hours)->toBeNull();
+});
+
+it('only removes the child rows the form had loaded', function (): void {
+    $quote = Quote::factory()->create();
+    $loaded = QuoteItem::create(['quote_id' => $quote->id, 'name' => 'Loaded', 'unit_price' => 1, 'quantity' => 1, 'sort_order' => 1]);
+    $addedMeanwhile = QuoteItem::create(['quote_id' => $quote->id, 'name' => 'Added meanwhile', 'unit_price' => 1, 'quantity' => 1, 'sort_order' => 2]);
+
+    app(SaveQuoteItemsAction::class)->execute($quote, [], [$loaded->id]);
+
+    expect($quote->items()->pluck('name')->all())->toBe(['Added meanwhile'])
+        ->and($addedMeanwhile->fresh())->not->toBeNull();
+});
+
+it('refuses to write a record of another tenant', function (): void {
+    $pipeline = Pipeline::factory()->withStages()->create();
+    $deal = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages[0]->id, 'name' => 'Mine']);
+    $quote = Quote::factory()->create(['title' => 'Mine']);
+    $stage = $pipeline->stages[0];
+    $link = app(CreateMeetingLinkAction::class)->execute(['slug' => 'mine', 'title' => 'Mine', 'duration_minutes' => 30, 'working_hours' => [], 'user_id' => User::factory()->create()->id, 'is_active' => true]);
+    $foreignDeal = inAnotherTenant(clone $deal);
+    $foreignQuote = inAnotherTenant(clone $quote);
+    $foreignPipeline = inAnotherTenant(clone $pipeline);
+    $foreignStage = inAnotherTenant(clone $stage);
+    $foreignLink = inAnotherTenant(clone $link);
+    actingInSalesTenantOne();
+
+    expect(fn () => app(UpdateDealAction::class)->execute($foreignDeal, ['name' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(UpdateQuoteAction::class)->execute($foreignQuote, ['title' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(DeleteQuoteAction::class)->execute($foreignQuote))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SaveQuoteItemsAction::class)->execute($foreignQuote, [['id' => null, 'name' => 'Taken', 'unit_price' => 1, 'quantity' => 1]]))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SaveDealProductAction::class)->execute($foreignDeal, ['name' => 'Taken', 'unit_price' => 1, 'quantity' => 1, 'discount_percent' => 0]))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SavePipelineAction::class)->execute(['name' => 'Taken'], $foreignPipeline))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SavePipelineStageAction::class)->execute($foreignPipeline, ['name' => 'Taken'], $foreignStage))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SaveStageAutomationsAction::class)->execute($foreignStage, []))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(UpdateMeetingLinkAction::class)->execute($foreignLink, ['title' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(DeleteMeetingLinkAction::class)->execute($foreignLink))->toThrow(CrossTenantException::class)
+        ->and($deal->fresh()->name)->toBe('Mine')
+        ->and($quote->fresh()->title)->toBe('Mine')
+        ->and(SalesMeetingLink::query()->value('title'))->toBe('Mine');
 });

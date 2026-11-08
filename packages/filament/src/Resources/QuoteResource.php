@@ -31,7 +31,6 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
@@ -41,6 +40,7 @@ use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\RepeaterRows;
 use Odden\Sales\Actions\AcceptQuoteAction;
+use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
@@ -175,7 +175,7 @@ class QuoteResource extends Resource
                                     $state[$key] = $item->getState(shouldCallHooksBefore: false);
                                 }
 
-                                app(SaveQuoteItemsAction::class)->execute($quote, RepeaterRows::withIds($state));
+                                app(SaveQuoteItemsAction::class)->execute($quote, RepeaterRows::withIds($state), array_values($component->getCachedExistingRecords()->modelKeys()));
                             })
                             ->columnSpanFull(),
                     ]),
@@ -311,7 +311,7 @@ class QuoteResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
+                DeleteAction::make()->using(fn (Quote $record): bool => app(DeleteQuoteAction::class)->execute($record)),
                 RestoreAction::make(),
             ])
             ->toolbarActions([

@@ -21,13 +21,10 @@ use Odden\Core\Models\PropertyDefinition;
 class CustomPropertyFieldBuilder
 {
     /**
-     * Build dynamic form components for a given entity type.
-     *
      * @return list<Component>
      */
     public static function makeSection(string $entityType): array
     {
-        // Guard against running before migrations have executed
         if (! DbSchema::hasTable(config('odden-core.tables.properties', 'odden_properties'))) {
             return [];
         }
@@ -81,10 +78,6 @@ class CustomPropertyFieldBuilder
     }
 
     /**
-     * Table columns for the definitions flagged "Searchable in lists". Each is searched with a
-     * LIKE on its key inside the record's `properties` JSON column, and can be hidden from the
-     * column picker.
-     *
      * @return list<TextColumn>
      */
     public static function searchableColumns(string $entityType): array

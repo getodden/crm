@@ -9,8 +9,8 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
-use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\QuoteResource;
+use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\UpdateQuoteAction;
 use Odden\Sales\Models\Quote;
 
@@ -31,7 +31,7 @@ class EditQuote extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
+            DeleteAction::make()->using(fn (Quote $record): bool => app(DeleteQuoteAction::class)->execute($record)),
             RestoreAction::make(),
         ];
     }

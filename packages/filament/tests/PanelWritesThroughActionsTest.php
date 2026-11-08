@@ -87,6 +87,14 @@ function actionsWithoutUsing(): array
     return $counts;
 }
 
+function relationshipFieldsKeepingTheDefaultSave(string $contents): int
+{
+    $relationshipRepeaters = preg_match_all('/Repeater::make\([^)]*\)(?:(?!Repeater::make\().)*?->relationship\(/s', $contents)
+        + preg_match_all('/(?:CheckboxList|Select)::make\([^;]*?->multiple\(\)[^;]*?->relationship\(|(?:CheckboxList|Select)::make\([^;]*?->relationship\([^;]*?->multiple\(\)/s', $contents);
+
+    return max(0, $relationshipRepeaters - preg_match_all('/->saveRelationshipsUsing\(/', $contents));
+}
+
 it('writes through actions: the panel holds only the model writes on this list, and the list only shrinks', function (): void {
     $allowed = [
         'Resources/ContactResource/Pages/EditContact.php' => 1,
@@ -134,4 +142,28 @@ it('deletes and edits through an action: only the bulk, restore, force-delete an
     ];
 
     expect(actionsWithoutUsing())->toBe($allowed);
+});
+
+it('saves relationship repeaters and multi-selects through an action: the default relationship save is not left in place', function (): void {
+    $found = [];
+
+    foreach (panelSourceFiles() as $path => $contents) {
+        if (relationshipFieldsKeepingTheDefaultSave($contents) > 0) {
+            $found[] = $path;
+        }
+    }
+
+    expect($found)->toBe([]);
+});
+
+it('notices a relationship repeater or multi-select that keeps the default save', function (): void {
+    $repeater = "Repeater::make('items')->relationship('items')->schema([]);";
+    $handled = "Repeater::make('items')->relationship('items')->saveRelationshipsUsing(fn () => null);";
+    $select = "Select::make('tags')->multiple()->relationship('tags', 'name');";
+    $belongsTo = "Select::make('pipeline')->relationship('pipeline', 'name');";
+
+    expect(relationshipFieldsKeepingTheDefaultSave($repeater))->toBe(1)
+        ->and(relationshipFieldsKeepingTheDefaultSave($select))->toBe(1)
+        ->and(relationshipFieldsKeepingTheDefaultSave($handled))->toBe(0)
+        ->and(relationshipFieldsKeepingTheDefaultSave($belongsTo))->toBe(0);
 });
