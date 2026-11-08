@@ -11,11 +11,10 @@ class SaveQuoteItemsAction
 {
     /**
      * @param  list<array<string, mixed>>  $items
-     * @param  list<int|string>|null  $loadedIds
      */
-    public function execute(Quote $quote, array $items, ?array $loadedIds = null): Quote
+    public function execute(Quote $quote, array $items): Quote
     {
-        app(SyncChildRecordsAction::class)->execute($quote->items(), $items, 'sort_order', $loadedIds);
+        app(SyncChildRecordsAction::class)->execute($quote->items(), $items, 'sort_order');
 
         return $quote;
     }

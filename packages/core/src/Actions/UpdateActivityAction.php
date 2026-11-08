@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Core\Actions;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Models\Activity;
 use Odden\Core\Support\TenantGuard;
@@ -25,7 +26,7 @@ class UpdateActivityAction
         app(TenantGuard::class)->assertOwnedWhenTenanted($activity);
 
         return DB::transaction(function () use ($activity, $attributes, $actorId, $mentionedUserIds, $mentionLabels): Activity {
-            $activity->update($attributes);
+            $activity->update(Arr::except($attributes, ['subject_type', 'subject_id', 'creator_id']));
 
             $subject = $activity->subject()->withTrashed()->first();
 

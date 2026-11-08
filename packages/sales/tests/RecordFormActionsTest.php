@@ -329,20 +329,14 @@ it('normalises the working hours of an edited meeting link and falls back to the
     expect($link->fresh()->title)->toBe('Tidied')
         ->and($link->fresh()->working_hours)->toBe(['monday' => ['09:00-11:00']]);
 
+    app(UpdateMeetingLinkAction::class)->execute($link, ['title' => 'Retitled']);
+
+    expect($link->fresh()->title)->toBe('Retitled')
+        ->and($link->fresh()->working_hours)->toBe(['monday' => ['09:00-11:00']]);
+
     app(UpdateMeetingLinkAction::class)->execute($link, ['working_hours' => ['monday' => ['']]]);
 
     expect($link->fresh()->working_hours)->toBeNull();
-});
-
-it('only removes the child rows the form had loaded', function (): void {
-    $quote = Quote::factory()->create();
-    $loaded = QuoteItem::create(['quote_id' => $quote->id, 'name' => 'Loaded', 'unit_price' => 1, 'quantity' => 1, 'sort_order' => 1]);
-    $addedMeanwhile = QuoteItem::create(['quote_id' => $quote->id, 'name' => 'Added meanwhile', 'unit_price' => 1, 'quantity' => 1, 'sort_order' => 2]);
-
-    app(SaveQuoteItemsAction::class)->execute($quote, [], [$loaded->id]);
-
-    expect($quote->items()->pluck('name')->all())->toBe(['Added meanwhile'])
-        ->and($addedMeanwhile->fresh())->not->toBeNull();
 });
 
 it('refuses to write a record of another tenant', function (): void {

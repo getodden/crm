@@ -31,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Collection;
 use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
@@ -43,6 +44,7 @@ use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Enums\QuoteStatus;
+use Odden\Sales\Exceptions\QuoteLockedException;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
@@ -175,7 +177,7 @@ class QuoteResource extends Resource
                                     $state[$key] = $item->getState(shouldCallHooksBefore: false);
                                 }
 
-                                app(SaveQuoteItemsAction::class)->execute($quote, RepeaterRows::withIds($state), array_values($component->getCachedExistingRecords()->modelKeys()));
+                                app(SaveQuoteItemsAction::class)->execute($quote, RepeaterRows::withIds($state));
                             })
                             ->columnSpanFull(),
                     ]),
@@ -316,7 +318,21 @@ class QuoteResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->using(function (DeleteBulkAction $action, Collection $records): void {
+                            $records->each(function (Quote $quote) use ($action): void {
+                                try {
+                                    app(DeleteQuoteAction::class)->execute($quote) || $action->reportBulkProcessingFailure();
+                                } catch (QuoteLockedException) {
+                                    $action->reportBulkProcessingFailure();
+                                }
+                            });
+                        })
+                        ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => trans_choice(
+                            '{1} Skipped :count signed quote|[2,*] Skipped :count signed quotes',
+                            $totalCount - $successCount,
+                            ['count' => $totalCount - $successCount],
+                        )),
                     RestoreBulkAction::make(),
                 ]),
             ]);

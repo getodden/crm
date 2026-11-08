@@ -6,10 +6,6 @@ namespace Odden\Sales\Exceptions;
 
 use LogicException;
 
-/**
- * Thrown when something tries to change the status, lines, discount or tax of a quote the customer has signed
- * (the signature covers those figures, so they stay as they were), or to mark a quote accepted without a signature.
- */
 class QuoteLockedException extends LogicException
 {
     public static function signed(): self

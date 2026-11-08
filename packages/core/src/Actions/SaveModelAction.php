@@ -6,6 +6,7 @@ namespace Odden\Core\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Odden\Core\Events\ModelSaved;
 use Odden\Core\Support\TenantGuard;
 
 class SaveModelAction
@@ -23,7 +24,11 @@ class SaveModelAction
         }
 
         return DB::transaction(function () use ($record, $attributes): Model {
+            $wasCreated = ! $record->exists;
+
             $record->fill($attributes)->save();
+
+            ModelSaved::dispatch($record, $wasCreated);
 
             return $record;
         });

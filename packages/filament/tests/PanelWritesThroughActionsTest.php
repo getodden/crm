@@ -131,7 +131,7 @@ it('deletes and edits through an action: only the bulk, restore, force-delete an
         'Resources/LeadRoutingRuleResource.php' => 1,
         'Resources/PipelineResource.php' => 1,
         'Resources/PropertyDefinitionResource.php' => 1,
-        'Resources/QuoteResource.php' => 3,
+        'Resources/QuoteResource.php' => 2,
         'Resources/QuoteResource/Pages/EditQuote.php' => 1,
         'Resources/QuoteResource/Pages/ViewQuote.php' => 1,
         'Resources/RelationManagers/DealsRelationManager.php' => 2,

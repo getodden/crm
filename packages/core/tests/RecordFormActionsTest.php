@@ -16,6 +16,8 @@ use Odden\Core\Actions\UpdateContactAction;
 use Odden\Core\Actions\UpdateCrmListAction;
 use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Events\ModelDeleted;
+use Odden\Core\Events\ModelSaved;
 use Odden\Core\Events\UserMentioned;
 use Odden\Core\Exceptions\CrossTenantException;
 use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
@@ -116,6 +118,31 @@ it('deletes a model through the generic action', function (): void {
 
     expect(app(DeleteModelAction::class)->execute($list))->toBeTrue()
         ->and(CrmList::query()->count())->toBe(0);
+});
+
+it('announces generic saves and deletes so a host can audit them', function (): void {
+    Event::fake([ModelSaved::class, ModelDeleted::class]);
+
+    $list = app(SaveModelAction::class)->execute(CrmList::class, ['name' => 'Fresh', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static']);
+    app(SaveModelAction::class)->execute($list, ['name' => 'Renamed']);
+    app(DeleteModelAction::class)->execute($list);
+
+    Event::assertDispatched(ModelSaved::class, fn (ModelSaved $event): bool => $event->wasCreated && $event->model->is($list));
+    Event::assertDispatched(ModelSaved::class, fn (ModelSaved $event): bool => ! $event->wasCreated);
+    Event::assertDispatched(ModelDeleted::class, fn (ModelDeleted $event): bool => $event->model->is($list));
+});
+
+it('keeps an activity on its subject and creator when an update tries to move it', function (): void {
+    $contact = Contact::factory()->create();
+    $other = Contact::factory()->create();
+    $activity = Activity::factory()->create(['subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id, 'creator_id' => 1]);
+
+    app(UpdateActivityAction::class)->execute($activity, ['title' => 'Renamed', 'subject_type' => $other->getMorphClass(), 'subject_id' => $other->id, 'creator_id' => 99]);
+
+    $fresh = $activity->fresh();
+    expect($fresh->title)->toBe('Renamed')
+        ->and($fresh->subject_id)->toBe($contact->id)
+        ->and($fresh->creator_id)->toBe(1);
 });
 
 it('refuses to save or delete a record of another tenant', function (): void {

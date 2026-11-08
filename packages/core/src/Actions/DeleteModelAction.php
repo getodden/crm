@@ -6,6 +6,7 @@ namespace Odden\Core\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Odden\Core\Events\ModelDeleted;
 use Odden\Core\Support\TenantGuard;
 
 class DeleteModelAction
@@ -14,6 +15,14 @@ class DeleteModelAction
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($record);
 
-        return DB::transaction(fn (): bool => (bool) $record->delete());
+        return DB::transaction(function () use ($record): bool {
+            $deleted = (bool) $record->delete();
+
+            if ($deleted) {
+                ModelDeleted::dispatch($record);
+            }
+
+            return $deleted;
+        });
     }
 }

@@ -11,11 +11,10 @@ class SaveStageAutomationsAction
 {
     /**
      * @param  list<array<string, mixed>>  $automations
-     * @param  list<int|string>|null  $loadedIds
      */
-    public function execute(PipelineStage $stage, array $automations, ?array $loadedIds = null): PipelineStage
+    public function execute(PipelineStage $stage, array $automations): PipelineStage
     {
-        app(SyncChildRecordsAction::class)->execute($stage->automations(), $automations, null, $loadedIds);
+        app(SyncChildRecordsAction::class)->execute($stage->automations(), $automations, null);
 
         return $stage;
     }

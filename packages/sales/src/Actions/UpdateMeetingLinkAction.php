@@ -18,7 +18,9 @@ class UpdateMeetingLinkAction
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($link);
 
-        $attributes['working_hours'] = MeetingAvailability::normalizeWorkingHours($attributes['working_hours'] ?? null);
+        if (array_key_exists('working_hours', $attributes)) {
+            $attributes['working_hours'] = MeetingAvailability::normalizeWorkingHours($attributes['working_hours']);
+        }
 
         return DB::transaction(function () use ($link, $attributes): SalesMeetingLink {
             $link->fill($attributes)->save();
