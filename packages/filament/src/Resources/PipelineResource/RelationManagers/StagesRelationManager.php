@@ -138,7 +138,7 @@ class StagesRelationManager extends RelationManager
                         $component->getItems(),
                     );
 
-                    app(SaveStageAutomationsAction::class)->execute($stage, RepeaterRows::withIds($state));
+                    app(SaveStageAutomationsAction::class)->execute($stage, RepeaterRows::withIds($state), array_values($component->getCachedExistingRecords()->modelKeys()));
                 })
                 ->columnSpanFull(),
         ]);

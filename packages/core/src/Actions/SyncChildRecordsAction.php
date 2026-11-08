@@ -17,12 +17,13 @@ class SyncChildRecordsAction
      *
      * @param  HasMany<TChild, TParent>  $relation
      * @param  list<array<string, mixed>>  $rows
+     * @param  list<int|string>|null  $loadedIds
      */
-    public function execute(HasMany $relation, array $rows, ?string $orderColumn = null): void
+    public function execute(HasMany $relation, array $rows, ?string $orderColumn = null, ?array $loadedIds = null): void
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($relation->getParent());
 
-        DB::transaction(function () use ($relation, $rows, $orderColumn): void {
+        DB::transaction(function () use ($relation, $rows, $orderColumn, $loadedIds): void {
             $existing = $relation->get()->keyBy(fn (Model $child): string => (string) $child->getKey());
             $kept = [];
 
@@ -46,7 +47,11 @@ class SyncChildRecordsAction
                 $kept[] = $id;
             }
 
-            $existing->except($kept)->each(fn (Model $child): ?bool => $child->delete());
+            $removable = $loadedIds === null
+                ? $existing
+                : $existing->only(array_map('strval', $loadedIds));
+
+            $removable->except($kept)->each(fn (Model $child): ?bool => $child->delete());
         });
     }
 }
