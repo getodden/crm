@@ -7,6 +7,7 @@ namespace Odden\Filament\Tests;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Odden\Filament\Resources\DealResource\Pages\CreateDeal;
 use Odden\Filament\Resources\DealResource\Pages\EditDeal;
 use Odden\Filament\Resources\DealResource\RelationManagers\DealProductsRelationManager;
 use Odden\Filament\Resources\PipelineResource\Pages\CreatePipeline;
@@ -18,6 +19,7 @@ use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\Quote;
 use Odden\Sales\Models\QuoteItem;
+use ReflectionMethod;
 
 class RecordFormWritesTest extends TestCase
 {
@@ -98,5 +100,10 @@ class RecordFormWritesTest extends TestCase
 
         $this->assertSame('Intro call', $stage->fresh()->name);
         $this->assertSame(0, $stage->automations()->count());
+    }
+
+    public function test_the_deal_create_page_keeps_the_after_create_hook_that_cloud_extends(): void
+    {
+        $this->assertTrue((new ReflectionMethod(CreateDeal::class, 'afterCreate'))->getDeclaringClass()->getName() === CreateDeal::class);
     }
 }

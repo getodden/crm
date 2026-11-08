@@ -62,7 +62,9 @@ function actionsWithoutUsing(): array
     $counts = [];
 
     foreach (panelSourceFiles() as $path => $contents) {
-        $kinds = str_contains($path, '/RelationManagers/') ? 'Create|Edit|Delete' : 'Delete';
+        $kinds = str_contains($path, '/RelationManagers/')
+            ? 'Create|Edit|Delete|DeleteBulk|ForceDelete|ForceDeleteBulk|Restore|RestoreBulk|Attach|Detach|DetachBulk'
+            : 'Delete|DeleteBulk|ForceDelete|ForceDeleteBulk|Restore|RestoreBulk';
 
         $chains = preg_split('/(?=\b(?:'.$kinds.')Action::make\()/', $contents);
         array_shift($chains);
@@ -70,7 +72,7 @@ function actionsWithoutUsing(): array
         $implicit = 0;
 
         foreach ($chains as $chain) {
-            $statement = preg_split('/\n\s*(?:\]\)|\]|\}|;)|\bAction::make\(|\n\s*(?:Create|Edit|Delete|Action|ForceDelete|Restore|View)\w*Action::make\(/', substr($chain, 1))[0];
+            $statement = preg_split('/\n\s*(?:\]\)|\]|\}|;)|\bAction::make\(|\n\s*(?:Create|Edit|Delete|Action|ForceDelete|Restore|View|Attach|Detach)\w*Action::make\(/', substr($chain, 1))[0];
 
             if (! str_contains($statement, '->using(')) {
                 $implicit++;
@@ -104,8 +106,32 @@ it('saves create and edit pages through an action: the default save is not left 
     expect(pagesWithoutWriteHook())->toBe($allowed);
 });
 
-it('deletes and edits through an action: no modal or delete action keeps the default write', function (): void {
-    $allowed = [];
+it('deletes and edits through an action: only the bulk, restore, force-delete and attach actions on this list keep the default write, and the list only shrinks', function (): void {
+    $allowed = [
+        'Resources/CompanyResource.php' => 3,
+        'Resources/CompanyResource/Pages/EditCompany.php' => 2,
+        'Resources/CompanyResource/RelationManagers/ContactsRelationManager.php' => 2,
+        'Resources/ContactResource.php' => 3,
+        'Resources/ContactResource/Pages/EditContact.php' => 2,
+        'Resources/ContactResource/RelationManagers/CompaniesRelationManager.php' => 2,
+        'Resources/CrmListResource.php' => 1,
+        'Resources/DealResource.php' => 4,
+        'Resources/DealResource/Pages/EditDeal.php' => 1,
+        'Resources/DealResource/Pages/ViewDeal.php' => 1,
+        'Resources/DealResource/RelationManagers/DealCompaniesRelationManager.php' => 2,
+        'Resources/DealResource/RelationManagers/DealContactsRelationManager.php' => 2,
+        'Resources/LeadRoutingRuleResource.php' => 1,
+        'Resources/PipelineResource.php' => 1,
+        'Resources/PropertyDefinitionResource.php' => 1,
+        'Resources/QuoteResource.php' => 3,
+        'Resources/QuoteResource/Pages/EditQuote.php' => 1,
+        'Resources/QuoteResource/Pages/ViewQuote.php' => 1,
+        'Resources/RelationManagers/DealsRelationManager.php' => 2,
+        'Resources/SalesEmailTemplateResource.php' => 1,
+        'Resources/SalesPlaybookResource.php' => 1,
+        'Resources/SalesQuotaResource.php' => 1,
+        'Resources/SalesSequenceResource.php' => 1,
+    ];
 
     expect(actionsWithoutUsing())->toBe($allowed);
 });
