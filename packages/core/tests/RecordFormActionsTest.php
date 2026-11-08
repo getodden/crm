@@ -1,0 +1,170 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Eloquent\Builder;
+use Odden\Core\Actions\CreateCompanyAction;
+use Odden\Core\Actions\CreateContactAction;
+use Odden\Core\Actions\CreateCrmListAction;
+use Odden\Core\Actions\DeleteActivityAction;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Core\Actions\SaveModelAction;
+use Odden\Core\Actions\UpdateActivityAction;
+use Odden\Core\Actions\UpdateCompanyAction;
+use Odden\Core\Actions\UpdateContactAction;
+use Odden\Core\Actions\UpdateCrmListAction;
+use Odden\Core\Contracts\TenantContext;
+use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Exceptions\CrossTenantException;
+use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
+use Odden\Core\Models\Activity;
+use Odden\Core\Models\Company;
+use Odden\Core\Models\Contact;
+use Odden\Core\Models\CrmList;
+use Odden\Core\Models\LifecycleStageTransition;
+use Odden\Core\Models\PropertyDefinition;
+
+function actingInTenantOne(): void
+{
+    app()->instance(TenantContext::class, new class implements TenantContext
+    {
+        public function id(): int|string|null
+        {
+            return 1;
+        }
+
+        public function scopeUsers(Builder $users): Builder
+        {
+            return $users;
+        }
+    });
+}
+
+it('creates a contact and a company with custom properties', function (): void {
+    config(['odden-core.email_validation.enabled' => false]);
+
+    $contact = app(CreateContactAction::class)->execute(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ADA@example.com', 'properties' => ['plan' => 'gold']]);
+    $company = app(CreateCompanyAction::class)->execute(['name' => 'Analytical', 'properties' => ['tier' => 'a']]);
+
+    expect($contact->fresh()->properties)->toBe(['plan' => 'gold'])
+        ->and($company->fresh()->properties)->toBe(['tier' => 'a']);
+});
+
+it('updates a contact and keeps the custom properties the form does not carry', function (): void {
+    $contact = Contact::factory()->create(['first_name' => 'Ada', 'properties' => ['plan' => 'gold', 'answer' => 'yes']]);
+
+    app(UpdateContactAction::class)->execute($contact, ['first_name' => 'Grace', 'properties' => ['plan' => 'silver']]);
+
+    expect($contact->fresh()->first_name)->toBe('Grace')
+        ->and($contact->fresh()->properties)->toBe(['plan' => 'silver', 'answer' => 'yes']);
+});
+
+it('moves a contact through the lifecycle rules and records the transition', function (): void {
+    $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead, 'first_name' => 'Ada']);
+
+    app(UpdateContactAction::class)->execute($contact, ['first_name' => 'Grace', 'lifecycle_stage' => LifecycleStage::MarketingQualifiedLead->value], 7);
+
+    $transition = LifecycleStageTransition::query()->where('record_id', $contact->id)->latest('id')->firstOrFail();
+
+    expect($contact->fresh()->lifecycle_stage)->toBe(LifecycleStage::MarketingQualifiedLead)
+        ->and($contact->fresh()->first_name)->toBe('Grace')
+        ->and($transition->to_stage)->toBe(LifecycleStage::MarketingQualifiedLead);
+});
+
+it('refuses a lifecycle jump and saves nothing', function (): void {
+    config(['odden-core.lifecycle.strict_transitions' => true]);
+    $contact = Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Subscriber, 'first_name' => 'Ada']);
+
+    expect(fn () => app(UpdateContactAction::class)->execute($contact, ['first_name' => 'Grace', 'lifecycle_stage' => LifecycleStage::Evangelist->value]))
+        ->toThrow(InvalidLifecycleStageTransitionException::class);
+
+    expect($contact->fresh()->first_name)->toBe('Ada')
+        ->and($contact->fresh()->lifecycle_stage)->toBe(LifecycleStage::Subscriber);
+});
+
+it('updates a company and merges its custom properties', function (): void {
+    $company = Company::factory()->create(['name' => 'Old', 'properties' => ['tier' => 'a', 'region' => 'eu']]);
+
+    app(UpdateCompanyAction::class)->execute($company, ['name' => 'New', 'properties' => ['tier' => 'b']]);
+
+    expect($company->fresh()->name)->toBe('New')
+        ->and($company->fresh()->properties)->toBe(['tier' => 'b', 'region' => 'eu']);
+});
+
+it('saves a model through the generic action, filling only fillable attributes', function (): void {
+    $created = app(SaveModelAction::class)->execute(PropertyDefinition::class, [
+        'entity_type' => (new Contact)->getMorphClass(),
+        'name' => 'favourite_colour',
+        'label' => 'Favourite colour',
+        'type' => 'text',
+        'id' => 999,
+    ]);
+
+    expect($created->exists)->toBeTrue()
+        ->and($created->id)->not->toBe(999);
+
+    app(SaveModelAction::class)->execute($created, ['label' => 'Colour']);
+
+    expect($created->fresh()->label)->toBe('Colour');
+});
+
+it('deletes a model through the generic action', function (): void {
+    $list = CrmList::factory()->create();
+
+    expect(app(DeleteModelAction::class)->execute($list))->toBeTrue()
+        ->and(CrmList::query()->count())->toBe(0);
+});
+
+it('refuses to save or delete a record of another tenant', function (): void {
+    $list = CrmList::factory()->create();
+    $list->setRawAttributes([...$list->getAttributes(), 'tenant_id' => 2]);
+    actingInTenantOne();
+
+    expect(fn () => app(DeleteModelAction::class)->execute($list))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(SaveModelAction::class)->execute($list, ['name' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(CrmList::query()->count())->toBe(1);
+});
+
+it('creates a list for its creator and fills an active list at once', function (): void {
+    Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
+    Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
+
+    $static = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], 5);
+    $active = app(CreateCrmListAction::class)->execute([
+        'name' => 'Leads',
+        'entity_type' => (new Contact)->getMorphClass(),
+        'type' => 'active',
+        'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'lead']],
+    ], 5);
+
+    expect($static->created_by_id)->toBe(5)
+        ->and($active->memberships()->count())->toBe(1);
+});
+
+it('updates an active list and refreshes its members', function (): void {
+    Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
+    Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
+    $list = app(CreateCrmListAction::class)->execute([
+        'name' => 'Leads',
+        'entity_type' => (new Contact)->getMorphClass(),
+        'type' => 'active',
+        'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'lead']],
+    ], 5);
+
+    app(UpdateCrmListAction::class)->execute($list, ['name' => 'Customers', 'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'customer']]]);
+
+    expect($list->fresh()->name)->toBe('Customers')
+        ->and($list->memberships()->count())->toBe(1);
+});
+
+it('updates an activity and deletes it', function (): void {
+    $contact = Contact::factory()->create();
+    $activity = Activity::factory()->note()->create(['subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id]);
+
+    app(UpdateActivityAction::class)->execute($activity, ['title' => 'Renamed', 'body' => 'Hello'], $contact, 3);
+
+    expect($activity->fresh()->title)->toBe('Renamed');
+
+    expect(app(DeleteActivityAction::class)->execute($activity))->toBeTrue()
+        ->and(Activity::query()->count())->toBe(0);
+});

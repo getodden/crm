@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+use Odden\Sales\Actions\CreateDealAction;
+use Odden\Sales\Actions\CreateMeetingLinkAction;
+use Odden\Sales\Actions\CreateQuoteAction;
+use Odden\Sales\Actions\DeleteMeetingLinkAction;
+use Odden\Sales\Actions\SaveDealProductAction;
+use Odden\Sales\Actions\SavePipelineAction;
+use Odden\Sales\Actions\SavePipelineStagesAction;
+use Odden\Sales\Actions\SaveQuoteItemsAction;
+use Odden\Sales\Actions\SaveStageAutomationsAction;
+use Odden\Sales\Actions\UpdateDealAction;
+use Odden\Sales\Actions\UpdateQuoteAction;
+use Odden\Sales\Enums\DealStatus;
+use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\DealStageHistory;
+use Odden\Sales\Models\Pipeline;
+use Odden\Sales\Models\Quote;
+use Odden\Sales\Models\QuoteItem;
+use Odden\Sales\Models\SalesMeetingLink;
+use Odden\Sales\Models\StageAutomation;
+use Odden\Sales\Tests\Fixtures\User;
+
+it('creates a deal open with its first stage history, whatever the form says', function (): void {
+    $pipeline = Pipeline::factory()->withStages()->create();
+
+    $deal = app(CreateDealAction::class)->execute([
+        'name' => 'Big one',
+        'pipeline_id' => $pipeline->id,
+        'stage_id' => $pipeline->stages[0]->id,
+        'status' => 'won',
+        'closed_at' => now(),
+        'lost_reason' => 'no',
+        'amount' => 100,
+    ], 9);
+
+    $history = DealStageHistory::query()->where('deal_id', $deal->id)->get();
+
+    expect($deal->status)->toBe(DealStatus::Open)
+        ->and($deal->closed_at)->toBeNull()
+        ->and($deal->lost_reason)->toBeNull()
+        ->and($deal->owner_id)->toBe(9)
+        ->and($history)->toHaveCount(1)
+        ->and($history[0]->from_stage_id)->toBeNull()
+        ->and($history[0]->to_stage_id)->toBe($pipeline->stages[0]->id)
+        ->and($history[0]->user_id)->toBe(9);
+});
+
+it('keeps the owner the form picked', function (): void {
+    $pipeline = Pipeline::factory()->withStages()->create();
+
+    $deal = app(CreateDealAction::class)->execute(['name' => 'Owned', 'pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages[0]->id, 'owner_id' => 4], 9);
+
+    expect($deal->owner_id)->toBe(4);
+});
+
+it('updates a deal but never its pipeline, stage or status, and keeps the properties it was not sent', function (): void {
+    $pipeline = Pipeline::factory()->withStages()->create();
+    $deal = Deal::factory()->create(['pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages[0]->id, 'name' => 'Old', 'properties' => ['a' => 1, 'b' => 2]]);
+
+    app(UpdateDealAction::class)->execute($deal, [
+        'name' => 'New',
+        'pipeline_id' => 999,
+        'stage_id' => $pipeline->stages[4]->id,
+        'status' => 'won',
+        'closed_at' => now(),
+        'properties' => ['a' => 5],
+    ]);
+
+    $fresh = $deal->fresh();
+
+    expect($fresh->name)->toBe('New')
+        ->and($fresh->pipeline_id)->toBe($pipeline->id)
+        ->and($fresh->stage_id)->toBe($pipeline->stages[0]->id)
+        ->and($fresh->status)->toBe(DealStatus::Open)
+        ->and($fresh->closed_at)->toBeNull()
+        ->and($fresh->properties)->toBe(['a' => 5, 'b' => 2]);
+});
+
+it('creates and updates a quote', function (): void {
+    $deal = Deal::factory()->create();
+
+    $quote = app(CreateQuoteAction::class)->execute(['deal_id' => $deal->id, 'title' => 'First', 'currency' => 'USD']);
+    app(UpdateQuoteAction::class)->execute($quote, ['title' => 'Second']);
+
+    expect($quote->quote_number)->not->toBeEmpty()
+        ->and($quote->fresh()->title)->toBe('Second');
+});
+
+it('saves quote line items: adds, updates, reorders and removes, and ignores an id from another quote', function (): void {
+    $quote = Quote::factory()->create();
+    $other = Quote::factory()->create();
+    $foreign = QuoteItem::create(['quote_id' => $other->id, 'name' => 'Theirs', 'unit_price' => 1, 'quantity' => 1, 'sort_order' => 1]);
+
+    app(SaveQuoteItemsAction::class)->execute($quote, [
+        ['id' => null, 'name' => 'First', 'unit_price' => 10, 'quantity' => 1],
+        ['id' => null, 'name' => 'Second', 'unit_price' => 20, 'quantity' => 2],
+    ]);
+
+    [$first, $second] = $quote->items()->get()->all();
+
+    app(SaveQuoteItemsAction::class)->execute($quote, [
+        ['id' => (string) $second->id, 'name' => 'Second renamed', 'unit_price' => 20, 'quantity' => 2],
+        ['id' => (string) $foreign->id, 'name' => 'Forged', 'unit_price' => 5, 'quantity' => 1],
+    ]);
+
+    $names = $quote->items()->pluck('name')->all();
+
+    expect($names)->toBe(['Second renamed', 'Forged'])
+        ->and($quote->items()->first()->is($second))->toBeTrue()
+        ->and($foreign->fresh()->name)->toBe('Theirs')
+        ->and(QuoteItem::query()->whereKey($first->id)->exists())->toBeFalse();
+});
+
+it('saves a deal product and keeps the deal amount in step', function (): void {
+    $deal = Deal::factory()->create(['amount' => 0]);
+
+    $product = app(SaveDealProductAction::class)->execute($deal, ['name' => 'Licence', 'unit_price' => 100, 'quantity' => 2, 'discount_percent' => 0]);
+    app(SaveDealProductAction::class)->execute($deal, ['name' => 'Licence', 'unit_price' => 100, 'quantity' => 3, 'discount_percent' => 0], $product);
+
+    expect($deal->products()->count())->toBe(1)
+        ->and((float) $deal->fresh()->amount)->toBe(300.0);
+});
+
+it('keeps a single default pipeline', function (): void {
+    $first = app(SavePipelineAction::class)->execute(['name' => 'First', 'code' => 'first', 'is_default' => true]);
+    $second = app(SavePipelineAction::class)->execute(['name' => 'Second', 'code' => 'second', 'is_default' => true]);
+
+    expect($first->fresh()->is_default)->toBeFalse()
+        ->and($second->fresh()->is_default)->toBeTrue();
+
+    app(SavePipelineAction::class)->execute(['name' => 'First again', 'is_default' => true], $first->fresh());
+
+    expect($first->fresh()->is_default)->toBeTrue()
+        ->and($second->fresh()->is_default)->toBeFalse();
+});
+
+it('saves pipeline stages and their automations', function (): void {
+    $pipeline = Pipeline::factory()->create();
+
+    $stage = app(SavePipelineStagesAction::class)->execute($pipeline, ['name' => 'Intro', 'code' => 'intro', 'probability' => 10, 'sort_order' => 1]);
+    app(SavePipelineStagesAction::class)->execute($pipeline, ['name' => 'Intro call'], $stage);
+
+    app(SaveStageAutomationsAction::class)->execute($stage, [
+        ['id' => null, 'name' => 'Task', 'action_type' => 'create_task', 'is_active' => true],
+        ['id' => null, 'name' => 'Guard', 'action_type' => 'create_task', 'is_active' => true],
+    ]);
+    $guard = StageAutomation::query()->where('name', 'Guard')->firstOrFail();
+
+    app(SaveStageAutomationsAction::class)->execute($stage, [['id' => (string) $guard->id, 'name' => 'Guard renamed', 'action_type' => 'create_task', 'is_active' => false]]);
+
+    expect($stage->fresh()->name)->toBe('Intro call')
+        ->and($pipeline->stages()->count())->toBe(1)
+        ->and($stage->automations()->pluck('name')->all())->toBe(['Guard renamed']);
+});
+
+it('creates a meeting link and refuses to delete one with upcoming bookings', function (): void {
+    $user = User::factory()->create();
+
+    $link = app(CreateMeetingLinkAction::class)->execute([
+        'slug' => 'demo',
+        'title' => 'Demo',
+        'duration_minutes' => 30,
+        'working_hours' => [],
+        'user_id' => $user->id,
+        'is_active' => true,
+    ]);
+
+    expect(SalesMeetingLink::query()->count())->toBe(1)
+        ->and(app(DeleteMeetingLinkAction::class)->execute($link))->toBeTrue()
+        ->and(SalesMeetingLink::query()->count())->toBe(0);
+});
