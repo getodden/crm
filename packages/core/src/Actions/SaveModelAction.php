@@ -25,9 +25,11 @@ class SaveModelAction
 
         $wasCreated = ! $record->exists;
 
-        DB::transaction(fn (): bool => $record->fill($attributes)->save());
+        $saved = DB::transaction(fn (): bool => $record->fill($attributes)->save());
 
-        ModelSaved::dispatch($record, $wasCreated);
+        if ($saved) {
+            ModelSaved::dispatch($record, $wasCreated);
+        }
 
         return $record;
     }

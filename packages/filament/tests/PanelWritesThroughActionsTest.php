@@ -21,12 +21,17 @@ function panelSourceFiles(): array
     return $found;
 }
 
+function modelWritesIn(string $contents): int
+{
+    return (int) preg_match_all('/->(?:update|save|saveMany|delete|create|createMany|forceCreate|updateOrCreate|firstOrCreate|insert|upsert|increment|decrement|forceDelete|push|sync|syncWithoutDetaching|toggle|updateExistingPivot|attach|detach|restore|touch)(?:OrFail)?(?:Quietly)?\(|::(?:create|forceCreate|destroy|insert)\(|DB::table\(|->(?:createOptionForm|editOptionForm)\(/', $contents);
+}
+
 function panelWriteCounts(): array
 {
     $counts = [];
 
     foreach (panelSourceFiles() as $path => $contents) {
-        $writes = preg_match_all('/->(?:update|save|delete|create|updateOrCreate|firstOrCreate|insert|upsert|increment|decrement|forceDelete|push|sync|attach|detach)(?:Quietly)?\(|::(?:create|destroy|insert)\(|DB::table\(/', $contents);
+        $writes = modelWritesIn($contents);
 
         if ($writes > 0) {
             $counts[$path] = $writes;
@@ -174,3 +179,18 @@ it('notices a relationship repeater or multi-select that keeps the default save'
         ->and(relationshipFieldsKeepingTheDefaultSave($checkboxes))->toBe(1)
         ->and(relationshipFieldsKeepingTheDefaultSave($maskedByNeighbour))->toBe(1);
 });
+
+it('notices the writes a narrower pattern would miss', function (string $source): void {
+    expect(modelWritesIn($source))->toBe(1);
+})->with([
+    '$deal->contacts()->syncWithoutDetaching($ids);',
+    '$deal->contacts()->toggle($ids);',
+    '$deal->items()->saveMany($items);',
+    '$deal->items()->createMany($rows);',
+    '$deal->touch();',
+    '$deal->restore();',
+    '$deal->updateOrFail($x);',
+    'Contact::forceCreate($x);',
+    "Select::make('a')->createOptionForm([]);",
+    "Select::make('a')->editOptionForm([]);",
+]);

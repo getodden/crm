@@ -78,6 +78,11 @@ class Company extends Model implements BlindIndexed
     use QualifiesRelatedColumns;
     use SoftDeletes;
 
+    public const SYSTEM_ATTRIBUTES = [
+        'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at',
+        'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at', 'last_health_calculated_at',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *

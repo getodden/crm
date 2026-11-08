@@ -9,6 +9,7 @@ use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Actions\DeleteModelAction;
+use Throwable;
 
 final class DeletesRecords
 {
@@ -16,7 +17,12 @@ final class DeletesRecords
     {
         return function (DeleteBulkAction $action, Collection $records): void {
             $records->each(function (Model $record) use ($action): void {
-                app(DeleteModelAction::class)->execute($record) || $action->reportBulkProcessingFailure();
+                try {
+                    app(DeleteModelAction::class)->execute($record) || $action->reportBulkProcessingFailure();
+                } catch (Throwable $exception) {
+                    report($exception);
+                    $action->reportBulkProcessingFailure();
+                }
             });
         };
     }

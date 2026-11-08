@@ -329,7 +329,7 @@ class QuoteResource extends Resource
                             });
                         })
                         ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => trans_choice(
-                            '{1} Skipped :count signed quote|[2,*] Skipped :count signed quotes',
+                            '{1} Skipped :count quote that is signed or could not be deleted|[2,*] Skipped :count quotes that are signed or could not be deleted',
                             $totalCount - $successCount,
                             ['count' => $totalCount - $successCount],
                         )),

@@ -252,7 +252,7 @@ it('records the mentions of a note on a contact in the trash', function (): void
 });
 
 it('keeps consent proof, tokens and lifecycle stamps off a contact update', function (): void {
-    $contact = Contact::factory()->create(['first_name' => 'Ada']);
+    $contact = Contact::factory()->create(['first_name' => 'Ada', 'became_customer_at' => null]);
 
     app(UpdateContactAction::class)->execute($contact, [
         'first_name' => 'Grace',
@@ -299,4 +299,44 @@ it('announces a generic save or delete only once the transaction has committed',
     app(DeleteModelAction::class)->execute($list);
 
     expect($levels)->toBe([$levelBefore, $levelBefore]);
+});
+
+it('keeps the consent, email status and engagement state of a contact out of an update', function (): void {
+    $contact = Contact::factory()->create(['first_name' => 'Ada', 'email_status' => 'invalid']);
+    $before = $contact->fresh();
+
+    app(UpdateContactAction::class)->execute($contact, [
+        'first_name' => 'Grace',
+        'sms_consent' => true,
+        'email_status' => 'valid',
+        'is_unengaged' => true,
+        'sunset_stage' => 3,
+    ]);
+
+    $fresh = $contact->fresh();
+    expect($fresh->first_name)->toBe('Grace')
+        ->and($fresh->sms_consent)->toBe($before->sms_consent)
+        ->and($fresh->email_status)->toBe($before->email_status)
+        ->and($fresh->is_unengaged)->toBe($before->is_unengaged)
+        ->and($fresh->sunset_stage)->toBe($before->sunset_stage);
+});
+
+it('keeps the stage stamps of a company out of an update', function (): void {
+    $company = Company::factory()->create(['name' => 'Old', 'became_customer_at' => null, 'last_health_calculated_at' => null]);
+
+    app(UpdateCompanyAction::class)->execute($company, ['name' => 'New', 'became_customer_at' => now(), 'last_health_calculated_at' => now()]);
+
+    expect($company->fresh()->name)->toBe('New')
+        ->and($company->fresh()->became_customer_at)->toBeNull()
+        ->and($company->fresh()->last_health_calculated_at)->toBeNull();
+});
+
+it('announces nothing when a save is cancelled by a listener', function (): void {
+    Event::fake([ModelSaved::class]);
+    CrmList::saving(fn (): bool => false);
+
+    app(SaveModelAction::class)->execute(CrmList::class, ['name' => 'Fresh', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static']);
+
+    Event::assertNotDispatched(ModelSaved::class);
+    CrmList::flushEventListeners();
 });

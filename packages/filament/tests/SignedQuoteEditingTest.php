@@ -45,7 +45,7 @@ class SignedQuoteEditingTest extends TestCase
             ->test(ListQuotes::class)
             ->selectTableRecords([$signed->id, $open->id])
             ->callAction(TestAction::make('delete')->table()->bulk())
-            ->assertNotified('Skipped 1 signed quote');
+            ->assertNotified('Skipped 1 quote that is signed or could not be deleted');
 
         $this->assertNull(Quote::query()->find($open->id));
         $this->assertNotNull(Quote::query()->find($signed->id));

@@ -422,3 +422,16 @@ it('keeps a child on its parent when a save carries another parent key', functio
         ->and((string) $stage->fresh()->pipeline_id)->toBe((string) $pipeline->id)
         ->and((string) $item->fresh()->quote_id)->toBe((string) $quote->id);
 });
+
+it('recalculates quote totals instead of taking them from the caller', function (): void {
+    $deal = Deal::factory()->create();
+
+    $quote = app(CreateQuoteAction::class)->execute(['deal_id' => $deal->id, 'title' => 'Totals', 'subtotal' => 999, 'total_amount' => 1]);
+
+    expect((float) $quote->fresh()->total_amount)->toBe(0.0);
+
+    app(UpdateQuoteAction::class)->execute($quote, ['total_amount' => 1, 'subtotal' => 5]);
+
+    expect((float) $quote->fresh()->total_amount)->toBe(0.0)
+        ->and((float) $quote->fresh()->subtotal)->toBe(0.0);
+});
