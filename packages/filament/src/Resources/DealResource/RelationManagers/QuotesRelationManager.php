@@ -18,12 +18,16 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\DealResource;
 use Odden\Filament\Resources\QuoteResource;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
+use Odden\Sales\Actions\CreateQuoteAction;
+use Odden\Sales\Actions\DeleteQuoteAction;
 use Odden\Sales\Actions\GenerateQuoteFromDealAction;
+use Odden\Sales\Actions\UpdateQuoteAction;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Exceptions\StageRequirementException;
@@ -144,12 +148,11 @@ class QuotesRelationManager extends RelationManager
                     }),
                 CreateAction::make()
                     ->label('New blank quote')
-                    // A quote is in its deal's currency, and belongs to the deal owner unless someone else creates it.
-                    ->mutateDataUsing(function (array $data): array {
+                    ->using(function (array $data): Model {
                         /** @var Deal $deal */
                         $deal = $this->getOwnerRecord();
 
-                        return QuoteResource::fillFromDeal($data, $deal);
+                        return app(CreateQuoteAction::class)->execute([...$data, 'deal_id' => $deal->getKey()], OddenAuthorization::userId());
                     }),
             ])
             ->recordActions([
@@ -194,10 +197,11 @@ class QuotesRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                // A signed quote is read-only and is kept: the signature covers its items, discount and tax.
                 EditAction::make()
+                    ->using(fn (Quote $record, array $data): Model => app(UpdateQuoteAction::class)->execute($record, $data))
                     ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
                 DeleteAction::make()
+                    ->using(fn (Quote $record): bool => app(DeleteQuoteAction::class)->execute($record))
                     ->hidden(fn (Quote $record): bool => $record->status === QuoteStatus::Accepted),
             ]);
     }

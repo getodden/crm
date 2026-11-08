@@ -14,9 +14,6 @@ class CreateContact extends CreateRecord
     protected static string $resource = ContactResource::class;
 
     /**
-     * Create through CreateContactAction: it normalises the email, runs the DNS check, fires ContactCreated and
-     * auto-associates the company when the installation has that turned on.
-     *
      * @param  array<string, mixed>  $data
      */
     protected function handleRecordCreation(array $data): Model

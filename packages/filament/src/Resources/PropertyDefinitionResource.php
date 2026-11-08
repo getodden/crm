@@ -26,14 +26,17 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rules\Unique;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Areas\DataArea;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\PropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\CreatePropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\EditPropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\ListPropertyDefinitions;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\Deal;
 use UnitEnum;
 
@@ -54,8 +57,6 @@ class PropertyDefinitionResource extends Resource
     protected static bool $hasTitleCaseModelLabel = false;
 
     /**
-     * Entity types that render custom properties: deals only when the Sales package is installed.
-     *
      * @return array<string, string>
      */
     public static function entityTypeOptions(): array
@@ -88,7 +89,6 @@ class PropertyDefinitionResource extends Resource
                             ->required()
                             ->regex('/^[a-z0-9_]+$/')
                             ->maxLength(100)
-                            // The key is unique per entity type; without this a duplicate was a database error (a 500).
                             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where('entity_type', $get('entity_type'))),
                         TextInput::make('label')
                             ->label('Display label')
@@ -202,13 +202,12 @@ class PropertyDefinitionResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make()
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                     ->hidden(fn (PropertyDefinition $record): bool => $record->is_sensitive),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    // A sensitive property is kept until it is turned off (PropertyDefinition refuses): its values are encrypted for a reason.
-                    DeleteBulkAction::make()
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk())
                         ->before(function (Collection $records, DeleteBulkAction $action): void {
                             if ($records->contains(fn (PropertyDefinition $record): bool => $record->is_sensitive)) {
                                 Notification::make()->title('A sensitive property cannot be deleted')->body('Turn Sensitive off first; its values are converted back.')->danger()->send();

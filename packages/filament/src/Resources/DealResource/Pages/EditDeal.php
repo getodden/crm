@@ -8,26 +8,24 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\DealResource;
-use Odden\Filament\Support\CustomPropertyFieldBuilder;
 use Odden\Filament\Support\RevealAreaAction;
+use Odden\Sales\Actions\UpdateDealAction;
+use Odden\Sales\Models\Deal;
 
 class EditDeal extends EditRecord
 {
     protected static string $resource = DealResource::class;
 
     /**
-     * Stage, pipeline and status change only through the stage actions, which run the guards, keep the history
-     * and fire the deal events. The form shows them read-only; this keeps a crafted request from saving them.
-     *
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
      */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        unset($data['pipeline_id'], $data['stage_id'], $data['status'], $data['closed_at']);
-
-        return CustomPropertyFieldBuilder::mergeIntoRecord($this->getRecord(), $data);
+        /** @var Deal $record */
+        return app(UpdateDealAction::class)->execute($record, $data);
     }
 
     protected function getHeaderActions(): array
@@ -35,7 +33,7 @@ class EditDeal extends EditRecord
         return [
             ViewAction::make(),
             RevealAreaAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             RestoreAction::make(),
         ];
     }

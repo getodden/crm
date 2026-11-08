@@ -83,4 +83,21 @@ class PipelineResourceTest extends TestCase
             ->assertActionHidden(TestAction::make('delete')->table($used))
             ->assertActionVisible(TestAction::make('delete')->table($unused));
     }
+
+    public function test_bulk_delete_removes_unused_pipelines_and_keeps_the_one_in_use(): void
+    {
+        $user = User::factory()->create();
+        $unused = Pipeline::factory()->withStages()->create();
+        $used = Pipeline::factory()->withStages()->create();
+        Deal::factory()->create(['pipeline_id' => $used->id, 'stage_id' => $used->stages->first()->id]);
+
+        Livewire::actingAs($user)
+            ->test(ListPipelines::class)
+            ->selectTableRecords([$used->id, $unused->id])
+            ->callAction(TestAction::make('delete')->table()->bulk())
+            ->assertHasNoErrors();
+
+        $this->assertNull(Pipeline::query()->find($unused->id));
+        $this->assertNotNull(Pipeline::query()->find($used->id));
+    }
 }

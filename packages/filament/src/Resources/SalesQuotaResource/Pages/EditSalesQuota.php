@@ -6,16 +6,27 @@ namespace Odden\Filament\Resources\SalesQuotaResource\Pages;
 
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Core\Actions\SaveModelAction;
 use Odden\Filament\Resources\SalesQuotaResource;
 
 class EditSalesQuota extends EditRecord
 {
     protected static string $resource = SalesQuotaResource::class;
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return app(SaveModelAction::class)->execute($record, $data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
         ];
     }
 }

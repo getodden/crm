@@ -7,7 +7,10 @@ namespace Odden\Filament\Resources\PropertyDefinitionResource\Pages;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Core\Actions\SaveModelAction;
 use Odden\Core\Encryption\SensitivePropertyConverter;
 use Odden\Core\Jobs\ConvertSensitiveProperty;
 use Odden\Core\Models\PropertyDefinition;
@@ -17,18 +20,22 @@ class EditPropertyDefinition extends EditRecord
 {
     protected static string $resource = PropertyDefinitionResource::class;
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return app(SaveModelAction::class)->execute($record, $data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make()
+            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                 ->hidden(fn (): bool => (bool) $this->definition()->is_sensitive),
         ];
     }
 
-    /**
-     * Turning Sensitive on or off changes how every stored value of the property is kept: convert them in the background. The job
-     * reads the definition as it is when it runs, so switching on and off again quickly still ends where the definition says.
-     */
     protected function afterSave(): void
     {
         if ($this->definition()->wasChanged('is_sensitive')) {

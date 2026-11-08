@@ -20,9 +20,12 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\CreateSalesEmailTemplate;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\EditSalesEmailTemplate;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\ListSalesEmailTemplates;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\SalesEmailTemplate;
 use UnitEnum;
 
@@ -112,11 +115,11 @@ class SalesEmailTemplateResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }

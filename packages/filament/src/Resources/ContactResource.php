@@ -31,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Actions\MergeContactsAction;
 use Odden\Core\Areas\Areas;
 use Odden\Core\Contracts\SummarizesTimeline;
@@ -50,6 +51,7 @@ use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
@@ -117,8 +119,6 @@ class ContactResource extends Resource
                             ->required(),
                         Select::make('owner_id')
                             ->label('Contact owner')
-                            // Not a relationship select: that would query the user model unfiltered, and a disabled
-                            // current owner must stay selectable (pickable keeps the record's own owner).
                             ->options(fn (?Model $record): array => UserModel::pickable($record?->getAttribute('owner_id'))->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable(),
                     ])
@@ -131,10 +131,7 @@ class ContactResource extends Resource
                             ->integer()
                             ->suffix('pts')
                             ->default(0)
-                            // Left empty, it is 0: a quick new contact doesn't need a score.
                             ->dehydrateStateUsing(fn (mixed $state): int => (int) ($state ?? 0)),
-                        // These columns come with Odden Marketing; without it (or with it turned off here) they are not shown or saved.
-                        // Proof of consent: set only when the contact confirms by email, so nobody can type one in or change it here.
                         DateTimePicker::make('marketing_email_verified_at')
                             ->label('Email verified date')
                             ->helperText('Set when the contact confirms their address from the email we send. It can\'t be changed here.')
@@ -161,10 +158,7 @@ class ContactResource extends Resource
                     ->label('Name')
                     ->description(fn (Contact $record): ?string => AreaGuard::masked(Contact::class, 'job_title', $record) ? null : $record->job_title)
                     ->formatStateUsing(fn (mixed $state, Contact $record): mixed => AreaGuard::masked(Contact::class, 'first_name', $record) ? Areas::MASK : $state)
-                    // The names are encrypted: a search matches the start of a name (or a whole address or phone number) through the
-                    // search index, and sorting decrypts the records in view and sorts them here, last name first.
                     ->searchable(query: EncryptedSearch::contacts())
-                    // full_name is an accessor, not a column: sort by last name, then first name.
                     ->sortable(query: EncryptedSearch::keepsOrder()),
                 AreaGuard::column(TextColumn::make('email'), Contact::class)
                     ->label('Email')
@@ -378,7 +372,6 @@ class ContactResource extends Resource
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('warning')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
-                    // A record in the trash is not the one to keep: merging into it would hide both.
                     ->hidden(fn (Contact $record): bool => $record->trashed())
                     ->modalHeading('Merge a duplicate into this contact')
                     ->modalDescription('Its activities, deals, tickets and links move to this contact, and details this contact is missing are filled in from it. The duplicate is then deleted: it goes to the deleted contacts, where it can be restored, but without what moved.')
@@ -391,7 +384,6 @@ class ContactResource extends Resource
                             ->required(),
                     ])
                     ->action(function (Contact $record, array $data): void {
-                        // The duplicate is deleted by the merge, so it needs `delete` as well.
                         $secondary = OddenAuthorization::findAndAuthorize(self::class, Contact::class, $data['secondary_contact_id'], 'delete');
                         abort_if($secondary->is($record), 422);
 
@@ -405,11 +397,11 @@ class ContactResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),
@@ -422,9 +414,6 @@ class ContactResource extends Resource
     }
 
     /**
-     * Contacts matching a picker search (name or email), within the contacts the user can see. Searching on the
-     * server keeps every contact reachable, not just the first page of a preloaded list.
-     *
      * @return array<int|string, string>
      */
     public static function searchContactOptions(string $search, ?Contact $except = null, int $limit = 50): array
@@ -438,9 +427,6 @@ class ContactResource extends Resource
             ->all();
     }
 
-    /**
-     * The picker label of a selected contact, if the user can see it.
-     */
     public static function contactOptionLabel(mixed $key): ?string
     {
         if (! is_int($key) && ! is_string($key)) {
@@ -469,7 +455,6 @@ class ContactResource extends Resource
             $relations[] = SalesSequenceEnrollmentsRelationManager::class;
         }
 
-        // Added by the packages that are installed separately (Marketing).
         array_push($relations, ...Modules::contactRelationManagers());
 
         $relations[] = ActivitiesRelationManager::class;

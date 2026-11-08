@@ -14,7 +14,13 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use LogicException;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Encryption\Index\DecryptedFilter;
+use Odden\Sales\Actions\SaveDealProductAction;
+use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\DealProduct;
 use Odden\Sales\Support\Money;
 
 class DealProductsRelationManager extends RelationManager
@@ -75,7 +81,6 @@ class DealProductsRelationManager extends RelationManager
                     ->label('Product')
                     ->weight('bold')
                     ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereKey(
-                        // The names are encrypted: the deal has a few lines, so they are decrypted here and matched in PHP.
                         app(DecryptedFilter::class)->ids(clone $query, ['name'], fn (array $values): bool => mb_stripos((string) $values['name'], $search) !== false),
                     )),
                 TextColumn::make('sku')
@@ -98,11 +103,22 @@ class DealProductsRelationManager extends RelationManager
                     ->money(fn (): string => $this->getOwnerRecord()->getAttribute('currency') ?? Money::defaultCurrency()),
             ])
             ->headerActions([
-                CreateAction::make()->label('Add product'),
+                CreateAction::make()
+                    ->label('Add product')
+                    ->using(fn (array $data): Model => app(SaveDealProductAction::class)->execute($this->ownerDeal(), $data)),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->using(fn (DealProduct $record, array $data): Model => app(SaveDealProductAction::class)->execute($this->ownerDeal(), $data, $record)),
+                DeleteAction::make()
+                    ->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ]);
+    }
+
+    private function ownerDeal(): Deal
+    {
+        $deal = $this->getOwnerRecord();
+
+        return $deal instanceof Deal ? $deal : throw new LogicException('Expected a deal.');
     }
 }

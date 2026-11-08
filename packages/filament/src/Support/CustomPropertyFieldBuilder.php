@@ -14,7 +14,6 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema as DbSchema;
 use Odden\Core\Enums\PropertyType;
 use Odden\Core\Models\PropertyDefinition;
@@ -22,13 +21,10 @@ use Odden\Core\Models\PropertyDefinition;
 class CustomPropertyFieldBuilder
 {
     /**
-     * Build dynamic form components for a given entity type.
-     *
      * @return list<Component>
      */
     public static function makeSection(string $entityType): array
     {
-        // Guard against running before migrations have executed
         if (! DbSchema::hasTable(config('odden-core.tables.properties', 'odden_properties'))) {
             return [];
         }
@@ -82,32 +78,6 @@ class CustomPropertyFieldBuilder
     }
 
     /**
-     * Merge the form's custom properties over the ones the record already has.
-     *
-     * The form only carries the keys that have a property definition, and saving it replaces the whole `properties`
-     * column. Keys written elsewhere (playbook answers, marketing and enrichment data) would be lost on the next save.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public static function mergeIntoRecord(Model $record, array $data): array
-    {
-        if (! array_key_exists('properties', $data) || ! is_array($data['properties'])) {
-            return $data;
-        }
-
-        $existing = $record->getAttribute('properties');
-
-        $data['properties'] = array_merge(is_array($existing) ? $existing : [], $data['properties']);
-
-        return $data;
-    }
-
-    /**
-     * Table columns for the definitions flagged "Searchable in lists". Each is searched with a
-     * LIKE on its key inside the record's `properties` JSON column, and can be hidden from the
-     * column picker.
-     *
      * @return list<TextColumn>
      */
     public static function searchableColumns(string $entityType): array

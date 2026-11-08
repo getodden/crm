@@ -21,8 +21,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Odden\Core\Actions\CompleteActivityAction;
+use Odden\Core\Actions\DeleteActivityAction;
 use Odden\Core\Actions\LogActivityAction;
 use Odden\Core\Actions\RecordMentionsAction;
+use Odden\Core\Actions\UpdateActivityAction;
 use Odden\Core\Enums\ActivityStatus;
 use Odden\Core\Enums\ActivityType;
 use Odden\Core\Models\Activity;
@@ -150,23 +152,25 @@ class ActivitiesRelationManager extends RelationManager
                     }),
                 EditAction::make()
                     ->using(function (Activity $record, array $data): Activity {
-                        if (! array_key_exists('body', $data)) {
-                            $record->update($data);
+                        $userId = OddenAuthorization::userId();
+                        $actorId = is_numeric($userId) ? (int) $userId : null;
 
-                            return $record;
+                        if (! array_key_exists('body', $data)) {
+                            return app(UpdateActivityAction::class)->execute($record, $data, $actorId);
                         }
 
                         $body = MentionEditor::parse($data['body']);
-                        $userId = OddenAuthorization::userId();
 
-                        return DB::transaction(function () use ($record, $data, $body, $userId): Activity {
-                            $record->update(['body' => $body['text'] !== '' ? $body['text'] : null] + $data);
-                            app(RecordMentionsAction::class)->execute($record, $this->getOwnerRecord(), $body['user_ids'], is_numeric($userId) ? (int) $userId : null, $body['labels']);
-
-                            return $record;
-                        });
+                        return app(UpdateActivityAction::class)->execute(
+                            $record,
+                            ['body' => $body['text'] !== '' ? $body['text'] : null] + $data,
+                            $actorId,
+                            $body['user_ids'],
+                            $body['labels'],
+                        );
                     }),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->using(fn (Activity $record): bool => app(DeleteActivityAction::class)->execute($record)),
             ]);
     }
 }

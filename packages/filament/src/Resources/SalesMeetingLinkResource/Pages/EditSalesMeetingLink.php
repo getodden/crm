@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\SalesMeetingLinkResource\Pages;
 
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\SalesMeetingLinkResource;
+use Odden\Sales\Actions\UpdateMeetingLinkAction;
+use Odden\Sales\Models\SalesMeetingLink;
 
 class EditSalesMeetingLink extends EditRecord
 {
@@ -20,12 +23,10 @@ class EditSalesMeetingLink extends EditRecord
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
      */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $data['working_hours'] = SalesMeetingLinkResource::normalizeWorkingHours($data['working_hours'] ?? null);
-
-        return $data;
+        /** @var SalesMeetingLink $record */
+        return app(UpdateMeetingLinkAction::class)->execute($record, $data);
     }
 }

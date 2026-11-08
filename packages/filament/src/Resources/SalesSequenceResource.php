@@ -24,10 +24,13 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Models\Contact;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\CreateSalesSequence;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\EditSalesSequence;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\ListSalesSequences;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\EnrollContactInSequenceAction;
 use Odden\Sales\Models\SalesEmailTemplate;
@@ -160,7 +163,6 @@ class SalesSequenceResource extends Resource
                             ->required(),
                     ])
                     ->action(function (SalesSequence $record, array $data): void {
-                        // Enrolling changes the contact's outreach, so it needs `update` on the contact too.
                         $contact = OddenAuthorization::findAndAuthorize(ContactResource::class, Contact::class, $data['contact_id'], 'update');
                         app(EnrollContactInSequenceAction::class)->execute($contact, $record);
 
@@ -171,11 +173,11 @@ class SalesSequenceResource extends Resource
                             ->send();
                     }),
                 EditAction::make(),
-                DeleteAction::make()->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()->modalDescription('Contacts in them stop where they are, and nothing more is sent from them. Deleting can\'t be undone.'),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk())->modalDescription('Contacts in them stop where they are, and nothing more is sent from them. Deleting can\'t be undone.'),
                 ]),
             ]);
     }

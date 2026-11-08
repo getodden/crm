@@ -17,8 +17,15 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
+use LogicException;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Filament\Support\RepeaterRows;
+use Odden\Sales\Actions\SavePipelineStageAction;
+use Odden\Sales\Actions\SaveStageAutomationsAction;
 use Odden\Sales\Enums\StageAutomationActionType;
+use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
 
 class StagesRelationManager extends RelationManager
@@ -43,7 +50,6 @@ class StagesRelationManager extends RelationManager
                 ->label('Internal code')
                 ->placeholder('e.g. discovery_call')
                 ->required()
-                // Codes are unique within a pipeline.
                 ->unique(
                     ignoreRecord: true,
                     modifyRuleUsing: fn (Unique $rule): Unique => $rule->where('pipeline_id', $this->getOwnerRecord()->getKey()),
@@ -68,7 +74,6 @@ class StagesRelationManager extends RelationManager
                 ->minValue(1)
                 ->placeholder('e.g. 14')
                 ->nullable(),
-            // A stage closes a deal as won or as lost, not both.
             Toggle::make('is_closed_won')
                 ->label('Closed won stage')
                 ->helperText('Deals entering this stage will automatically be marked as Won.')
@@ -121,6 +126,20 @@ class StagesRelationManager extends RelationManager
                 ->columns(5)
                 ->collapsible()
                 ->collapsed()
+                ->saveRelationshipsUsing(function (Repeater $component): void {
+                    $stage = $component->getRecord();
+
+                    if (! $stage instanceof PipelineStage) {
+                        return;
+                    }
+
+                    $state = array_map(
+                        fn (Schema $item): array => $item->getState(shouldCallHooksBefore: false),
+                        $component->getItems(),
+                    );
+
+                    app(SaveStageAutomationsAction::class)->execute($stage, RepeaterRows::withIds($state));
+                })
                 ->columnSpanFull(),
         ]);
     }
@@ -164,13 +183,22 @@ class StagesRelationManager extends RelationManager
                     ->boolean(),
             ])
             ->headerActions([
-                CreateAction::make()->label('Add stage'),
+                CreateAction::make()
+                    ->label('Add stage')
+                    ->using(fn (array $data): Model => app(SavePipelineStageAction::class)->execute($this->ownerPipeline(), $data)),
             ])
             ->recordActions([
-                EditAction::make(),
-                // A stage with deals or stage history can't be deleted (the model and database refuse it).
-                DeleteAction::make()
+                EditAction::make()
+                    ->using(fn (PipelineStage $record, array $data): Model => app(SavePipelineStageAction::class)->execute($this->ownerPipeline(), $data, $record)),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                     ->hidden(fn (PipelineStage $record): bool => $record->isInUse()),
             ]);
+    }
+
+    private function ownerPipeline(): Pipeline
+    {
+        $pipeline = $this->getOwnerRecord();
+
+        return $pipeline instanceof Pipeline ? $pipeline : throw new LogicException('Expected a pipeline.');
     }
 }

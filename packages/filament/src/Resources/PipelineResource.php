@@ -20,11 +20,14 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\PipelineResource\Pages\CreatePipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\EditPipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\ListPipelines;
 use Odden\Filament\Resources\PipelineResource\RelationManagers\StagesRelationManager;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\Pipeline;
 use UnitEnum;
 
@@ -55,7 +58,6 @@ class PipelineResource extends Resource
                             ->placeholder('e.g. Sales Pipeline')
                             ->required()
                             ->maxLength(255)
-                            // The code is made from the name; nobody has to invent one.
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, Get $get, ?string $state, string $operation) => $operation === 'create' && blank($get('code'))
                                 ? $set('code', Str::slug((string) $state, '_'))
@@ -113,30 +115,14 @@ class PipelineResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                // A pipeline with deals or stage history can't be deleted (the model and database refuse it).
-                DeleteAction::make()
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                     ->hidden(fn (Pipeline $record): bool => $record->isInUse()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
-    }
-
-    /**
-     * There is one default pipeline: making this one the default unsets the others.
-     */
-    public static function keepSingleDefault(Pipeline $pipeline): void
-    {
-        if (! $pipeline->is_default) {
-            return;
-        }
-
-        static::getEloquentQuery()
-            ->whereKeyNot($pipeline->getKey())
-            ->where('is_default', true)
-            ->update(['is_default' => false]);
     }
 
     public static function getRelations(): array

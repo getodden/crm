@@ -19,10 +19,12 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\CreateSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\EditSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\ListSalesQuotas;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\RecordMemo;
 use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
 use Odden\Sales\Enums\QuotaPeriod;
@@ -146,18 +148,16 @@ class SalesQuotaResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }
 
     /**
-     * The quota's attainment, computed once per row (the table shows it in two columns and a colour).
-     *
      * @return array{currency: string, excluded_deal_count: int, target_amount: float, won_amount: float, attainment_percent: float, gap_to_target: float, open_pipeline_amount: float, coverage_ratio: float}
      */
     public static function attainment(SalesQuota $record): array

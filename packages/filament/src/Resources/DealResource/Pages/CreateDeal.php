@@ -5,37 +5,21 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\DealResource\Pages;
 
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\DealResource;
-use Odden\Sales\Enums\DealStatus;
-use Odden\Sales\Models\Deal;
-use Odden\Sales\Models\DealStageHistory;
+use Odden\Sales\Actions\CreateDealAction;
 
 class CreateDeal extends CreateRecord
 {
     protected static string $resource = DealResource::class;
 
-    protected function mutateFormDataBeforeCreate(array $data): array
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordCreation(array $data): Model
     {
-        $data['owner_id'] ??= auth()->id();
-
-        // A deal is created open, in an open stage; closing it goes through Mark Won / Mark Lost.
-        $data['status'] = DealStatus::Open->value;
-        unset($data['closed_at'], $data['lost_reason'], $data['lost_notes']);
-
-        return $data;
+        return app(CreateDealAction::class)->execute($data, auth()->id());
     }
 
-    protected function afterCreate(): void
-    {
-        /** @var Deal $record */
-        $record = $this->record;
-
-        DealStageHistory::create([
-            'deal_id' => $record->id,
-            'from_stage_id' => null,
-            'to_stage_id' => $record->stage_id,
-            'user_id' => auth()->id(),
-            'entered_at' => now(),
-        ]);
-    }
+    protected function afterCreate(): void {}
 }

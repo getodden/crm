@@ -8,30 +8,30 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\QuoteResource;
+use Odden\Sales\Actions\DeleteQuoteAction;
+use Odden\Sales\Actions\UpdateQuoteAction;
+use Odden\Sales\Models\Quote;
 
 class EditQuote extends EditRecord
 {
     protected static string $resource = QuoteResource::class;
 
     /**
-     * A quote moved to another deal takes that deal's currency.
-     *
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
      */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $data['user_id'] = $this->getRecord()->getAttribute('user_id');
-
-        return QuoteResource::fillFromDeal($data);
+        /** @var Quote $record */
+        return app(UpdateQuoteAction::class)->execute($record, $data);
     }
 
     protected function getHeaderActions(): array
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()->using(fn (Quote $record): bool => app(DeleteQuoteAction::class)->execute($record)),
             RestoreAction::make(),
         ];
     }
