@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Event;
 use Odden\Core\Actions\CreateCompanyAction;
 use Odden\Core\Actions\CreateContactAction;
 use Odden\Core\Actions\CreateCrmListAction;
@@ -15,6 +16,7 @@ use Odden\Core\Actions\UpdateContactAction;
 use Odden\Core\Actions\UpdateCrmListAction;
 use Odden\Core\Contracts\TenantContext;
 use Odden\Core\Enums\LifecycleStage;
+use Odden\Core\Events\UserMentioned;
 use Odden\Core\Exceptions\CrossTenantException;
 use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
 use Odden\Core\Models\Activity;
@@ -23,6 +25,7 @@ use Odden\Core\Models\Contact;
 use Odden\Core\Models\CrmList;
 use Odden\Core\Models\LifecycleStageTransition;
 use Odden\Core\Models\PropertyDefinition;
+use Odden\Core\Tests\Fixtures\User;
 
 function actingInTenantOne(): void
 {
@@ -161,10 +164,34 @@ it('updates an activity and deletes it', function (): void {
     $contact = Contact::factory()->create();
     $activity = Activity::factory()->note()->create(['subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id]);
 
-    app(UpdateActivityAction::class)->execute($activity, ['title' => 'Renamed', 'body' => 'Hello'], $contact, 3);
+    app(UpdateActivityAction::class)->execute($activity, ['title' => 'Renamed', 'body' => 'Hello'], 3);
 
     expect($activity->fresh()->title)->toBe('Renamed');
 
     expect(app(DeleteActivityAction::class)->execute($activity))->toBeTrue()
         ->and(Activity::query()->count())->toBe(0);
+});
+
+it('refuses to update a contact or company of another tenant', function (): void {
+    $contact = Contact::factory()->create(['first_name' => 'Ada']);
+    $company = Company::factory()->create(['name' => 'Analytical']);
+    $contact->setRawAttributes([...$contact->getAttributes(), 'tenant_id' => 2]);
+    $company->setRawAttributes([...$company->getAttributes(), 'tenant_id' => 2]);
+    actingInTenantOne();
+
+    expect(fn () => app(UpdateContactAction::class)->execute($contact, ['first_name' => 'Grace']))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(UpdateCompanyAction::class)->execute($company, ['name' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(Contact::query()->value('first_name'))->toBe('Ada')
+        ->and(Company::query()->value('name'))->toBe('Analytical');
+});
+
+it('records the mentions of an activity against the record the activity is on', function (): void {
+    Event::fake([UserMentioned::class]);
+    [$author, $jane] = User::factory()->count(2)->create();
+    $contact = Contact::factory()->create();
+    $note = $contact->logNote('Ask Jane');
+
+    app(UpdateActivityAction::class)->execute($note, ['title' => 'Renewal'], $author->id, [$jane->id], [$jane->id => 'Jane']);
+
+    Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $jane->id && $event->subject->is($contact));
 });

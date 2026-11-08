@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Odden\Core\Actions;
 
+use Illuminate\Support\Facades\DB;
 use Odden\Core\Models\Company;
 use Odden\Core\Support\PropertyMerge;
+use Odden\Core\Support\TenantGuard;
 
 class UpdateCompanyAction
 {
@@ -14,8 +16,12 @@ class UpdateCompanyAction
      */
     public function execute(Company $company, array $attributes): Company
     {
-        $company->fill(PropertyMerge::onto($company, $attributes))->save();
+        app(TenantGuard::class)->assertOwnedWhenTenanted($company);
 
-        return $company;
+        return DB::transaction(function () use ($company, $attributes): Company {
+            $company->fill(PropertyMerge::onto($company, $attributes))->save();
+
+            return $company;
+        });
     }
 }

@@ -156,7 +156,7 @@ class ActivitiesRelationManager extends RelationManager
                         $actorId = is_numeric($userId) ? (int) $userId : null;
 
                         if (! array_key_exists('body', $data)) {
-                            return app(UpdateActivityAction::class)->execute($record, $data, $this->getOwnerRecord(), $actorId);
+                            return app(UpdateActivityAction::class)->execute($record, $data, $actorId);
                         }
 
                         $body = MentionEditor::parse($data['body']);
@@ -164,7 +164,6 @@ class ActivitiesRelationManager extends RelationManager
                         return app(UpdateActivityAction::class)->execute(
                             $record,
                             ['body' => $body['text'] !== '' ? $body['text'] : null] + $data,
-                            $this->getOwnerRecord(),
                             $actorId,
                             $body['user_ids'],
                             $body['labels'],
