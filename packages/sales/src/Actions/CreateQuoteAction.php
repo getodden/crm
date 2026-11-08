@@ -18,7 +18,7 @@ class CreateQuoteAction
      */
     public function execute(array $attributes, int|string|null $userId = null): Quote
     {
-        $deal = Deal::query()->whereKey($attributes['deal_id'] ?? null)->firstOrFail();
+        $deal = Deal::query()->withTrashed()->whereKey($attributes['deal_id'] ?? null)->firstOrFail();
 
         $attributes['currency'] = $deal->currency;
         $attributes['user_id'] ??= $deal->owner_id ?? $userId;

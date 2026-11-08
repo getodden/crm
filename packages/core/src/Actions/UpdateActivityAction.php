@@ -27,7 +27,7 @@ class UpdateActivityAction
         return DB::transaction(function () use ($activity, $attributes, $actorId, $mentionedUserIds, $mentionLabels): Activity {
             $activity->update($attributes);
 
-            $subject = $activity->subject;
+            $subject = $activity->subject()->withTrashed()->first();
 
             if ($mentionedUserIds !== null && $subject !== null) {
                 app(RecordMentionsAction::class)->execute($activity, $subject, $mentionedUserIds, $actorId, $mentionLabels);

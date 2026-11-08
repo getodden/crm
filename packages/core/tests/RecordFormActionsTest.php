@@ -195,3 +195,30 @@ it('records the mentions of an activity against the record the activity is on', 
 
     Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $jane->id && $event->subject->is($contact));
 });
+
+it('refuses to update or delete an activity or update a list of another tenant', function (): void {
+    $contact = Contact::factory()->create();
+    $activity = Activity::factory()->note()->create(['title' => 'Mine', 'subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id]);
+    $list = CrmList::factory()->create(['name' => 'Mine']);
+    $activity->setRawAttributes([...$activity->getAttributes(), 'tenant_id' => 2]);
+    $list->setRawAttributes([...$list->getAttributes(), 'tenant_id' => 2]);
+    actingInTenantOne();
+
+    expect(fn () => app(UpdateActivityAction::class)->execute($activity, ['title' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(DeleteActivityAction::class)->execute($activity))->toThrow(CrossTenantException::class)
+        ->and(fn () => app(UpdateCrmListAction::class)->execute($list, ['name' => 'Taken']))->toThrow(CrossTenantException::class)
+        ->and(Activity::query()->value('title'))->toBe('Mine')
+        ->and(CrmList::query()->value('name'))->toBe('Mine');
+});
+
+it('records the mentions of a note on a contact in the trash', function (): void {
+    Event::fake([UserMentioned::class]);
+    [$author, $jane] = User::factory()->count(2)->create();
+    $contact = Contact::factory()->create();
+    $note = $contact->logNote('Ask Jane');
+    $contact->delete();
+
+    app(UpdateActivityAction::class)->execute($note->fresh(), ['title' => 'Renewal'], $author->id, [$jane->id], [$jane->id => 'Jane']);
+
+    Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $jane->id);
+});
