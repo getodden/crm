@@ -36,6 +36,7 @@ use Odden\Core\Models\PropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\CreatePropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\EditPropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource\Pages\ListPropertyDefinitions;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\Deal;
 use UnitEnum;
 
@@ -206,7 +207,7 @@ class PropertyDefinitionResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk())
                         ->before(function (Collection $records, DeleteBulkAction $action): void {
                             if ($records->contains(fn (PropertyDefinition $record): bool => $record->is_sensitive)) {
                                 Notification::make()->title('A sensitive property cannot be deleted')->body('Turn Sensitive off first; its values are converted back.')->danger()->send();

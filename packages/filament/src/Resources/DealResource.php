@@ -52,6 +52,7 @@ use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\AmountSort;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Filament\Support\RecordMemo;
@@ -365,7 +366,7 @@ class DealResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),

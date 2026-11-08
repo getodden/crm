@@ -25,6 +25,7 @@ use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\CreateSalesEmailTemplate;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\EditSalesEmailTemplate;
 use Odden\Filament\Resources\SalesEmailTemplateResource\Pages\ListSalesEmailTemplates;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\SalesEmailTemplate;
 use UnitEnum;
 
@@ -118,7 +119,7 @@ class SalesEmailTemplateResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }

@@ -366,3 +366,59 @@ it('refuses to write a record of another tenant', function (): void {
         ->and($quote->fresh()->title)->toBe('Mine')
         ->and(SalesMeetingLink::query()->value('title'))->toBe('Mine');
 });
+
+it('creates and updates a quote without letting a caller set the signature, token or number', function (): void {
+    $deal = Deal::factory()->create();
+
+    $quote = app(CreateQuoteAction::class)->execute([
+        'deal_id' => $deal->id,
+        'title' => 'Forged',
+        'status' => QuoteStatus::Accepted,
+        'accepted_at' => now(),
+        'signed_by_name' => 'Jane',
+        'signed_by_email' => 'jane@example.com',
+        'public_token' => 'known',
+        'quote_number' => 'Q-FORGED',
+    ]);
+
+    expect($quote->status)->not->toBe(QuoteStatus::Accepted)
+        ->and($quote->accepted_at)->toBeNull()
+        ->and($quote->signed_by_name)->toBeNull()
+        ->and($quote->public_token)->not->toBe('known')
+        ->and($quote->quote_number)->not->toBe('Q-FORGED');
+
+    $number = $quote->quote_number;
+    $token = $quote->public_token;
+
+    app(UpdateQuoteAction::class)->execute($quote, ['title' => 'Edited', 'signed_by_name' => 'Jane', 'accepted_at' => now(), 'public_token' => 'known', 'quote_number' => 'Q-FORGED']);
+
+    $fresh = $quote->fresh();
+    expect($fresh->title)->toBe('Edited')
+        ->and($fresh->signed_by_name)->toBeNull()
+        ->and($fresh->accepted_at)->toBeNull()
+        ->and($fresh->public_token)->toBe($token)
+        ->and($fresh->quote_number)->toBe($number);
+});
+
+it('keeps a child on its parent when a save carries another parent key', function (): void {
+    $deal = Deal::factory()->create(['amount' => 0]);
+    $otherDeal = Deal::factory()->create(['amount' => 0]);
+    $pipeline = Pipeline::factory()->create();
+    $otherPipeline = Pipeline::factory()->create();
+    $quote = Quote::factory()->create();
+    $otherQuote = Quote::factory()->create();
+
+    $product = app(SaveDealProductAction::class)->execute($deal, ['name' => 'Licence', 'unit_price' => 1, 'quantity' => 1, 'discount_percent' => 0]);
+    app(SaveDealProductAction::class)->execute($deal, ['name' => 'Renamed', 'deal_id' => $otherDeal->id], $product);
+
+    $stage = app(SavePipelineStageAction::class)->execute($pipeline, ['name' => 'Intro', 'code' => 'intro', 'probability' => 10, 'sort_order' => 1]);
+    app(SavePipelineStageAction::class)->execute($pipeline, ['name' => 'Renamed', 'pipeline_id' => $otherPipeline->id], $stage);
+
+    app(SaveQuoteItemsAction::class)->execute($quote, [['id' => null, 'name' => 'Item', 'unit_price' => 1, 'quantity' => 1]]);
+    $item = $quote->items()->firstOrFail();
+    app(SaveQuoteItemsAction::class)->execute($quote, [['id' => (string) $item->id, 'name' => 'Item', 'unit_price' => 1, 'quantity' => 1, 'quote_id' => $otherQuote->id]]);
+
+    expect((string) $product->fresh()->deal_id)->toBe((string) $deal->id)
+        ->and((string) $stage->fresh()->pipeline_id)->toBe((string) $pipeline->id)
+        ->and((string) $item->fresh()->quote_id)->toBe((string) $quote->id);
+});

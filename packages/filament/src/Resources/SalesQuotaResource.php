@@ -24,6 +24,7 @@ use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\CreateSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\EditSalesQuota;
 use Odden\Filament\Resources\SalesQuotaResource\Pages\ListSalesQuotas;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\RecordMemo;
 use Odden\Sales\Actions\CalculateQuotaAttainmentAction;
 use Odden\Sales\Enums\QuotaPeriod;
@@ -151,7 +152,7 @@ class SalesQuotaResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }

@@ -27,6 +27,7 @@ use Odden\Filament\Resources\PipelineResource\Pages\CreatePipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\EditPipeline;
 use Odden\Filament\Resources\PipelineResource\Pages\ListPipelines;
 use Odden\Filament\Resources\PipelineResource\RelationManagers\StagesRelationManager;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\Pipeline;
 use UnitEnum;
 
@@ -119,7 +120,7 @@ class PipelineResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }

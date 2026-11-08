@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Odden\Core\Actions;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Enums\LifecycleStage;
 use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
@@ -21,6 +22,8 @@ class UpdateContactAction
     public function execute(Contact $contact, array $attributes, ?int $userId = null): Contact
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($contact);
+
+        $attributes = Arr::except($attributes, Contact::SYSTEM_ATTRIBUTES);
 
         return DB::transaction(function () use ($contact, $attributes, $userId): Contact {
             $contact->fill(PropertyMerge::onto($contact, $attributes));

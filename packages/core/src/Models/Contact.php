@@ -99,6 +99,12 @@ class Contact extends Model implements BlindIndexed
     use QualifiesRelatedColumns;
     use SoftDeletes;
 
+    public const SYSTEM_ATTRIBUTES = [
+        'marketing_email_verified_at', 'sms_consent_at', 'marketing_verification_token', 'marketing_confirmation_token',
+        'became_subscriber_at', 'became_lead_at', 'became_marketing_qualified_lead_at', 'became_sales_qualified_lead_at',
+        'became_opportunity_at', 'became_customer_at', 'became_evangelist_at', 'became_other_at',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *

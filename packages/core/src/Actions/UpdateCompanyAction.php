@@ -18,6 +18,10 @@ class UpdateCompanyAction
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($company);
 
+        if (isset($attributes['domain']) && is_string($attributes['domain'])) {
+            $attributes['domain'] = Company::normalizeDomain($attributes['domain']);
+        }
+
         return DB::transaction(function () use ($company, $attributes): Company {
             $company->fill(PropertyMerge::onto($company, $attributes))->save();
 

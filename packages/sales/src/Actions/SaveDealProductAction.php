@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Odden\Sales\Actions;
 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Support\TenantGuard;
 use Odden\Sales\Models\Deal;
@@ -24,6 +25,8 @@ class SaveDealProductAction
         if ($product !== null && (string) $product->deal_id !== (string) $deal->getKey()) {
             throw (new ModelNotFoundException)->setModel(DealProduct::class, [$product->getKey()]);
         }
+
+        $attributes = Arr::except($attributes, ['deal_id']);
 
         return DB::transaction(function () use ($deal, $attributes, $product): DealProduct {
             if ($product === null) {

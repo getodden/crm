@@ -42,6 +42,7 @@ use Odden\Filament\Resources\RelationManagers\DealsRelationManager;
 use Odden\Filament\Resources\RelationManagers\PropertyHistoryRelationManager;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\CustomPropertyFieldBuilder;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\Modules;
 use Odden\Filament\Support\OddenAuthorization;
@@ -242,7 +243,7 @@ class CompanyResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),

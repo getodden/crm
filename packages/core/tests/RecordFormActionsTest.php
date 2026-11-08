@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Odden\Core\Actions\CreateCompanyAction;
 use Odden\Core\Actions\CreateContactAction;
@@ -248,4 +249,54 @@ it('records the mentions of a note on a contact in the trash', function (): void
     app(UpdateActivityAction::class)->execute($note->fresh(), ['title' => 'Renewal'], $author->id, [$jane->id], [$jane->id => 'Jane']);
 
     Event::assertDispatched(UserMentioned::class, fn (UserMentioned $event): bool => $event->mentionedUserId === $jane->id);
+});
+
+it('keeps consent proof, tokens and lifecycle stamps off a contact update', function (): void {
+    $contact = Contact::factory()->create(['first_name' => 'Ada']);
+
+    app(UpdateContactAction::class)->execute($contact, [
+        'first_name' => 'Grace',
+        'marketing_email_verified_at' => now(),
+        'sms_consent_at' => now(),
+        'marketing_confirmation_token' => 'known',
+        'became_customer_at' => now(),
+    ]);
+
+    $fresh = $contact->fresh();
+    expect($fresh->first_name)->toBe('Grace')
+        ->and($fresh->marketing_email_verified_at)->toBeNull()
+        ->and($fresh->sms_consent_at)->toBeNull()
+        ->and($fresh->marketing_confirmation_token)->toBeNull()
+        ->and($fresh->became_customer_at)->toBeNull();
+});
+
+it('keeps a list with its creator when an update carries another', function (): void {
+    $list = CrmList::factory()->create(['created_by_id' => 1]);
+
+    app(UpdateCrmListAction::class)->execute($list, ['name' => 'Renamed', 'created_by_id' => 99]);
+
+    expect($list->fresh()->name)->toBe('Renamed')
+        ->and($list->fresh()->created_by_id)->toBe(1);
+});
+
+it('normalises a company domain on update', function (): void {
+    $company = Company::factory()->create();
+
+    app(UpdateCompanyAction::class)->execute($company, ['domain' => 'https://www.Acme.com/about']);
+
+    expect($company->fresh()->domain)->toBe('acme.com');
+});
+
+it('announces a generic save or delete only once the transaction has committed', function (): void {
+    $levelBefore = DB::transactionLevel();
+    $levels = [];
+
+    Event::listen([ModelSaved::class, ModelDeleted::class], function () use (&$levels): void {
+        $levels[] = DB::transactionLevel();
+    });
+
+    $list = app(SaveModelAction::class)->execute(CrmList::class, ['name' => 'Fresh', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static']);
+    app(DeleteModelAction::class)->execute($list);
+
+    expect($levels)->toBe([$levelBefore, $levelBefore]);
 });

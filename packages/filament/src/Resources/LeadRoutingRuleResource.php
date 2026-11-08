@@ -27,6 +27,7 @@ use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\CreateLeadRoutingRule;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\EditLeadRoutingRule;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\ListLeadRoutingRules;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Enums\LeadRoutingStrategy;
 use Odden\Sales\Models\LeadRoutingRule;
 use UnitEnum;
@@ -134,7 +135,7 @@ class LeadRoutingRuleResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }

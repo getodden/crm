@@ -40,6 +40,7 @@ use Odden\Filament\Resources\CrmListResource\Pages\EditCrmList;
 use Odden\Filament\Resources\CrmListResource\Pages\ListCrmLists;
 use Odden\Filament\Resources\CrmListResource\Pages\ViewCrmList;
 use Odden\Filament\Resources\CrmListResource\RelationManagers\MembersRelationManager;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\OddenAuthorization;
 use UnitEnum;
 
@@ -222,7 +223,7 @@ class CrmListResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()->modalDescription('Their members stay as contacts, but campaigns and sequences that use these lists lose their audience. Deleting can\'t be undone.'),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk())->modalDescription('Their members stay as contacts, but campaigns and sequences that use these lists lose their audience. Deleting can\'t be undone.'),
                 ]),
             ]);
     }

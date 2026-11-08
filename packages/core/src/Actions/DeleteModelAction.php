@@ -15,14 +15,12 @@ class DeleteModelAction
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($record);
 
-        return DB::transaction(function () use ($record): bool {
-            $deleted = (bool) $record->delete();
+        $deleted = DB::transaction(fn (): bool => (bool) $record->delete());
 
-            if ($deleted) {
-                ModelDeleted::dispatch($record);
-            }
+        if ($deleted) {
+            ModelDeleted::dispatch($record);
+        }
 
-            return $deleted;
-        });
+        return $deleted;
     }
 }

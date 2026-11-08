@@ -30,6 +30,7 @@ use Odden\Core\Models\Contact;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\CreateSalesSequence;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\EditSalesSequence;
 use Odden\Filament\Resources\SalesSequenceResource\Pages\ListSalesSequences;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\EnrollContactInSequenceAction;
 use Odden\Sales\Models\SalesEmailTemplate;
@@ -176,7 +177,7 @@ class SalesSequenceResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()->modalDescription('Contacts in them stop where they are, and nothing more is sent from them. Deleting can\'t be undone.'),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk())->modalDescription('Contacts in them stop where they are, and nothing more is sent from them. Deleting can\'t be undone.'),
                 ]),
             ]);
     }

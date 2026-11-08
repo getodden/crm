@@ -6,6 +6,7 @@ namespace Odden\Core\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Support\TenantGuard;
 
@@ -28,7 +29,7 @@ class SyncChildRecordsAction
 
             foreach ($rows as $position => $row) {
                 $id = isset($row['id']) ? (string) $row['id'] : null;
-                unset($row['id']);
+                $row = Arr::except($row, ['id', $relation->getForeignKeyName()]);
 
                 if ($orderColumn !== null) {
                     $row[$orderColumn] = $position + 1;

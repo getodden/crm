@@ -59,6 +59,8 @@ class Quote extends Model implements BlindIndexed
     use ProtectedByArea;
     use SoftDeletes;
 
+    public const SYSTEM_ATTRIBUTES = ['quote_number', 'public_token', 'accepted_at', 'signed_by_name', 'signed_by_email'];
+
     /**
      * What the customer's signature covers: none of it changes once the quote is accepted.
      */

@@ -89,10 +89,21 @@ function actionsWithoutUsing(): array
 
 function relationshipFieldsKeepingTheDefaultSave(string $contents): int
 {
-    $relationshipRepeaters = preg_match_all('/Repeater::make\([^)]*\)(?:(?!Repeater::make\().)*?->relationship\(/s', $contents)
-        + preg_match_all('/(?:CheckboxList|Select)::make\([^;]*?->multiple\(\)[^;]*?->relationship\(|(?:CheckboxList|Select)::make\([^;]*?->relationship\([^;]*?->multiple\(\)/s', $contents);
+    $repeaters = preg_match_all('/Repeater::make\([^)]*\)(?:(?!Repeater::make\().)*?->relationship\(/s', $contents);
+    $handledRepeaters = preg_match_all('/Repeater::make\([^)]*\)(?:(?!Repeater::make\().)*?->saveRelationshipsUsing\(/s', $contents);
 
-    return max(0, $relationshipRepeaters - preg_match_all('/->saveRelationshipsUsing\(/', $contents));
+    $unhandledOptionFields = 0;
+
+    foreach (preg_split('/(?=\b[A-Z]\w*::make\()/', $contents) as $field) {
+        $manyToMany = preg_match('/^CheckboxList::make\(/', $field) === 1
+            || (preg_match('/^Select::make\(/', $field) === 1 && str_contains($field, '->multiple()'));
+
+        if ($manyToMany && str_contains($field, '->relationship(') && ! str_contains($field, '->saveRelationshipsUsing(')) {
+            $unhandledOptionFields++;
+        }
+    }
+
+    return max(0, $repeaters - $handledRepeaters) + $unhandledOptionFields;
 }
 
 it('writes through actions: the panel holds only the model writes on this list, and the list only shrinks', function (): void {
@@ -116,29 +127,21 @@ it('saves create and edit pages through an action: the default save is not left 
 
 it('deletes and edits through an action: only the bulk, restore, force-delete and attach actions on this list keep the default write, and the list only shrinks', function (): void {
     $allowed = [
-        'Resources/CompanyResource.php' => 3,
+        'Resources/CompanyResource.php' => 2,
         'Resources/CompanyResource/Pages/EditCompany.php' => 2,
         'Resources/CompanyResource/RelationManagers/ContactsRelationManager.php' => 2,
-        'Resources/ContactResource.php' => 3,
+        'Resources/ContactResource.php' => 2,
         'Resources/ContactResource/Pages/EditContact.php' => 2,
         'Resources/ContactResource/RelationManagers/CompaniesRelationManager.php' => 2,
-        'Resources/CrmListResource.php' => 1,
-        'Resources/DealResource.php' => 4,
+        'Resources/DealResource.php' => 3,
         'Resources/DealResource/Pages/EditDeal.php' => 1,
         'Resources/DealResource/Pages/ViewDeal.php' => 1,
         'Resources/DealResource/RelationManagers/DealCompaniesRelationManager.php' => 2,
         'Resources/DealResource/RelationManagers/DealContactsRelationManager.php' => 2,
-        'Resources/LeadRoutingRuleResource.php' => 1,
-        'Resources/PipelineResource.php' => 1,
-        'Resources/PropertyDefinitionResource.php' => 1,
         'Resources/QuoteResource.php' => 2,
         'Resources/QuoteResource/Pages/EditQuote.php' => 1,
         'Resources/QuoteResource/Pages/ViewQuote.php' => 1,
         'Resources/RelationManagers/DealsRelationManager.php' => 2,
-        'Resources/SalesEmailTemplateResource.php' => 1,
-        'Resources/SalesPlaybookResource.php' => 1,
-        'Resources/SalesQuotaResource.php' => 1,
-        'Resources/SalesSequenceResource.php' => 1,
     ];
 
     expect(actionsWithoutUsing())->toBe($allowed);
@@ -161,9 +164,13 @@ it('notices a relationship repeater or multi-select that keeps the default save'
     $handled = "Repeater::make('items')->relationship('items')->saveRelationshipsUsing(fn () => null);";
     $select = "Select::make('tags')->multiple()->relationship('tags', 'name');";
     $belongsTo = "Select::make('pipeline')->relationship('pipeline', 'name');";
+    $checkboxes = "CheckboxList::make('tags')->relationship('tags', 'name');";
+    $maskedByNeighbour = "Select::make('a')->multiple()->relationship('a', 'name'); Select::make('b')->multiple()->relationship('b', 'name')->saveRelationshipsUsing(fn () => null);";
 
     expect(relationshipFieldsKeepingTheDefaultSave($repeater))->toBe(1)
         ->and(relationshipFieldsKeepingTheDefaultSave($select))->toBe(1)
         ->and(relationshipFieldsKeepingTheDefaultSave($handled))->toBe(0)
-        ->and(relationshipFieldsKeepingTheDefaultSave($belongsTo))->toBe(0);
+        ->and(relationshipFieldsKeepingTheDefaultSave($belongsTo))->toBe(0)
+        ->and(relationshipFieldsKeepingTheDefaultSave($checkboxes))->toBe(1)
+        ->and(relationshipFieldsKeepingTheDefaultSave($maskedByNeighbour))->toBe(1);
 });

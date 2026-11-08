@@ -22,7 +22,7 @@ class UpdateQuoteAction
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($quote);
 
-        $attributes = Arr::except($attributes, ['user_id']);
+        $attributes = Arr::except($attributes, ['user_id', ...Quote::SYSTEM_ATTRIBUTES]);
         $attributes['currency'] = Deal::query()->withTrashed()->whereKey($attributes['deal_id'] ?? $quote->deal_id)->firstOrFail()->currency;
 
         return DB::transaction(function () use ($quote, $attributes): Quote {

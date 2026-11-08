@@ -23,14 +23,12 @@ class SaveModelAction
             app(TenantGuard::class)->assertOwnedWhenTenanted($record);
         }
 
-        return DB::transaction(function () use ($record, $attributes): Model {
-            $wasCreated = ! $record->exists;
+        $wasCreated = ! $record->exists;
 
-            $record->fill($attributes)->save();
+        DB::transaction(fn (): bool => $record->fill($attributes)->save());
 
-            ModelSaved::dispatch($record, $wasCreated);
+        ModelSaved::dispatch($record, $wasCreated);
 
-            return $record;
-        });
+        return $record;
     }
 }

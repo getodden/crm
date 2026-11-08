@@ -26,6 +26,7 @@ use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\CreateSalesPlaybook;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\EditSalesPlaybook;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\ListSalesPlaybooks;
+use Odden\Filament\Support\DeletesRecords;
 use Odden\Sales\Models\SalesPlaybook;
 use UnitEnum;
 
@@ -157,7 +158,7 @@ class SalesPlaybookResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->using(DeletesRecords::bulk()),
                 ]),
             ]);
     }
