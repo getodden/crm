@@ -30,7 +30,6 @@ function panelWriteCounts(): array
 
 it('writes through actions: the panel holds only the model writes on this list, and the list only shrinks', function (): void {
     $allowed = [
-        'Pages/SalesCockpit.php' => 7,
         'Resources/ContactResource/Pages/EditContact.php' => 1,
         'Resources/DealResource/Pages/CreateDeal.php' => 1,
         'Resources/PipelineResource.php' => 1,
