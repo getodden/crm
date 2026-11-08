@@ -133,37 +133,6 @@ class SalesMeetingLinkResource extends Resource
             ]);
     }
 
-    /**
-     * @return array<string, list<string>>|null
-     */
-    public static function normalizeWorkingHours(mixed $hours): ?array
-    {
-        if (! is_array($hours)) {
-            return null;
-        }
-
-        $normalized = [];
-
-        foreach (MeetingAvailability::DAYS as $day) {
-            $windows = $hours[$day] ?? [];
-
-            if (! is_array($windows)) {
-                continue;
-            }
-
-            $windows = array_values(array_filter(
-                array_map(fn (mixed $window): string => is_string($window) ? trim($window) : '', $windows),
-                fn (string $window): bool => $window !== '',
-            ));
-
-            if ($windows !== []) {
-                $normalized[$day] = $windows;
-            }
-        }
-
-        return $normalized === [] ? null : $normalized;
-    }
-
     public static function table(Table $table): Table
     {
         return $table

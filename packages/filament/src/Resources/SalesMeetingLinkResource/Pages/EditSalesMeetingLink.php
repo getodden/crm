@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Core\Actions\SaveModelAction;
 use Odden\Filament\Resources\SalesMeetingLinkResource;
+use Odden\Sales\Services\MeetingAvailability;
 
 class EditSalesMeetingLink extends EditRecord
 {
@@ -25,7 +26,7 @@ class EditSalesMeetingLink extends EditRecord
      */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $data['working_hours'] = SalesMeetingLinkResource::normalizeWorkingHours($data['working_hours'] ?? null);
+        $data['working_hours'] = MeetingAvailability::normalizeWorkingHours($data['working_hours'] ?? null);
 
         return app(SaveModelAction::class)->execute($record, $data);
     }

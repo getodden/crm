@@ -30,6 +30,37 @@ class MeetingAvailability
     public function __construct(protected ExternalBusyTime $externalBusyTime) {}
 
     /**
+     * @return array<string, list<string>>|null
+     */
+    public static function normalizeWorkingHours(mixed $hours): ?array
+    {
+        if (! is_array($hours)) {
+            return null;
+        }
+
+        $normalized = [];
+
+        foreach (MeetingAvailability::DAYS as $day) {
+            $windows = $hours[$day] ?? [];
+
+            if (! is_array($windows)) {
+                continue;
+            }
+
+            $windows = array_values(array_filter(
+                array_map(fn (mixed $window): string => is_string($window) ? trim($window) : '', $windows),
+                fn (string $window): bool => $window !== '',
+            ));
+
+            if ($windows !== []) {
+                $normalized[$day] = $windows;
+            }
+        }
+
+        return $normalized === [] ? null : $normalized;
+    }
+
+    /**
      * The link's working hours, normalized to day => list of [startMinutes, endMinutes].
      *
      * @return array<string, list<array{0: int, 1: int}>>

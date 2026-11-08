@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace Odden\Sales\Actions;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
 
 class CreateQuoteAction
 {
     /**
      * @param  array<string, mixed>  $attributes
+     *
+     * @throws ModelNotFoundException
      */
-    public function execute(array $attributes): Quote
+    public function execute(array $attributes, int|string|null $userId = null): Quote
     {
+        $deal = Deal::query()->whereKey($attributes['deal_id'] ?? null)->firstOrFail();
+
+        $attributes['currency'] = $deal->currency;
+        $attributes['user_id'] ??= $deal->owner_id ?? $userId;
+
         return DB::transaction(fn (): Quote => Quote::create($attributes));
     }
 }

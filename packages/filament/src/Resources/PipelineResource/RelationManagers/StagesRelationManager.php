@@ -21,7 +21,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
 use LogicException;
 use Odden\Core\Actions\DeleteModelAction;
-use Odden\Sales\Actions\SavePipelineStagesAction;
+use Odden\Filament\Support\RepeaterRows;
+use Odden\Sales\Actions\SavePipelineStageAction;
 use Odden\Sales\Actions\SaveStageAutomationsAction;
 use Odden\Sales\Enums\StageAutomationActionType;
 use Odden\Sales\Models\Pipeline;
@@ -132,14 +133,12 @@ class StagesRelationManager extends RelationManager
                         return;
                     }
 
-                    $rows = [];
+                    $state = array_map(
+                        fn (Schema $item): array => $item->getState(shouldCallHooksBefore: false),
+                        $component->getItems(),
+                    );
 
-                    foreach ($component->getItems() as $key => $item) {
-                        $id = str_starts_with((string) $key, 'record-') ? substr((string) $key, 7) : null;
-                        $rows[] = ['id' => $id] + $item->getState(shouldCallHooksBefore: false);
-                    }
-
-                    app(SaveStageAutomationsAction::class)->execute($stage, $rows);
+                    app(SaveStageAutomationsAction::class)->execute($stage, RepeaterRows::withIds($state));
                 })
                 ->columnSpanFull(),
         ]);
@@ -186,11 +185,11 @@ class StagesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label('Add stage')
-                    ->using(fn (array $data): Model => app(SavePipelineStagesAction::class)->execute($this->ownerPipeline(), $data)),
+                    ->using(fn (array $data): Model => app(SavePipelineStageAction::class)->execute($this->ownerPipeline(), $data)),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->using(fn (PipelineStage $record, array $data): Model => app(SavePipelineStagesAction::class)->execute($this->ownerPipeline(), $data, $record)),
+                    ->using(fn (PipelineStage $record, array $data): Model => app(SavePipelineStageAction::class)->execute($this->ownerPipeline(), $data, $record)),
                 DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                     ->hidden(fn (PipelineStage $record): bool => $record->isInUse()),
             ]);

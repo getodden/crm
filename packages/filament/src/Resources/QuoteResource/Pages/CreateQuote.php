@@ -7,6 +7,7 @@ namespace Odden\Filament\Resources\QuoteResource\Pages;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\QuoteResource;
+use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\CreateQuoteAction;
 
 class CreateQuote extends CreateRecord
@@ -18,6 +19,6 @@ class CreateQuote extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Model
     {
-        return app(CreateQuoteAction::class)->execute(QuoteResource::fillFromDeal($data));
+        return app(CreateQuoteAction::class)->execute($data, OddenAuthorization::userId());
     }
 }

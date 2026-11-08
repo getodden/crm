@@ -24,9 +24,7 @@ class EditQuote extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Quote $record */
-        $data['user_id'] = $record->getAttribute('user_id');
-
-        return app(UpdateQuoteAction::class)->execute($record, QuoteResource::fillFromDeal($data));
+        return app(UpdateQuoteAction::class)->execute($record, $data);
     }
 
     protected function getHeaderActions(): array

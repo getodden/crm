@@ -20,4 +20,6 @@ class CreateDeal extends CreateRecord
     {
         return app(CreateDealAction::class)->execute($data, auth()->id());
     }
+
+    protected function afterCreate(): void {}
 }

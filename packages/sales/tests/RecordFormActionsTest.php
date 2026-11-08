@@ -2,19 +2,26 @@
 
 declare(strict_types=1);
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Mail;
+use Odden\Sales\Actions\BookMeetingAction;
 use Odden\Sales\Actions\CreateDealAction;
 use Odden\Sales\Actions\CreateMeetingLinkAction;
 use Odden\Sales\Actions\CreateQuoteAction;
 use Odden\Sales\Actions\DeleteMeetingLinkAction;
 use Odden\Sales\Actions\SaveDealProductAction;
 use Odden\Sales\Actions\SavePipelineAction;
-use Odden\Sales\Actions\SavePipelineStagesAction;
+use Odden\Sales\Actions\SavePipelineStageAction;
 use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Actions\SaveStageAutomationsAction;
 use Odden\Sales\Actions\UpdateDealAction;
 use Odden\Sales\Actions\UpdateQuoteAction;
 use Odden\Sales\Enums\DealStatus;
+use Odden\Sales\Exceptions\DealStageMismatchException;
+use Odden\Sales\Exceptions\MeetingLinkInUseException;
 use Odden\Sales\Models\Deal;
+use Odden\Sales\Models\DealProduct;
 use Odden\Sales\Models\DealStageHistory;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\Quote;
@@ -140,8 +147,8 @@ it('keeps a single default pipeline', function (): void {
 it('saves pipeline stages and their automations', function (): void {
     $pipeline = Pipeline::factory()->create();
 
-    $stage = app(SavePipelineStagesAction::class)->execute($pipeline, ['name' => 'Intro', 'code' => 'intro', 'probability' => 10, 'sort_order' => 1]);
-    app(SavePipelineStagesAction::class)->execute($pipeline, ['name' => 'Intro call'], $stage);
+    $stage = app(SavePipelineStageAction::class)->execute($pipeline, ['name' => 'Intro', 'code' => 'intro', 'probability' => 10, 'sort_order' => 1]);
+    app(SavePipelineStageAction::class)->execute($pipeline, ['name' => 'Intro call'], $stage);
 
     app(SaveStageAutomationsAction::class)->execute($stage, [
         ['id' => null, 'name' => 'Task', 'action_type' => 'create_task', 'is_active' => true],
@@ -156,7 +163,7 @@ it('saves pipeline stages and their automations', function (): void {
         ->and($stage->automations()->pluck('name')->all())->toBe(['Guard renamed']);
 });
 
-it('creates a meeting link and refuses to delete one with upcoming bookings', function (): void {
+it('creates a meeting link and deletes one without bookings', function (): void {
     $user = User::factory()->create();
 
     $link = app(CreateMeetingLinkAction::class)->execute([
@@ -171,4 +178,83 @@ it('creates a meeting link and refuses to delete one with upcoming bookings', fu
     expect(SalesMeetingLink::query()->count())->toBe(1)
         ->and(app(DeleteMeetingLinkAction::class)->execute($link))->toBeTrue()
         ->and(SalesMeetingLink::query()->count())->toBe(0);
+});
+
+it('refuses to delete a meeting link with upcoming bookings and keeps it', function (): void {
+    Mail::fake();
+    Carbon::setTestNow(Carbon::parse('2030-01-06 08:00:00', 'UTC'));
+    $host = User::factory()->create();
+    $link = app(CreateMeetingLinkAction::class)->execute([
+        'slug' => 'busy',
+        'title' => 'Busy',
+        'duration_minutes' => 30,
+        'working_hours' => ['monday' => ['09:00-10:30']],
+        'user_id' => $host->id,
+        'is_active' => true,
+    ]);
+    app(BookMeetingAction::class)->execute($link, 'Dana Scully', 'dana@example.com', Carbon::parse('2030-01-07 09:30'));
+
+    expect(fn () => app(DeleteMeetingLinkAction::class)->execute($link))->toThrow(MeetingLinkInUseException::class)
+        ->and(SalesMeetingLink::query()->whereKey($link->id)->exists())->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+it('normalises the working hours of a new meeting link', function (): void {
+    $link = app(CreateMeetingLinkAction::class)->execute([
+        'slug' => 'tidy',
+        'title' => 'Tidy',
+        'duration_minutes' => 30,
+        'working_hours' => ['monday' => [' 09:00-10:00 ', ''], 'tuesday' => []],
+        'user_id' => User::factory()->create()->id,
+        'is_active' => true,
+    ]);
+
+    expect($link->fresh()->working_hours)->toBe(['monday' => ['09:00-10:00']]);
+});
+
+it('refuses a new deal in a closed stage or a stage of another pipeline', function (): void {
+    $pipeline = Pipeline::factory()->withStages()->create();
+    $other = Pipeline::factory()->withStages()->create();
+
+    expect(fn () => app(CreateDealAction::class)->execute(['name' => 'Won', 'pipeline_id' => $pipeline->id, 'stage_id' => $pipeline->stages[4]->id]))
+        ->toThrow(DealStageMismatchException::class)
+        ->and(fn () => app(CreateDealAction::class)->execute(['name' => 'Elsewhere', 'pipeline_id' => $pipeline->id, 'stage_id' => $other->stages[0]->id]))
+        ->toThrow(DealStageMismatchException::class)
+        ->and(Deal::query()->count())->toBe(0)
+        ->and(DealStageHistory::query()->count())->toBe(0);
+});
+
+it('refuses to edit a deal product or a stage through another deal or pipeline', function (): void {
+    $deal = Deal::factory()->create();
+    $other = Deal::factory()->create(['amount' => 0]);
+    $product = app(SaveDealProductAction::class)->execute($other, ['name' => 'Theirs', 'unit_price' => 10, 'quantity' => 1, 'discount_percent' => 0]);
+    $pipeline = Pipeline::factory()->create();
+    $otherPipeline = Pipeline::factory()->create();
+    $stage = app(SavePipelineStageAction::class)->execute($otherPipeline, ['name' => 'Theirs', 'code' => 'theirs', 'probability' => 10, 'sort_order' => 1]);
+
+    expect(fn () => app(SaveDealProductAction::class)->execute($deal, ['name' => 'Taken'], $product))->toThrow(ModelNotFoundException::class)
+        ->and(fn () => app(SavePipelineStageAction::class)->execute($pipeline, ['name' => 'Taken'], $stage))->toThrow(ModelNotFoundException::class)
+        ->and(DealProduct::query()->whereKey($product->id)->value('name'))->toBe('Theirs')
+        ->and($stage->fresh()->name)->toBe('Theirs');
+});
+
+it('puts a quote in its deal currency for the deal owner and keeps its owner and currency on edit', function (): void {
+    $deal = Deal::factory()->create(['currency' => 'EUR', 'owner_id' => 4]);
+    $usdDeal = Deal::factory()->create(['currency' => 'GBP', 'owner_id' => 5]);
+
+    $quote = app(CreateQuoteAction::class)->execute(['deal_id' => $deal->id, 'title' => 'First', 'currency' => 'USD'], 9);
+
+    expect($quote->currency)->toBe('EUR')
+        ->and($quote->user_id)->toBe(4);
+
+    app(UpdateQuoteAction::class)->execute($quote, ['title' => 'Second', 'currency' => 'USD', 'user_id' => 99]);
+
+    expect($quote->fresh()->currency)->toBe('EUR')
+        ->and($quote->fresh()->user_id)->toBe(4);
+
+    app(UpdateQuoteAction::class)->execute($quote, ['deal_id' => $usdDeal->id]);
+
+    expect($quote->fresh()->currency)->toBe('GBP')
+        ->and($quote->fresh()->user_id)->toBe(4);
 });

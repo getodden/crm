@@ -39,6 +39,7 @@ use Odden\Filament\Resources\QuoteResource\Pages\ViewQuote;
 use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
+use Odden\Filament\Support\RepeaterRows;
 use Odden\Sales\Actions\AcceptQuoteAction;
 use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Enums\QuoteStatus;
@@ -174,7 +175,7 @@ class QuoteResource extends Resource
                                     $state[$key] = $item->getState(shouldCallHooksBefore: false);
                                 }
 
-                                app(SaveQuoteItemsAction::class)->execute($quote, self::itemRows($state));
+                                app(SaveQuoteItemsAction::class)->execute($quote, RepeaterRows::withIds($state));
                             })
                             ->columnSpanFull(),
                     ]),
@@ -346,43 +347,6 @@ class QuoteResource extends Resource
         $currency = filled($dealId) ? Deal::query()->whereKey($dealId)->value('currency') : null;
 
         return Money::prefix(is_string($currency) ? $currency : null);
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public static function fillFromDeal(array $data, ?Deal $deal = null): array
-    {
-        $deal ??= filled($data['deal_id'] ?? null)
-            ? OddenAuthorization::find(DealResource::class, Deal::class, $data['deal_id'])
-            : null;
-
-        if ($deal === null) {
-            return $data;
-        }
-
-        $data['currency'] = $deal->currency;
-        $data['user_id'] ??= $deal->owner_id ?? OddenAuthorization::userId();
-
-        return $data;
-    }
-
-    /**
-     * @param  array<array-key, array<string, mixed>>  $state
-     * @return list<array<string, mixed>>
-     */
-    public static function itemRows(array $state): array
-    {
-        $rows = [];
-
-        foreach ($state as $key => $row) {
-            $id = str_starts_with((string) $key, 'record-') ? substr((string) $key, 7) : null;
-
-            $rows[] = ['id' => $id] + (array) $row;
-        }
-
-        return $rows;
     }
 
     public static function getPages(): array

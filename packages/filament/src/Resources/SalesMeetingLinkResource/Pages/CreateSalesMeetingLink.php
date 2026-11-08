@@ -18,8 +18,6 @@ class CreateSalesMeetingLink extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Model
     {
-        $data['working_hours'] = SalesMeetingLinkResource::normalizeWorkingHours($data['working_hours'] ?? null);
-
         return app(CreateMeetingLinkAction::class)->execute($data);
     }
 }

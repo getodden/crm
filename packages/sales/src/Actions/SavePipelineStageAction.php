@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace Odden\Sales\Actions;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Odden\Core\Support\TenantGuard;
 use Odden\Sales\Models\Pipeline;
 use Odden\Sales\Models\PipelineStage;
 
-class SavePipelineStagesAction
+class SavePipelineStageAction
 {
     /**
      * @param  array<string, mixed>  $attributes
+     *
+     * @throws ModelNotFoundException
      */
     public function execute(Pipeline $pipeline, array $attributes, ?PipelineStage $stage = null): PipelineStage
     {
         app(TenantGuard::class)->assertOwnedWhenTenanted($pipeline);
+
+        if ($stage !== null && (string) $stage->pipeline_id !== (string) $pipeline->getKey()) {
+            throw (new ModelNotFoundException)->setModel(PipelineStage::class, [$stage->getKey()]);
+        }
 
         return DB::transaction(function () use ($pipeline, $attributes, $stage): PipelineStage {
             if ($stage === null) {
