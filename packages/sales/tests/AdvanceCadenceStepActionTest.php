@@ -60,9 +60,11 @@ it('completes the pending task the processor created instead of logging a second
         status: ActivityStatus::Pending,
     );
 
-    app(AdvanceCadenceStepAction::class)->execute($enrollment);
+    $outcome = app(AdvanceCadenceStepAction::class)->execute($enrollment);
 
-    expect($pending->refresh()->status)->toBe(ActivityStatus::Completed)
+    expect($outcome)->toBe(CadenceStepOutcome::Advanced)
+        ->and($contact->refresh()->lead_status)->not->toBeNull()
+        ->and($pending->refresh()->status)->toBe(ActivityStatus::Completed)
         ->and($pending->completed_at)->not->toBeNull()
         ->and(Activity::query()->count())->toBe(1);
 });
@@ -89,16 +91,37 @@ it('does not advance an enrollment that is no longer active', function (): void 
         ->and(Activity::query()->count())->toBe(0);
 });
 
-it('runs a step once when the enrollment has already moved on', function (): void {
+it('runs a step once when a second caller holds a stale enrollment', function (): void {
     $contact = Contact::factory()->create();
     $enrollment = enrollmentOn($contact, 'call');
     $stale = SalesSequenceEnrollment::query()->findOrFail($enrollment->id);
 
     $first = app(AdvanceCadenceStepAction::class)->execute($enrollment);
-    SalesSequenceEnrollment::query()->whereKey($enrollment->id)->update(['current_step' => 2]);
     $second = app(AdvanceCadenceStepAction::class)->execute($stale);
 
     expect($first)->toBe(CadenceStepOutcome::Advanced)
         ->and($second)->toBe(CadenceStepOutcome::AlreadyHandled)
         ->and(Activity::query()->count())->toBe(1);
+});
+
+it('reports no longer active when the contact has been deleted', function (): void {
+    $contact = Contact::factory()->create();
+    $enrollment = enrollmentOn($contact, 'call');
+    $contact->delete();
+
+    $outcome = app(AdvanceCadenceStepAction::class)->execute($enrollment);
+
+    expect($outcome)->toBe(CadenceStepOutcome::NoLongerActive)
+        ->and($enrollment->refresh()->current_step)->toBe(1);
+});
+
+it('reports no longer active when the enrollment is past its last step', function (): void {
+    $contact = Contact::factory()->create();
+    $enrollment = enrollmentOn($contact, 'call');
+    $enrollment->update(['current_step' => 3]);
+
+    $outcome = app(AdvanceCadenceStepAction::class)->execute($enrollment);
+
+    expect($outcome)->toBe(CadenceStepOutcome::NoLongerActive)
+        ->and(Activity::query()->count())->toBe(0);
 });

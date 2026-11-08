@@ -18,16 +18,14 @@ class AdvanceCadenceStepAction
 {
     public function __construct(private readonly CompleteActivityAction $completeActivity) {}
 
-    /**
-     * Complete the current manual step of an enrollment and move it on.
-     *
-     * The step is claimed the way the cadence processor claims it, so it runs once even if the processor gets there
-     * at the same time. Email steps are sent by the processor, never from here.
-     */
     public function execute(SalesSequenceEnrollment $enrollment): CadenceStepOutcome
     {
-        $enrollment->loadMissing(['sequence', 'contact']);
-        $contact = $enrollment->contact;
+        $enrollment->loadMissing('sequence');
+        $contact = $enrollment->contact()->first();
+
+        if ($contact === null) {
+            return CadenceStepOutcome::NoLongerActive;
+        }
 
         $step = $enrollment->current_step;
         $stepDef = ($enrollment->sequence->steps ?? [])[$step - 1] ?? null;

@@ -7,7 +7,6 @@ namespace Odden\Filament\Pages;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -410,7 +409,6 @@ class SalesCockpit extends Page
     {
         $actions = [];
 
-        // 1. Prospecting: Sequence steps due
         $dueEnrollments = OddenAuthorization::enrollments()
             ->where('status', 'active')
             ->where(function ($q): void {
@@ -446,7 +444,6 @@ class SalesCockpit extends Page
                 'timezone' => $contact->timezone ?? 'UTC',
                 'last_touch' => $contact->last_contacted_at !== null ? $contact->last_contacted_at->diffForHumans() : 'Never',
                 'due' => $enrollment->next_step_due_at !== null ? 'Due '.$enrollment->next_step_due_at->format('M d') : 'Due today',
-                // Email steps are sent by the sequence processor; only manual steps are completed from here.
                 'action_label' => $stepType === 'email' ? 'View Contact' : 'Complete Step',
                 'action_type' => $stepType === 'email' ? 'view_contact' : 'advance_sequence',
                 'step_title' => $stepTitle,
@@ -458,7 +455,6 @@ class SalesCockpit extends Page
             ];
         }
 
-        // 2. Prospecting: New uncontacted leads
         $newContacts = OddenAuthorization::scoped(Contact::class)
             ->where(function ($q): void {
                 $q->where('lead_status', LeadStatus::New)
@@ -503,10 +499,8 @@ class SalesCockpit extends Page
             ];
         }
 
-        // 3. Closing: Rotten / Stale Deals
         $openDeals = OddenAuthorization::scoped(Deal::class)
             ->where('status', DealStatus::Open)
-            // isRotten() and daysInCurrentStage() read the stage history of every deal.
             ->with(['stage', 'contacts', 'stageHistory'])
             ->get();
 
@@ -549,7 +543,6 @@ class SalesCockpit extends Page
             }
         }
 
-        // 4. Closing: Pending quotes awaiting response
         $quotes = OddenAuthorization::scoped(Quote::class)
             ->where('status', QuoteStatus::Sent)
             ->with(['deal.contacts'])
@@ -593,9 +586,6 @@ class SalesCockpit extends Page
         return $actions;
     }
 
-    /**
-     * Start the first actionable item in the queue.
-     */
     public function startAllGuidedActions(): void
     {
         $actions = $this->getGuidedActionsProperty();
@@ -613,20 +603,12 @@ class SalesCockpit extends Page
         if ($first['action_type'] === 'advance_sequence' && $first['enrollment_id']) {
             $this->advanceEnrollment($first['enrollment_id']);
         } elseif ($first['action_type'] === 'touch' && $first['contact_id']) {
-            // Starting a call isn't a call: open the modal so the agent logs what actually happened.
             $this->openCallModal($first['contact_id']);
         } elseif ($first['url']) {
             $this->redirect($first['url']);
         }
     }
 
-    /**
-     * Complete the current manual step (call, LinkedIn, task) of an enrollment and move it on.
-     *
-     * The step is claimed the way the cadence processor claims it, so it runs once even if the processor gets there
-     * at the same time, and it is recorded as an activity on the contact (the processor's pending task for the step
-     * is completed, when there is one). Email steps are sent by the processor, not from here.
-     */
     public function advanceEnrollment(int $enrollmentId): void
     {
         /** @var SalesSequenceEnrollment $enrollment */
@@ -661,9 +643,6 @@ class SalesCockpit extends Page
         };
     }
 
-    /**
-     * Complete an activity / task.
-     */
     public function completeActivity(int $activityId): void
     {
         /** @var Activity $activity */
@@ -691,9 +670,6 @@ class SalesCockpit extends Page
             ->send();
     }
 
-    /**
-     * Log a quick prospecting touch (Call, Email, or LinkedIn).
-     */
     public function logQuickTouch(int $contactId, string $type): void
     {
         $contact = $this->findContactForUpdate($contactId);
@@ -824,9 +800,6 @@ class SalesCockpit extends Page
     }
 
     /**
-     * Contacts to pick from when a meeting is scheduled without one: searched on the server, within the contacts the
-     * user can see, so the whole list is reachable.
-     *
      * @return array<int, string>
      */
     public function getMeetingContactOptionsProperty(): array
@@ -854,9 +827,6 @@ class SalesCockpit extends Page
         return $options;
     }
 
-    /**
-     * Find a contact within the contact resource's query and authorize `update` on it (404 / 403 otherwise).
-     */
     protected function findContactForUpdate(int $contactId): Contact
     {
         return OddenAuthorization::findAndAuthorize(ContactResource::class, Contact::class, $contactId, 'update');
