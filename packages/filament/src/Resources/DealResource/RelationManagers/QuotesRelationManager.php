@@ -152,7 +152,7 @@ class QuotesRelationManager extends RelationManager
                         /** @var Deal $deal */
                         $deal = $this->getOwnerRecord();
 
-                        return app(CreateQuoteAction::class)->execute($data + ['deal_id' => $deal->getKey()], OddenAuthorization::userId());
+                        return app(CreateQuoteAction::class)->execute([...$data, 'deal_id' => $deal->getKey()], OddenAuthorization::userId());
                     }),
             ])
             ->recordActions([

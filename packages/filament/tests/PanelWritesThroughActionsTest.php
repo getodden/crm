@@ -23,7 +23,11 @@ function panelSourceFiles(): array
 
 function modelWritesIn(string $contents): int
 {
-    return (int) preg_match_all('/->(?:update|save|saveMany|delete|create|createMany|forceCreate|updateOrCreate|firstOrCreate|insert|upsert|increment|decrement|forceDelete|push|sync|syncWithoutDetaching|toggle|updateExistingPivot|attach|detach|restore|touch)(?:OrFail)?(?:Quietly)?\(|::(?:create|forceCreate|destroy|insert)\(|DB::table\(|->(?:createOptionForm|editOptionForm)\(/', $contents);
+    $methods = 'update|save|saveMany|delete|create|createMany|forceCreate|updateOrCreate|firstOrCreate|createOrFirst|insert|insertOrIgnore|insertGetId|updateOrInsert|upsert|increment|decrement|incrementEach|forceDelete|push|sync|syncWithoutDetaching|syncWithPivotValues|toggle|updateExistingPivot|attach|detach|restore|touch';
+    $statics = 'create|forceCreate|destroy|insert|updateOrCreate|firstOrCreate|createOrFirst|upsert';
+    $inlineEditing = '(?:Toggle|TextInput|Select|Checkbox)Column::make\\(|->reorderable\\(';
+
+    return (int) preg_match_all('/->(?:'.$methods.')(?:OrFail)?(?:Quietly)?\\(|::(?:'.$statics.')\\(|DB::(?:table|update|delete|insert|statement|unprepared)\\(|->(?:createOptionForm|editOptionForm)\\(|'.$inlineEditing.'/', $contents);
 }
 
 function panelWriteCounts(): array
@@ -193,4 +197,21 @@ it('notices the writes a narrower pattern would miss', function (string $source)
     'Contact::forceCreate($x);',
     "Select::make('a')->createOptionForm([]);",
     "Select::make('a')->editOptionForm([]);",
+    'Contact::updateOrCreate($a, $b);',
+    'Contact::firstOrCreate($a, $b);',
+    'Contact::upsert($rows, $keys);',
+    'DB::update($sql);',
+    'DB::delete($sql);',
+    'DB::statement($sql);',
+    '$query->insertOrIgnore($rows);',
+    '$query->updateOrInsert($a, $b);',
+    '$query->insertGetId($row);',
+    '$query->createOrFirst($a);',
+    '$query->incrementEach($columns);',
+    '$deal->items()->syncWithPivotValues($ids, $values);',
+    "ToggleColumn::make('is_active')",
+    "TextInputColumn::make('name')",
+    "SelectColumn::make('status')",
+    "CheckboxColumn::make('done')",
+    '$table->reorderable(\'position\');',
 ]);

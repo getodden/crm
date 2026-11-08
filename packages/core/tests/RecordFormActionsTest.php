@@ -22,6 +22,7 @@ use Odden\Core\Events\ModelSaved;
 use Odden\Core\Events\UserMentioned;
 use Odden\Core\Exceptions\CrossTenantException;
 use Odden\Core\Exceptions\InvalidLifecycleStageTransitionException;
+use Odden\Core\Exceptions\InvalidListCriteriaException;
 use Odden\Core\Models\Activity;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
@@ -186,6 +187,25 @@ it('updates an active list and refreshes its members', function (): void {
 
     expect($list->fresh()->name)->toBe('Customers')
         ->and($list->memberships()->count())->toBe(1);
+});
+
+it('keeps a list whose rules cannot be evaluated, on create and on update', function (): void {
+    $badCriteria = [['field' => 'lifecycle_stage', 'operator' => 'no-such-operator', 'value' => 'lead']];
+    $attributes = ['name' => 'Broken', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'active', 'criteria' => $badCriteria];
+
+    expect(fn () => app(CreateCrmListAction::class)->execute($attributes, 5))->toThrow(InvalidListCriteriaException::class)
+        ->and(CrmList::query()->where('name', 'Broken')->exists())->toBeTrue();
+
+    $list = CrmList::factory()->create(['name' => 'Fine']);
+
+    expect(fn () => app(UpdateCrmListAction::class)->execute($list, ['name' => 'Renamed', 'type' => 'active', 'criteria' => $badCriteria]))->toThrow(InvalidListCriteriaException::class)
+        ->and($list->fresh()->name)->toBe('Renamed');
+});
+
+it('records a string creator id on a list', function (): void {
+    $list = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], '7');
+
+    expect($list->fresh()->created_by_id)->toEqual(7);
 });
 
 it('updates an activity and deletes it', function (): void {

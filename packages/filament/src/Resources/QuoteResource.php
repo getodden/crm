@@ -50,6 +50,7 @@ use Odden\Sales\Exceptions\StageRequirementException;
 use Odden\Sales\Models\Deal;
 use Odden\Sales\Models\Quote;
 use Odden\Sales\Support\Money;
+use Throwable;
 use UnitEnum;
 
 class QuoteResource extends Resource
@@ -323,7 +324,11 @@ class QuoteResource extends Resource
                             $records->each(function (Quote $quote) use ($action): void {
                                 try {
                                     app(DeleteQuoteAction::class)->execute($quote) || $action->reportBulkProcessingFailure();
-                                } catch (QuoteLockedException) {
+                                } catch (Throwable $exception) {
+                                    if (! $exception instanceof QuoteLockedException) {
+                                        report($exception);
+                                    }
+
                                     $action->reportBulkProcessingFailure();
                                 }
                             });

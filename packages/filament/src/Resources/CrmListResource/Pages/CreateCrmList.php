@@ -18,8 +18,6 @@ class CreateCrmList extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Model
     {
-        $userId = auth()->id();
-
-        return app(CreateCrmListAction::class)->execute($data, is_numeric($userId) ? (int) $userId : null);
+        return app(CreateCrmListAction::class)->execute($data, auth()->id());
     }
 }
