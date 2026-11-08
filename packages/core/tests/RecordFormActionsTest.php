@@ -135,16 +135,17 @@ it('announces generic saves and deletes so a host can audit them', function (): 
 });
 
 it('keeps an activity on its subject and creator when an update tries to move it', function (): void {
+    $creator = User::factory()->create();
     $contact = Contact::factory()->create();
     $other = Contact::factory()->create();
-    $activity = Activity::factory()->create(['subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id, 'creator_id' => 1]);
+    $activity = Activity::factory()->create(['subject_type' => $contact->getMorphClass(), 'subject_id' => $contact->id, 'creator_id' => $creator->id]);
 
     app(UpdateActivityAction::class)->execute($activity, ['title' => 'Renamed', 'subject_type' => $other->getMorphClass(), 'subject_id' => $other->id, 'creator_id' => 99]);
 
     $fresh = $activity->fresh();
     expect($fresh->title)->toBe('Renamed')
         ->and($fresh->subject_id)->toBe($contact->id)
-        ->and($fresh->creator_id)->toBe(1);
+        ->and($fresh->creator_id)->toBe($creator->id);
 });
 
 it('refuses to save or delete a record of another tenant', function (): void {
@@ -158,22 +159,24 @@ it('refuses to save or delete a record of another tenant', function (): void {
 });
 
 it('creates a list for its creator and fills an active list at once', function (): void {
+    $creator = User::factory()->create();
     Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
     Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
 
-    $static = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], 5);
+    $static = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], $creator->id);
     $active = app(CreateCrmListAction::class)->execute([
         'name' => 'Leads',
         'entity_type' => (new Contact)->getMorphClass(),
         'type' => 'active',
         'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'lead']],
-    ], 5);
+    ], $creator->id);
 
-    expect($static->created_by_id)->toBe(5)
+    expect($static->created_by_id)->toBe($creator->id)
         ->and($active->memberships()->count())->toBe(1);
 });
 
 it('updates an active list and refreshes its members', function (): void {
+    $creator = User::factory()->create();
     Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Lead]);
     Contact::factory()->create(['lifecycle_stage' => LifecycleStage::Customer]);
     $list = app(CreateCrmListAction::class)->execute([
@@ -181,7 +184,7 @@ it('updates an active list and refreshes its members', function (): void {
         'entity_type' => (new Contact)->getMorphClass(),
         'type' => 'active',
         'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'lead']],
-    ], 5);
+    ], $creator->id);
 
     app(UpdateCrmListAction::class)->execute($list, ['name' => 'Customers', 'criteria' => [['field' => 'lifecycle_stage', 'operator' => '=', 'value' => 'customer']]]);
 
@@ -191,9 +194,10 @@ it('updates an active list and refreshes its members', function (): void {
 
 it('keeps a list whose rules cannot be evaluated, on create and on update', function (): void {
     $badCriteria = [['field' => 'lifecycle_stage', 'operator' => 'no-such-operator', 'value' => 'lead']];
+    $creator = User::factory()->create();
     $attributes = ['name' => 'Broken', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'active', 'criteria' => $badCriteria];
 
-    expect(fn () => app(CreateCrmListAction::class)->execute($attributes, 5))->toThrow(InvalidListCriteriaException::class)
+    expect(fn () => app(CreateCrmListAction::class)->execute($attributes, $creator->id))->toThrow(InvalidListCriteriaException::class)
         ->and(CrmList::query()->where('name', 'Broken')->exists())->toBeTrue();
 
     $list = CrmList::factory()->create(['name' => 'Fine']);
@@ -203,9 +207,10 @@ it('keeps a list whose rules cannot be evaluated, on create and on update', func
 });
 
 it('records a string creator id on a list', function (): void {
-    $list = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], '7');
+    $creator = User::factory()->create();
+    $list = app(CreateCrmListAction::class)->execute(['name' => 'Static', 'entity_type' => (new Contact)->getMorphClass(), 'type' => 'static'], (string) $creator->id);
 
-    expect($list->fresh()->created_by_id)->toEqual(7);
+    expect($list->fresh()->created_by_id)->toEqual($creator->id);
 });
 
 it('updates an activity and deletes it', function (): void {
@@ -272,7 +277,7 @@ it('records the mentions of a note on a contact in the trash', function (): void
 });
 
 it('keeps consent proof, tokens and lifecycle stamps off a contact update', function (): void {
-    $contact = Contact::factory()->create(['first_name' => 'Ada', 'became_customer_at' => null]);
+    $contact = Contact::factory()->create(['first_name' => 'Ada', 'lifecycle_stage' => LifecycleStage::Lead, 'became_customer_at' => null]);
 
     app(UpdateContactAction::class)->execute($contact, [
         'first_name' => 'Grace',
@@ -291,12 +296,13 @@ it('keeps consent proof, tokens and lifecycle stamps off a contact update', func
 });
 
 it('keeps a list with its creator when an update carries another', function (): void {
-    $list = CrmList::factory()->create(['created_by_id' => 1]);
+    $creator = User::factory()->create();
+    $list = CrmList::factory()->create(['created_by_id' => $creator->id]);
 
     app(UpdateCrmListAction::class)->execute($list, ['name' => 'Renamed', 'created_by_id' => 99]);
 
     expect($list->fresh()->name)->toBe('Renamed')
-        ->and($list->fresh()->created_by_id)->toBe(1);
+        ->and($list->fresh()->created_by_id)->toBe($creator->id);
 });
 
 it('normalises a company domain on update', function (): void {
