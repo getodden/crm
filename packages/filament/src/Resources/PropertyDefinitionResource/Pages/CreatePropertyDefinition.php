@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\PropertyDefinitionResource\Pages;
 
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Odden\Core\Actions\SaveModelAction;
 use Odden\Core\Jobs\ConvertSensitiveProperty;
 use Odden\Core\Models\PropertyDefinition;
 use Odden\Filament\Resources\PropertyDefinitionResource;
@@ -15,8 +17,13 @@ class CreatePropertyDefinition extends CreateRecord
     protected static string $resource = PropertyDefinitionResource::class;
 
     /**
-     * A property created as sensitive may already have values (a key written by an import or an integration): encrypt them.
+     * @param  array<string, mixed>  $data
      */
+    protected function handleRecordCreation(array $data): Model
+    {
+        return app(SaveModelAction::class)->execute(PropertyDefinition::class, $data);
+    }
+
     protected function afterCreate(): void
     {
         if ($this->definition()->is_sensitive) {

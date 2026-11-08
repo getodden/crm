@@ -6,16 +6,27 @@ namespace Odden\Filament\Resources\SalesSequenceResource\Pages;
 
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Core\Actions\SaveModelAction;
 use Odden\Filament\Resources\SalesSequenceResource;
 
 class EditSalesSequence extends EditRecord
 {
     protected static string $resource = SalesSequenceResource::class;
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return app(SaveModelAction::class)->execute($record, $data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make()->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
+            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))->modalDescription('Contacts in it stop where they are, and nothing more is sent from it. Deleting can\'t be undone.'),
         ];
     }
 }

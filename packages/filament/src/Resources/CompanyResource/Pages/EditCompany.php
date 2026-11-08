@@ -9,8 +9,11 @@ use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
+use Odden\Core\Actions\UpdateCompanyAction;
+use Odden\Core\Models\Company;
 use Odden\Filament\Resources\CompanyResource;
-use Odden\Filament\Support\CustomPropertyFieldBuilder;
 
 class EditCompany extends EditRecord
 {
@@ -18,18 +21,18 @@ class EditCompany extends EditRecord
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
      */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        return CustomPropertyFieldBuilder::mergeIntoRecord($this->getRecord(), $data);
+        /** @var Company $record */
+        return app(UpdateCompanyAction::class)->execute($record, $data);
     }
 
     protected function getHeaderActions(): array
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ForceDeleteAction::make(),
             RestoreAction::make(),
         ];

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\QuoteResource\Pages;
 
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 use Odden\Filament\Resources\QuoteResource;
+use Odden\Sales\Actions\CreateQuoteAction;
 
 class CreateQuote extends CreateRecord
 {
@@ -13,10 +15,9 @@ class CreateQuote extends CreateRecord
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
      */
-    protected function mutateFormDataBeforeCreate(array $data): array
+    protected function handleRecordCreation(array $data): Model
     {
-        return QuoteResource::fillFromDeal($data);
+        return app(CreateQuoteAction::class)->execute(QuoteResource::fillFromDeal($data));
     }
 }

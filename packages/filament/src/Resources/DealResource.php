@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Encryption\Index\DecryptedFilter;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\DealResource\Pages\CreateDeal;
@@ -94,9 +95,6 @@ class DealResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->columnSpan(2),
-                        // Stage and status only change through the stage actions (Change Stage, Mark Won, Mark Lost,
-                        // the board), which run the stage guards and automations, keep the stage history and fire the
-                        // deal events. On edit they are shown but not saved.
                         Select::make('pipeline_id')
                             ->label('Pipeline')
                             ->relationship('pipeline', 'name')
@@ -114,7 +112,6 @@ class DealResource extends Resource
 
                                 return PipelineStage::query()
                                     ->where('pipeline_id', $pipelineId)
-                                    // A new deal starts in an open stage; closing it goes through Mark Won / Mark Lost.
                                     ->when($operation === 'create', fn (Builder $query): Builder => $query
                                         ->where('is_closed_won', false)
                                         ->where('is_closed_lost', false))
@@ -181,7 +178,6 @@ class DealResource extends Resource
         return $table
             ->emptyStateHeading('No deals here')
             ->emptyStateDescription('Add a deal to follow it through your pipeline, from first talk to won or lost.')
-            // Days in stage, rot and health read the stage and its history for every row.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['pipeline', 'stage', 'stageHistory', 'owner']))
             ->columns([
                 TextColumn::make('name')
@@ -220,7 +216,6 @@ class DealResource extends Resource
                 TextColumn::make('health_score')
                     ->label('Health')
                     ->getStateUsing(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_label'])
-                    // Coloured text with a dot, not a badge: a badge reads as a button.
                     ->icon('heroicon-m-heart')
                     ->color(fn (Deal $record, HasTable $livewire): string => self::healthScore($record, $livewire)['badge_color'])
                     ->tooltip(function (Deal $record, HasTable $livewire): string {
@@ -257,7 +252,6 @@ class DealResource extends Resource
                     ->options(collect(LostReason::cases())->mapWithKeys(
                         fn (LostReason $r) => [$r->value => $r->label()]
                     ))
-                    // The reason is stored encrypted: among the lost deals the table shows, the ones with this reason are found in PHP.
                     ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
                         ? $query->whereKey(app(DecryptedFilter::class)->ids(
                             (clone $query)->where($query->getModel()->qualifyColumn('status'), DealStatus::Lost->value),
@@ -366,7 +360,7 @@ class DealResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
                 RestoreAction::make(),
             ])
             ->toolbarActions([
@@ -379,10 +373,6 @@ class DealResource extends Resource
     }
 
     /**
-     * The deal's health score, computed once per row (the column uses it for its label, colour and tooltip). The
-     * first row to ask scores every deal on the table page in one batch, so the page costs the same few queries
-     * whatever its size.
-     *
      * @return array{score: int, status: string, badge_label: string, badge_color: string, factors: list<array{name: string, points: int, positive: bool, description: string}>, recommendations: list<string>}
      */
     public static function healthScore(Deal $record, ?HasTable $livewire = null): array
@@ -416,9 +406,6 @@ class DealResource extends Resource
     }
 
     /**
-     * Currencies a deal can be in: the common ones, the configured default and the deal's own (so editing a deal in
-     * another currency keeps it).
-     *
      * @return array<string, string>
      */
     public static function currencyOptions(?string $current = null): array

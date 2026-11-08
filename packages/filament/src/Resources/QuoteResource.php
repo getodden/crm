@@ -31,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\QuoteResource\Pages\CreateQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\EditQuote;
 use Odden\Filament\Resources\QuoteResource\Pages\ListQuotes;
@@ -39,6 +40,7 @@ use Odden\Filament\Support\AreaGuard;
 use Odden\Filament\Support\EncryptedSearch;
 use Odden\Filament\Support\OddenAuthorization;
 use Odden\Sales\Actions\AcceptQuoteAction;
+use Odden\Sales\Actions\SaveQuoteItemsAction;
 use Odden\Sales\Enums\QuoteStatus;
 use Odden\Sales\Exceptions\QuoteNotAcceptableException;
 use Odden\Sales\Exceptions\StageRequirementException;
@@ -73,7 +75,6 @@ class QuoteResource extends Resource
                             ->label('Quote #')
                             ->disabled()
                             ->dehydrated(false)
-                            // Numbered when it is saved; nothing to show on a new quote.
                             ->hiddenOn('create'),
                         Select::make('deal_id')
                             ->label('Associated deal')
@@ -160,6 +161,21 @@ class QuoteResource extends Resource
                             ])
                             ->columns(7)
                             ->orderColumn('sort_order')
+                            ->saveRelationshipsUsing(function (Repeater $component): void {
+                                $quote = $component->getRecord();
+
+                                if (! $quote instanceof Quote) {
+                                    return;
+                                }
+
+                                $state = [];
+
+                                foreach ($component->getItems() as $key => $item) {
+                                    $state[$key] = $item->getState(shouldCallHooksBefore: false);
+                                }
+
+                                app(SaveQuoteItemsAction::class)->execute($quote, self::itemRows($state));
+                            })
                             ->columnSpanFull(),
                     ]),
 
@@ -294,7 +310,7 @@ class QuoteResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
                 RestoreAction::make(),
             ])
             ->toolbarActions([
@@ -305,42 +321,26 @@ class QuoteResource extends Resource
             ]);
     }
 
-    /**
-     * A deleted quote still opens (to be restored from its page).
-     */
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 
-    /**
-     * A signed quote is read-only: the signature covers its items, discount and tax.
-     */
     public static function canEdit(Model $record): bool
     {
         return ! ($record instanceof Quote && $record->status === QuoteStatus::Accepted) && parent::canEdit($record);
     }
 
-    /**
-     * Deleting a signed quote would remove the record of what the customer accepted.
-     */
     public static function canDelete(Model $record): bool
     {
         return ! ($record instanceof Quote && $record->status === QuoteStatus::Accepted) && parent::canDelete($record);
     }
 
-    /**
-     * Accepted is shown (so a signed quote still reads correctly) but cannot be picked: accepting goes through
-     * AcceptQuoteAction, which records the signer and wins the deal.
-     */
     public static function isAcceptedOption(string $value): bool
     {
         return $value === QuoteStatus::Accepted->value;
     }
 
-    /**
-     * The amount prefix for a quote on the given deal: the deal's currency (a quote is always in its deal's currency).
-     */
     public static function currencyPrefix(mixed $dealId): string
     {
         $currency = filled($dealId) ? Deal::query()->whereKey($dealId)->value('currency') : null;
@@ -349,9 +349,6 @@ class QuoteResource extends Resource
     }
 
     /**
-     * Fill the fields a quote takes from its deal: the currency, and the deal owner as the quote's owner when none
-     * is set. The deal must be one the user can see.
-     *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
@@ -369,6 +366,23 @@ class QuoteResource extends Resource
         $data['user_id'] ??= $deal->owner_id ?? OddenAuthorization::userId();
 
         return $data;
+    }
+
+    /**
+     * @param  array<array-key, array<string, mixed>>  $state
+     * @return list<array<string, mixed>>
+     */
+    public static function itemRows(array $state): array
+    {
+        $rows = [];
+
+        foreach ($state as $key => $row) {
+            $id = str_starts_with((string) $key, 'record-') ? substr((string) $key, 7) : null;
+
+            $rows[] = ['id' => $id] + (array) $row;
+        }
+
+        return $rows;
     }
 
     public static function getPages(): array

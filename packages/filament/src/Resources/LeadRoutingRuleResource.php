@@ -22,6 +22,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Support\UserModel;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\CreateLeadRoutingRule;
 use Odden\Filament\Resources\LeadRoutingRuleResource\Pages\EditLeadRoutingRule;
@@ -76,7 +77,6 @@ class LeadRoutingRuleResource extends Resource
                             ->helperText('Supported fields: lead_status, timezone, city (contacts); pipeline_id, min_amount (deals).')
                             ->keyLabel('Field')
                             ->valueLabel('Value')
-                            // Refuse fields no lead can be matched on here, rather than when the rule is saved.
                             ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
                                 if (! is_array($value)) {
                                     return;
@@ -119,7 +119,6 @@ class LeadRoutingRuleResource extends Resource
                     ->label('Strategy')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => $state instanceof LeadRoutingStrategy ? $state->label() : (LeadRoutingStrategy::tryFrom((string) $state)?->label() ?? (string) $state)),
-                // The state is the list of user ids; one summary for the row, not one per id.
                 TextColumn::make('reps_pool')
                     ->label('Reps pool')
                     ->state(fn (LeadRoutingRule $record): string => count($record->assigned_user_ids ?? []).' '.str('rep')->plural(count($record->assigned_user_ids ?? []))),
@@ -131,7 +130,7 @@ class LeadRoutingRuleResource extends Resource
             ->defaultSort('sort_order')
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

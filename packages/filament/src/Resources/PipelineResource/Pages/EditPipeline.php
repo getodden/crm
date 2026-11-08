@@ -6,7 +6,10 @@ namespace Odden\Filament\Resources\PipelineResource\Pages;
 
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\PipelineResource;
+use Odden\Sales\Actions\SavePipelineAction;
 use Odden\Sales\Models\Pipeline;
 
 class EditPipeline extends EditRecord
@@ -16,17 +19,18 @@ class EditPipeline extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // A pipeline with deals or stage history can't be deleted (the model and database refuse it).
             DeleteAction::make()
+                ->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))
                 ->hidden(fn (Pipeline $record): bool => $record->isInUse()),
         ];
     }
 
-    protected function afterSave(): void
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Pipeline $record */
-        $record = $this->getRecord();
-
-        PipelineResource::keepSingleDefault($record);
+        return app(SavePipelineAction::class)->execute($data, $record);
     }
 }

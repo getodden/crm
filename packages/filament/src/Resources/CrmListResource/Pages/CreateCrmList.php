@@ -5,28 +5,21 @@ declare(strict_types=1);
 namespace Odden\Filament\Resources\CrmListResource\Pages;
 
 use Filament\Resources\Pages\CreateRecord;
-use Odden\Core\Enums\ListType;
-use Odden\Core\Models\CrmList;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\CreateCrmListAction;
 use Odden\Filament\Resources\CrmListResource;
 
 class CreateCrmList extends CreateRecord
 {
     protected static string $resource = CrmListResource::class;
 
-    protected function mutateFormDataBeforeCreate(array $data): array
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordCreation(array $data): Model
     {
-        $data['created_by_id'] = auth()->id();
+        $userId = auth()->id();
 
-        return $data;
-    }
-
-    protected function afterCreate(): void
-    {
-        /** @var CrmList $record */
-        $record = $this->record;
-
-        if ($record->type === ListType::Active) {
-            $record->syncActiveMembers();
-        }
+        return app(CreateCrmListAction::class)->execute($data, is_numeric($userId) ? (int) $userId : null);
     }
 }

@@ -24,8 +24,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Odden\Core\Actions\CalculateCustomerHealthScoreAction;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Actions\MergeCompaniesAction;
 use Odden\Core\Contracts\SummarizesTimeline;
 use Odden\Core\Enums\CustomerHealthStatus;
@@ -182,7 +184,6 @@ class CompanyResource extends Resource
                             ->success()
                             ->send();
                     }),
-                // Added by the packages that are installed separately (Marketing: Recalculate Intent).
                 ...Modules::companyActions(),
                 Action::make('ai_briefing')
                     ->label('AI briefing')
@@ -201,7 +202,6 @@ class CompanyResource extends Resource
                     ->icon(Heroicon::ArrowsRightLeft)
                     ->color('warning')
                     ->authorize(OddenAuthorization::forRecord('update', self::class))
-                    // A record in the trash is not the one to keep: merging into it would hide both.
                     ->hidden(fn (Company $record): bool => $record->trashed())
                     ->modalHeading('Merge a duplicate into this company')
                     ->modalDescription('Its contacts, activities and tickets move to this company, and details this company is missing are filled in from it. The duplicate is then deleted: it goes to the deleted companies, where it can be restored, but without what moved.')
@@ -209,7 +209,6 @@ class CompanyResource extends Resource
                         Select::make('secondary_company_id')
                             ->label('Duplicate to merge in')
                             ->searchable()
-                            // Searched on the server, within the companies the user can see, so every company is reachable.
                             ->getSearchResultsUsing(fn (Company $record, string $search): array => EncryptedSearch::limitedAndSorted(
                                 EncryptedSearch::companyMatches(OddenAuthorization::query(self::class, Company::class)->whereKeyNot($record->getKey()), $search),
                                 ['name'],
@@ -226,7 +225,6 @@ class CompanyResource extends Resource
                             ->required(),
                     ])
                     ->action(function (Company $record, array $data): void {
-                        // The duplicate is deleted by the merge, so it needs `delete` as well.
                         $secondary = OddenAuthorization::findAndAuthorize(self::class, Company::class, $data['secondary_company_id'], 'delete');
                         abort_if($secondary->is($record), 422);
 
@@ -240,7 +238,7 @@ class CompanyResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

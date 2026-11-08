@@ -24,6 +24,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Encryption\Casts\EncryptedCast;
 use Odden\Core\Encryption\Index\FallbackLimit;
 use Odden\Core\Encryption\Index\TooManyToFilter;
@@ -129,10 +131,6 @@ class CrmListResource extends Resource
             ]);
     }
 
-    /**
-     * What to tell the person about a rule on an encrypted field or a sensitive custom property: the database cannot compare it,
-     * so the rule is checked record by record, and refused above the limit.
-     */
     private static function ruleHint(string $field, string $entityType): ?string
     {
         $field = trim($field);
@@ -207,7 +205,6 @@ class CrmListResource extends Resource
                         try {
                             $count = $record->syncActiveMembers();
                         } catch (InvalidListCriteriaException|TooManyToFilter $e) {
-                            // A rule on an encrypted field is checked record by record, up to a limit: say so instead of failing.
                             Notification::make()->title('This list cannot be synced')->body($e->getMessage())->danger()->send();
 
                             return;
@@ -221,7 +218,7 @@ class CrmListResource extends Resource
                     }),
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make()->modalDescription('Its members stay as contacts, but campaigns and sequences that use this list lose their audience. Deleting can\'t be undone.'),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))->modalDescription('Its members stay as contacts, but campaigns and sequences that use this list lose their audience. Deleting can\'t be undone.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

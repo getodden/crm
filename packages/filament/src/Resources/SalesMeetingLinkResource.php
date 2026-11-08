@@ -29,6 +29,7 @@ use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\CreateSalesMeetingLi
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\EditSalesMeetingLink;
 use Odden\Filament\Resources\SalesMeetingLinkResource\Pages\ListSalesMeetingLinks;
 use Odden\Filament\Resources\SalesMeetingLinkResource\RelationManagers\BookingsRelationManager;
+use Odden\Sales\Actions\DeleteMeetingLinkAction;
 use Odden\Sales\Exceptions\MeetingLinkInUseException;
 use Odden\Sales\Models\SalesMeetingLink;
 use Odden\Sales\Services\MeetingAvailability;
@@ -133,9 +134,6 @@ class SalesMeetingLinkResource extends Resource
     }
 
     /**
-     * Tidy the working hours from the form: trimmed windows, days without windows dropped, and
-     * null when no day has any (so the link falls back to the configured default hours).
-     *
      * @return array<string, list<string>>|null
      */
     public static function normalizeWorkingHours(mixed $hours): ?array
@@ -203,7 +201,7 @@ class SalesMeetingLinkResource extends Resource
                         ->using(function (DeleteBulkAction $action, Collection $records): void {
                             $records->each(function (SalesMeetingLink $link) use ($action): void {
                                 try {
-                                    $link->delete() || $action->reportBulkProcessingFailure();
+                                    app(DeleteMeetingLinkAction::class)->execute($link) || $action->reportBulkProcessingFailure();
                                 } catch (MeetingLinkInUseException) {
                                     $action->reportBulkProcessingFailure();
                                 }
@@ -219,15 +217,12 @@ class SalesMeetingLinkResource extends Resource
             ]);
     }
 
-    /**
-     * Delete a meeting link, or say why it can't be: a link with upcoming bookings has to be turned off instead.
-     */
     public static function deleteAction(): DeleteAction
     {
         return DeleteAction::make()
             ->using(function (DeleteAction $action, SalesMeetingLink $record): bool {
                 try {
-                    return (bool) $record->delete();
+                    return app(DeleteMeetingLinkAction::class)->execute($record);
                 } catch (MeetingLinkInUseException $exception) {
                     $action->failureNotificationTitle($exception->getMessage());
 

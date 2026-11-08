@@ -9,6 +9,8 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Core\Models\Company;
 use Odden\Core\Models\Contact;
 use Odden\Core\Models\ListMembership;
@@ -56,7 +58,7 @@ class MembersRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->recordActions([
-                DeleteAction::make()->label('Remove'),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record))->label('Remove'),
             ]);
     }
 }

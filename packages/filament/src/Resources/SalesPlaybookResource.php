@@ -21,6 +21,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Odden\Core\Actions\DeleteModelAction;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\CreateSalesPlaybook;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\EditSalesPlaybook;
 use Odden\Filament\Resources\SalesPlaybookResource\Pages\ListSalesPlaybooks;
@@ -151,7 +153,7 @@ class SalesPlaybookResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->using(fn (Model $record): bool => app(DeleteModelAction::class)->execute($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -14,9 +14,6 @@ class CreateCompany extends CreateRecord
     protected static string $resource = CompanyResource::class;
 
     /**
-     * Create through CreateCompanyAction: it normalises the domain (so "https://Acme.com/" matches "acme.com"),
-     * fires CompanyCreated and enriches the company when the installation has that turned on.
-     *
      * @param  array<string, mixed>  $data
      */
     protected function handleRecordCreation(array $data): Model
